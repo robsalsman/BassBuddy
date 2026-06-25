@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#0a3a4a" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>BassBuddy — Bass Fishing</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="game">
+  <canvas id="c"></canvas>
+
+  <!-- Top HUD -->
+  <div id="hud" class="hud">
+    <div class="hud-pill">
+      <span class="coin">🪙</span>
+      <span id="coins">0</span>
+    </div>
+    <div class="hud-pill">
+      <span>🎣</span>
+      <span id="rodName">Twig Rod</span>
+    </div>
+    <div class="hud-pill" id="depthPill">
+      <span>🌊</span>
+      <span id="spotName">Lily Cove</span>
+    </div>
+    <button id="shopBtn" class="hud-btn">🛒</button>
+  </div>
+
+  <!-- Center status text -->
+  <div id="status" class="status"></div>
+
+  <!-- Cast power meter -->
+  <div id="castMeter" class="cast-meter hidden">
+    <div class="cast-fill" id="castFill"></div>
+    <div class="cast-label">CAST POWER</div>
+  </div>
+
+  <!-- Reeling minigame (vertical: hold to lift the catch-bar, keep fish inside) -->
+  <div id="reelGame" class="reel-game hidden">
+    <div class="reel-track">
+      <div class="reel-zone" id="reelZone"></div>
+      <div class="reel-fish" id="reelFishMark"></div>
+    </div>
+    <div class="reel-progress-wrap">
+      <div class="reel-progress" id="reelProgress"></div>
+    </div>
+  </div>
+  <div id="reelTension" class="reel-tension hidden">REEL IT IN</div>
+
+  <!-- Big action button -->
+  <button id="actionBtn" class="action-btn">TAP &amp; HOLD TO CAST</button>
+
+  <!-- Catch result modal -->
+  <div id="catchModal" class="modal hidden">
+    <div class="modal-card catch-card">
+      <div class="catch-rarity" id="catchRarity">COMMON</div>
+      <div class="catch-emoji" id="catchEmoji">🐟</div>
+      <div class="catch-name" id="catchName">Largemouth Bass</div>
+      <div class="catch-stats">
+        <div><span id="catchWeight">2.4</span> lb</div>
+        <div class="reward">+<span id="catchReward">12</span> 🪙</div>
+      </div>
+      <div class="catch-record" id="catchRecord"></div>
+      <button class="big-btn" id="catchOk">NICE! KEEP FISHING</button>
+    </div>
+  </div>
+
+  <!-- Snapped / got away modal -->
+  <div id="failModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="catch-emoji">💨</div>
+      <div class="catch-name" id="failMsg">It got away!</div>
+      <button class="big-btn" id="failOk">TRY AGAIN</button>
+    </div>
+  </div>
+
+  <!-- Shop modal -->
+  <div id="shopModal" class="modal hidden">
+    <div class="modal-card shop-card">
+      <div class="shop-head">
+        <h2>🛒 Tackle Shop</h2>
+        <button class="close-btn" id="shopClose">✕</button>
+      </div>
+      <div class="shop-balance">Balance: <b><span id="shopCoins">0</span> 🪙</b></div>
+
+      <div class="shop-tabs">
+        <button class="tab active" data-tab="rods">Rods</button>
+        <button class="tab" data-tab="spots">Spots</button>
+        <button class="tab" data-tab="dex">Fish-Dex</button>
+      </div>
+
+      <div class="shop-body" id="shopRods"></div>
+      <div class="shop-body hidden" id="shopSpots"></div>
+      <div class="shop-body hidden" id="shopDex"></div>
+    </div>
+  </div>
+
+  <!-- Floating coin/score popups get injected here -->
+  <div id="fx"></div>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>
