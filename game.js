@@ -661,7 +661,7 @@
   function startRetrieve() {
     const lu = lure();
     S.mode = "retrieve";
-    S.rv.dist = 1; S.rv.interest = 0; S.rv.action = 0.5; S.rv.taps = []; S.rv.follower = 0;
+    S.rv.dist = 1; S.rv.interest = 0; S.rv.action = 0.5; S.rv.taps = []; S.rv.follower = 0; S.rv.bob = 0;
     S.rv.depth = lu.style === "top" ? lu.band : 0.04;
     S.holding = false;
     // dive into the underwater view and spawn the bass holding nearby
@@ -683,9 +683,10 @@
     S.rv.taps.push(now);
     if (S.rv.taps.length > 6) S.rv.taps.shift();
     const lu = lure();
-    // topwater jumps to the surface and splashes; sinking lures hop up a touch
+    // topwater pops the surface; sinking lures hop up a touch — both jig visibly
     if (lu.style === "top") { S.rv.depth = clamp(lu.band, 0, 1); splash(S.bobber.x, waterLine()); }
     else S.rv.depth = clamp(S.rv.depth - 0.05, 0, 1);
+    S.rv.bob = -13;                 // the lure jumps on the twitch, then settles
     ripple(S.bobber.x, S.bobber.y);
     vibrate(8);
   }
@@ -1035,6 +1036,7 @@
 
   function updateRetrieve(dt, now) {
     const R = S.rv, lu = lure(), step = dt / 16.67;
+    R.bob = (R.bob || 0) * Math.pow(0.84, step);   // twitch hop settles back down
     const ideal = lu.cadence === "fast" ? 250 : lu.cadence === "slow" ? 600 : 410;
     let q = 0.5;
     if (R.taps.length >= 2) {
@@ -1346,14 +1348,18 @@
         ctx.fillStyle = "#6b6f73"; ctx.beginPath(); ctx.arc(px, py, r, Math.PI, 0); ctx.fill();
         ctx.fillStyle = "#878c90"; ctx.beginPath(); ctx.arc(px - 2, py - 1, r * 0.7, Math.PI, 0); ctx.fill();
       }
-    } else { // drop / hole / open — a marker buoy over deeper water
-      ctx.fillStyle = "rgba(0,0,0,0.14)"; ctx.beginPath(); ctx.ellipse(X, Y + 4, R, R * 0.5, 0, 0, 6.29); ctx.fill();
-      ctx.fillStyle = "#ff5d3d"; ctx.beginPath(); ctx.moveTo(X, Y - 16); ctx.lineTo(X - 6, Y + 2); ctx.lineTo(X + 6, Y + 2); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = "#fff"; ctx.fillRect(X - 6, Y + 2, 12, 4);
+    } else { // drop-off / hole / open water — deeper water + a round marker buoy
+      const dg = ctx.createRadialGradient(X, Y, 4, X, Y, R + 22);
+      dg.addColorStop(0, "rgba(0,12,24,0.34)"); dg.addColorStop(1, "rgba(0,12,24,0)");
+      ctx.fillStyle = dg; ctx.beginPath(); ctx.ellipse(X, Y, R + 22, (R + 22) * 0.55, 0, 0, 6.29); ctx.fill();
+      const by = Y - 2 + Math.sin(now / 600) * 2;
+      ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.beginPath(); ctx.ellipse(X, by + 11, 11, 4, 0, 0, 6.29); ctx.fill();
+      ctx.fillStyle = "#f4f4f2"; ctx.beginPath(); ctx.arc(X, by, 8, 0, Math.PI); ctx.fill();
+      ctx.fillStyle = "#e23b2e"; ctx.beginPath(); ctx.arc(X, by, 8, Math.PI, 0); ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,0.25)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(X, by, 8, 0, 6.29); ctx.stroke();
+      ctx.fillStyle = "#d8d8d6"; ctx.fillRect(X - 1.4, by - 13, 2.8, 7);
+      ctx.fillStyle = "#ffd35c"; ctx.beginPath(); ctx.arc(X, by - 14, 2.4, 0, 6.29); ctx.fill();
     }
-    // structure label
-    ctx.font = "16px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(hz.ico, X, Y - hz.ry - 14);
     ctx.restore();
   }
 
@@ -1423,8 +1429,12 @@
     ctx.fillText("↤ " + Math.round(frac * (S.castFt || 60)) + " ft line out", rodEntry.x + 6, UW_TOP - 3);
 
     if (S.mode === "retrieve" || S.mode === "strike") {
+      const lu2 = lure();
+      const amp = lu2.cadence === "fast" ? 11 : lu2.cadence === "slow" ? 6 : 8;
+      const per = lu2.cadence === "fast" ? 90 : lu2.cadence === "slow" ? 200 : 135;
+      const jig = Math.sin(now / per) * amp;       // the lure works up & down as you retrieve
       const lureX = lerp(W * 0.66, W * 0.34, 1 - S.rv.dist) + Math.sin(now / 130) * (S.mode === "strike" ? 1 : 3);
-      const lureY = depthY(S.rv.depth);
+      const lureY = depthY(S.rv.depth) + jig + (S.rv.bob || 0);
       // pursuers closing in as interest builds
       drawPursuers(now, lureX, lureY);
       // line + lure
