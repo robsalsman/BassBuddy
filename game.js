@@ -213,8 +213,8 @@
     lureIco: $("lureIco"), lureName: $("lureName"), lureSwatch: $("lureSwatch"),
     status: $("status"), actionBtn: $("actionBtn"),
     castMeter: $("castMeter"), cmFill: $("cmFill"),
-    retrievePanel: $("retrievePanel"), rvDepth: $("rvDepth"), rvAction: $("rvAction"), rvInterest: $("rvInterest"), rvHint: $("rvHint"),
-    fightPanel: $("fightPanel"), ftStamina: $("ftStamina"), ftTension: $("ftTension"), ftDist: $("ftDist"), ftFishMark: $("ftFishMark"), ftHint: $("ftHint"),
+    retrievePanel: $("retrievePanel"), rvDepth: $("rvDepth"), rvLine: $("rvLine"), rvAction: $("rvAction"), rvInterest: $("rvInterest"), rvHint: $("rvHint"),
+    fightPanel: $("fightPanel"), ftStamina: $("ftStamina"), ftTension: $("ftTension"), ftDist: $("ftDist"), ftFishMark: $("ftFishMark"), ftLine: $("ftLine"), ftHint: $("ftHint"),
     condIcon: $("condIcon"), condTemp: $("condTemp"), condClock: $("condClock"),
     catchModal: $("catchModal"), catchRarity: $("catchRarity"), catchArt: $("catchArt"),
     catchName: $("catchName"), catchWeight: $("catchWeight"), catchReward: $("catchReward"),
@@ -430,8 +430,9 @@
     ft: { stamina: 1, tension: 0, dist: 1, state: "tire", stateT: 0, pull: 0, jumpY: 0 },
     holding: false,
     pressT: 0, pressIsHold: false,
-    fishes: [], ripples: [], splashes: [],
+    fishes: [], ripples: [], splashes: [], bubbles: [], pursuers: [],
     aim: null,
+    view: "surface", viewT: 1,   // surface <-> underwater camera (viewT = transition 0..1)
     cond: { timeMin: 6.5 * 60, weather: "sun", temp: 64, band: 0.3 },
     tournament: null,
   };
@@ -521,9 +522,10 @@
     // temperature: cooler at dawn/dusk/night, warmer midday
     const midday = 1 - Math.abs(hour - 14) / 9;
     c.temp = Math.round(clamp(54 + midday * 22 + WEATHER[c.weather].warm, 42, 86));
-    // fish holding depth: shallow when cool (dawn/dusk/night), deeper when warm midday
-    const warm = (c.temp - 54) / 32; // 0..1
-    c.band = clamp(0.18 + warm * 0.6, 0.08, 0.92);
+    // fish holding depth: shallow at dawn/dusk/night, deeper in the midday sun
+    const warm = (c.temp - 54) / 32;                 // 0..1
+    const byTime = clamp(1 - Math.abs(hour - 14) / 9, 0, 1); // 0 dawn/dusk .. 1 midday
+    c.band = clamp(0.15 + byTime * 0.55 + (warm - 0.4) * 0.18, 0.08, 0.92);
   }
   function preferredFam() { return WEATHER[S.cond.weather].fam; }
   function fmtClock(min) {
@@ -649,6 +651,7 @@
     S.bobber.sx = tip.x; S.bobber.sy = tip.y; S.bobber.x = tip.x; S.bobber.y = tip.y;
     S.bobber.targetX = px; S.bobber.targetY = py;
     S.bobber.flyT = 0; S.bobber.dist = reach / maxR;
+    S.castFt = Math.round(28 + S.bobber.dist * 66);   // how far this cast reached (ft)
     const hz = hotZone();
     S.castBonus = Math.hypot(px - hz.x, py - hz.y) < hz.r;
     showBtn(false); setStatus("");
@@ -661,10 +664,18 @@
     S.rv.dist = 1; S.rv.interest = 0; S.rv.action = 0.5; S.rv.taps = []; S.rv.follower = 0;
     S.rv.depth = lu.style === "top" ? lu.band : 0.04;
     S.holding = false;
+    // dive into the underwater view and spawn the bass holding nearby
+    S.view = "under"; S.viewT = 0; S.bubbles.length = 0;
+    spawnPursuers();
+    splash(S.bobber.x, S.bobber.y); splash(S.bobber.x, S.bobber.y);
     el.retrievePanel.classList.remove("hidden");
     showBtn(true); setBtn("HOLD TO REEL", "reel");
     setStatus(S.castBonus ? "On the structure — work it!" : "Work the lure…");
-    ripple(S.bobber.x, S.bobber.y);
+  }
+  function spawnPursuers() {
+    S.pursuers = [];
+    const n = 1 + Math.round(posQuality() * 2);
+    for (let i = 0; i < n; i++) S.pursuers.push({ side: i % 2 ? 1 : -1, depth: clamp(S.cond.band + (Math.random() - 0.5) * 0.3, 0.1, 0.9), ph: Math.random() * 6.28, sp: 0.8 + Math.random() * 0.6 });
   }
 
   function twitch() {
@@ -768,6 +779,9 @@
     S.hookedFish = null;
     S.castBonus = false;
     S.holding = false;
+    S.pursuers = [];
+    S.bobberDepth = null;
+    if (S.view !== "surface") { S.view = "surface"; S.viewT = 0; }
     el.retrievePanel.classList.add("hidden");
     el.fightPanel.classList.add("hidden");
     el.castMeter.classList.add("hidden");
@@ -1009,6 +1023,14 @@
     S.ripples = S.ripples.filter(r => r.a > 0);
     for (const s of S.splashes) { s.r += dt * 0.08; s.a -= dt * 0.0022; }
     S.splashes = S.splashes.filter(s => s.a > 0);
+
+    // camera crossfade + underwater bubbles
+    if (S.viewT < 1) S.viewT = Math.min(1, S.viewT + dt / 420);
+    if (S.view === "under") {
+      if (Math.random() < dt * 0.004) S.bubbles.push({ x: rnd(0, W), y: H - 30, r: rnd(1.5, 4), a: 0.7, vy: rnd(0.02, 0.05) });
+      for (const bb of S.bubbles) { bb.y -= bb.vy * dt; bb.a -= dt * 0.0005; }
+      S.bubbles = S.bubbles.filter(b => b.a > 0 && b.y > UW_TOP);
+    } else if (S.bubbles.length) S.bubbles.length = 0;
   }
 
   function updateRetrieve(dt, now) {
@@ -1043,11 +1065,16 @@
     if (R.dist <= 0) { endRetrieveMiss(); return; }
 
     el.rvDepth.textContent = Math.round(R.depth * 24) + " ft";
+    el.rvLine.textContent = Math.round(R.dist * (S.castFt || 60)) + " ft";
     el.rvAction.style.width = (R.action * 100) + "%";
     el.rvInterest.style.width = (R.interest * 100) + "%";
+    const band = S.cond.band;
     let hint;
-    if (R.depth < S.cond.band - 0.12) hint = lu.style === "sink" ? "Let it sink deeper…" : "Fish are holding deeper";
-    else if (R.depth > S.cond.band + 0.12) hint = "Too deep — reel it up";
+    if (lu.style === "top") {
+      if (band > 0.24) hint = "Fish are holding deep — try a sinking lure";
+      else hint = R.action > 0.6 ? "Perfect action — a bass is closing in!" : "Working the surface — keep twitching!";
+    } else if (R.depth < band - 0.12) hint = "Let it sink deeper…";
+    else if (R.depth > band + 0.12) hint = "Too deep — reel it up";
     else hint = R.action > 0.6 ? "Perfect action — a bass is closing in!" : "On their level — work it!";
     el.rvHint.textContent = hint;
     el.rvHint.className = "phase-hint" + (R.interest > 0.5 ? " good" : "");
@@ -1089,6 +1116,7 @@
     el.ftTension.style.width = (T.tension * 100) + "%";
     el.ftDist.style.width = ((1 - T.dist) * 100) + "%";
     el.ftFishMark.style.left = ((1 - T.dist) * 100) + "%";
+    el.ftLine.textContent = Math.round(T.dist * (S.castFt || 60)) + " ft";
     const running = T.state !== "tire";
     el.ftHint.textContent = T.tension > 0.78 ? "EASE OFF — about to snap!" : running ? "It's running — give it line!" : "Tired — reel it in!";
     el.ftHint.className = "phase-hint" + (T.tension > 0.78 || running ? " warn" : " good");
@@ -1110,26 +1138,99 @@
   // ===========================================================================
   // Render
   // ===========================================================================
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function ease(t) { return t * t * (3 - 2 * t); }
+
   function drawFishShape(x, y, size, fill, dir, eye) {
     ctx.save(); ctx.translate(x, y); ctx.scale(dir, 1);
     ctx.fillStyle = fill;
     ctx.beginPath(); ctx.ellipse(0, 0, size, size * 0.5, 0, 0, 6.29); ctx.fill();
     ctx.beginPath(); ctx.moveTo(-size, 0); ctx.lineTo(-size - size * 0.55, -size * 0.42); ctx.lineTo(-size - size * 0.55, size * 0.42); ctx.closePath(); ctx.fill();
+    // dorsal + pectoral hints
+    ctx.beginPath(); ctx.moveTo(-size * 0.2, -size * 0.5); ctx.lineTo(size * 0.2, -size * 0.85); ctx.lineTo(size * 0.35, -size * 0.45); ctx.closePath(); ctx.fill();
     if (eye) {
-      ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(size * 0.55, -size * 0.12, size * 0.14, 0, 6.29); ctx.fill();
-      ctx.fillStyle = "#16242b"; ctx.beginPath(); ctx.arc(size * 0.58, -size * 0.12, size * 0.07, 0, 6.29); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(size * 0.55, -size * 0.12, size * 0.15, 0, 6.29); ctx.fill();
+      ctx.fillStyle = "#16242b"; ctx.beginPath(); ctx.arc(size * 0.58, -size * 0.12, size * 0.075, 0, 6.29); ctx.fill();
     }
     ctx.restore();
   }
 
+  // ---- Lure art: each of the 8 lures, tinted by the chosen color, animated by `ph`
+  function drawLure(x, y, id, hex, ph, scale, facing) {
+    const dark = shade(hex, -45), light = shade(hex, 45);
+    ctx.save(); ctx.translate(x, y); ctx.scale((facing || 1) * (scale || 1), (scale || 1));
+    const hook = (hx, hy) => { ctx.strokeStyle = "#d7dde2"; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.moveTo(hx, hy); ctx.arc(hx, hy + 4, 2.8, Math.PI, 0.3, false); ctx.stroke(); };
+    if (id === "worm") {
+      ctx.strokeStyle = hex; ctx.lineCap = "round"; ctx.lineWidth = 6;
+      ctx.beginPath();
+      for (let i = 0; i <= 12; i++) { const t = i / 12, px = -15 + t * 28, py = Math.sin(t * 6.0 + ph) * 4 * (1 - Math.abs(t - 0.5)); i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py); }
+      ctx.stroke();
+      ctx.fillStyle = dark; ctx.beginPath(); ctx.arc(-15, Math.sin(ph) * 1.6, 3.4, 0, 6.29); ctx.fill();
+    } else if (id === "frog") {
+      ctx.fillStyle = hex; ctx.beginPath(); ctx.ellipse(0, 0, 12, 8, 0, 0, 6.29); ctx.fill();
+      const k = Math.sin(ph) * 3; ctx.strokeStyle = shade(hex, -22); ctx.lineWidth = 3; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(8, 3); ctx.lineTo(15, 8 + k); ctx.lineTo(11, 12 + k); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(8, -3); ctx.lineTo(15, -8 - k); ctx.lineTo(11, -12 - k); ctx.stroke();
+      ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(-7, -4, 2.4, 0, 6.29); ctx.arc(-7, 4, 2.4, 0, 6.29); ctx.fill();
+      ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(-7, -4, 1.1, 0, 6.29); ctx.arc(-7, 4, 1.1, 0, 6.29); ctx.fill();
+    } else if (id === "spoon") {
+      ctx.save(); ctx.rotate(Math.sin(ph) * 0.5);
+      const g = ctx.createLinearGradient(-8, 0, 8, 0); g.addColorStop(0, light); g.addColorStop(0.5, hex); g.addColorStop(1, dark);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, 0, 7, 12, 0, 0, 6.29); ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,.6)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(-2, -2, 3, 6, 0, 0, 6.29); ctx.stroke();
+      ctx.restore(); hook(0, 13);
+    } else if (id === "crank") {
+      const g = ctx.createLinearGradient(0, -8, 0, 8); g.addColorStop(0, light); g.addColorStop(1, hex);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, 0, 13, 8, 0, 0, 6.29); ctx.fill();
+      ctx.fillStyle = "rgba(185,212,232,.85)"; ctx.beginPath(); ctx.moveTo(-12, 3); ctx.lineTo(-20, 9); ctx.lineTo(-16, 11); ctx.lineTo(-10, 6); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(7, -2, 2.4, 0, 6.29); ctx.fill(); ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(7, -2, 1.1, 0, 6.29); ctx.fill();
+      hook(2, 8); hook(11, 7);
+    } else if (id === "torpedo") {
+      ctx.fillStyle = hex; ctx.beginPath(); ctx.ellipse(0, 0, 13, 5, 0, 0, 6.29); ctx.fill();
+      ctx.fillStyle = light; ctx.beginPath(); ctx.ellipse(-3, -1.5, 9, 2, 0, 0, 6.29); ctx.fill();
+      ctx.strokeStyle = "#d7dde2"; ctx.lineWidth = 1.6; const pr = 3 + Math.sin(ph * 3) * 2.5;
+      ctx.beginPath(); ctx.moveTo(13, -pr); ctx.lineTo(18, pr); ctx.moveTo(13, pr); ctx.lineTo(18, -pr); ctx.stroke();
+      ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(-7, -1, 2, 0, 6.29); ctx.fill(); ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(-7, -1, 1, 0, 6.29); ctx.fill();
+      hook(0, 5); hook(8, 5);
+    } else if (id === "jitterbug") {
+      ctx.fillStyle = hex; ctx.beginPath(); ctx.ellipse(2, 0, 11, 7, 0, 0, 6.29); ctx.fill();
+      ctx.fillStyle = "rgba(200,210,220,.92)"; ctx.beginPath(); ctx.moveTo(-8, -6); ctx.quadraticCurveTo(-21, 0, -8, 6); ctx.quadraticCurveTo(-12, 0, -8, -6); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(4, -2, 2, 0, 6.29); ctx.fill(); ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(4, -2, 1, 0, 6.29); ctx.fill();
+      hook(4, 7);
+    } else if (id === "pencil") {
+      const g = ctx.createLinearGradient(-16, 0, 16, 0); g.addColorStop(0, dark); g.addColorStop(1, light);
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, 0, 16, 4.2, 0, 0, 6.29); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(-11, -1, 2, 0, 6.29); ctx.fill(); ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(-11, -1, 1, 0, 6.29); ctx.fill();
+      hook(3, 4.5); hook(12, 4.5);
+    } else if (id === "furry") {
+      ctx.strokeStyle = hex; ctx.lineWidth = 1.6; ctx.lineCap = "round";
+      for (let i = 0; i < 8; i++) { const yy = -5 + i * 1.5, fl = Math.sin(ph + i * 0.6) * 2.4; ctx.beginPath(); ctx.moveTo(-4, yy); ctx.quadraticCurveTo(8, yy + fl, 17, yy + fl * 1.4); ctx.stroke(); }
+      ctx.fillStyle = shade(hex, -12); ctx.beginPath(); ctx.arc(-7, -1, 5.5, 0, 6.29); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(-9, -2.5, 1.7, 0, 6.29); ctx.fill(); ctx.fillStyle = "#111"; ctx.beginPath(); ctx.arc(-9, -2.5, 0.85, 0, 6.29); ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // ---- View dispatcher with surface <-> underwater crossfade
   function render(now) {
+    if (S.view === "under") {
+      renderUnder(now);
+      if (S.viewT < 1) { ctx.save(); ctx.globalAlpha = 1 - ease(S.viewT); renderSurface(now); ctx.restore(); }
+    } else {
+      renderSurface(now);
+      if (S.viewT < 1) { ctx.save(); ctx.globalAlpha = 1 - ease(S.viewT); renderUnder(now); ctx.restore(); }
+    }
+  }
+
+  // ===========================================================================
+  // Surface view — read the structure & fish shadows, aim, and cast
+  // ===========================================================================
+  function renderSurface(now) {
     const sp = spot(), wl = waterLine();
     const w = S.cond.weather, night = w === "night" || sp.id === "deep";
     const sky = ctx.createLinearGradient(0, 0, 0, wl);
     sky.addColorStop(0, sp.sky[0]); sky.addColorStop(1, sp.sky[1]);
     ctx.fillStyle = sky; ctx.fillRect(0, 0, W, wl);
-
-    // sun / moon by weather
     if (w === "sun" || night) {
       ctx.beginPath(); ctx.arc(W * 0.78, wl * 0.42, 30, 0, 6.29);
       ctx.fillStyle = night ? "rgba(232,236,255,.92)" : "rgba(255,238,170,.95)"; ctx.fill();
@@ -1138,13 +1239,11 @@
     ctx.beginPath(); ctx.moveTo(0, wl);
     for (let x = 0; x <= W; x += 40) ctx.lineTo(x, wl - 26 - Math.sin(x * 0.01 + 1) * 18 - Math.sin(x * 0.03) * 8);
     ctx.lineTo(W, wl); ctx.closePath(); ctx.fill();
-    // overcast / fog haze
     if (w === "cloud" || w === "fog") { ctx.fillStyle = w === "fog" ? "rgba(208,218,224,0.24)" : "rgba(150,162,172,0.16)"; ctx.fillRect(0, 0, W, wl); }
 
     const water = ctx.createLinearGradient(0, wl, 0, H);
     water.addColorStop(0, sp.water[0]); water.addColorStop(1, sp.water[1]);
     ctx.fillStyle = water; ctx.fillRect(0, wl, W, H - wl);
-
     ctx.strokeStyle = "rgba(255,255,255,0.06)"; ctx.lineWidth = 2;
     for (let i = 0; i < 7; i++) {
       const y = wl + 20 + i * (H - wl) / 8;
@@ -1153,40 +1252,33 @@
       ctx.stroke();
     }
 
-    // fish-holding depth band hint (a faint shaded zone where bass are holding)
-    if (S.mode === "idle" || S.mode === "charging" || S.mode === "retrieve") {
-      const by = wl + 8 + S.cond.band * (H - wl - 96);
-      ctx.fillStyle = "rgba(91,227,122,0.06)";
-      ctx.fillRect(0, by - 18, W, 36);
-    }
+    const hz = hotZone();
+    drawStructure(now, hz, sp);
 
-    if (S.mode === "idle" || S.mode === "charging" || S.mode === "casting") drawHotZone(now);
-
+    // roaming fish shadows + a cluster holding on the structure (where to cast)
     for (const f of S.fishes) {
       ctx.save(); ctx.translate(f.x, f.y + Math.sin(f.wob) * 3); ctx.scale(f.dir, 1);
-      ctx.fillStyle = "rgba(255,255,255,0.10)";
-      ctx.beginPath(); ctx.ellipse(0, 0, f.size, f.size * 0.5, 0, 0, 6.29); ctx.fill();
+      ctx.fillStyle = "rgba(10,25,30,0.18)";
+      ctx.beginPath(); ctx.ellipse(0, 0, f.size, f.size * 0.45, 0, 0, 6.29); ctx.fill();
       ctx.beginPath(); ctx.moveTo(-f.size, 0); ctx.lineTo(-f.size - 8, -6); ctx.lineTo(-f.size - 8, 6); ctx.closePath(); ctx.fill();
       ctx.restore();
     }
-
-    // a bass closing in on the lure during the retrieve
-    if (S.mode === "retrieve" && S.rv.interest > 0.22) {
-      const t = S.rv.interest, dir = S.bobber.x > W / 2 ? -1 : 1;
-      const fx = S.bobber.x - dir * (54 * (1 - t) + 16), fy = S.bobber.y + 26 * (1 - t) + 6;
-      drawFishShape(fx, fy, 12 + 9 * t, "rgba(18,38,38," + (0.25 + 0.5 * t) + ")", dir, false);
+    if (S.mode === "idle" || S.mode === "charging") {
+      const q = posQuality(), holders = 2 + Math.round(q * 3);
+      for (let i = 0; i < holders; i++) {
+        const a = now / 2600 + i * 6.283 / holders;
+        const hx = hz.x + Math.cos(a) * hz.rx * 0.7, hy = hz.y + Math.sin(a) * hz.ry * 0.7;
+        const dir = Math.cos(a) < 0 ? -1 : 1, sz = 10 + (i % 3) * 4;
+        ctx.save(); ctx.translate(hx, hy); ctx.scale(dir, 1);
+        ctx.fillStyle = "rgba(10,25,30,0.30)";
+        ctx.beginPath(); ctx.ellipse(0, 0, sz, sz * 0.45, 0, 0, 6.29); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-sz, 0); ctx.lineTo(-sz - 7, -5); ctx.lineTo(-sz - 7, 5); ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
     }
 
-    for (const r of S.ripples) {
-      ctx.strokeStyle = "rgba(255,255,255," + Math.max(0, r.a) + ")"; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.ellipse(r.x, r.y, r.r, r.r * 0.4, 0, 0, 6.29); ctx.stroke();
-    }
-    for (const s of S.splashes) {
-      ctx.strokeStyle = "rgba(255,255,255," + Math.max(0, s.a) + ")"; ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, Math.PI * 1.08, Math.PI * 1.92); ctx.stroke();
-    }
+    drawRipplesSplashes();
 
-    // aim line while charging the cast
     if (S.mode === "charging" && S.castAim) {
       const tip = rodTip();
       ctx.setLineDash([5, 6]); ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 2;
@@ -1197,27 +1289,219 @@
 
     drawAngler();
 
-    if (["casting", "retrieve", "strike", "fight"].includes(S.mode)) {
+    // lure in flight during the cast (the actual lure, not a bobber)
+    if (S.mode === "casting") {
       const tip = rodTip();
-      const taut = S.mode === "fight" ? S.ft.tension : 0;
-      ctx.strokeStyle = taut > 0.7 ? "rgba(255,120,120,0.7)" : "rgba(255,255,255,0.5)";
-      ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(tip.x, tip.y);
-      const sag = S.mode === "fight" ? (18 - taut * 22) : 18;
-      const midX = (tip.x + S.bobber.x) / 2, midY = (tip.y + S.bobber.y) / 2 + sag;
-      ctx.quadraticCurveTo(midX, midY, S.bobber.x, S.bobber.y); ctx.stroke();
-
-      if (S.mode === "fight") {
-        const col = (S.hookedFish && S.hookedFish.art.body) || "#5e8f54";
-        drawFishShape(S.bobber.x, S.bobber.y, 15 + 11 * S.ft.size, col, S.ft.dist > 0.04 ? 1 : -1, true);
-      } else {
-        ctx.beginPath(); ctx.arc(S.bobber.x, S.bobber.y, 7, 0, 6.29); ctx.fillStyle = "#fff"; ctx.fill();
-        ctx.beginPath(); ctx.arc(S.bobber.x, S.bobber.y - 1, 7, Math.PI, 0); ctx.fillStyle = "#ff4d3d"; ctx.fill();
-        ctx.lineWidth = 1; ctx.strokeStyle = "rgba(0,0,0,.3)";
-        ctx.beginPath(); ctx.arc(S.bobber.x, S.bobber.y, 7, 0, 6.29); ctx.stroke();
-      }
+      ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(tip.x, tip.y); ctx.lineTo(S.bobber.x, S.bobber.y); ctx.stroke();
+      drawLure(S.bobber.x, S.bobber.y, G.lure.id, COLORS[G.lure.color].hex, now / 90, 0.7, -1);
     }
   }
+
+  function posQuality() {
+    const sp = spot(), pos = position();
+    const rows = sp.fish.map(e => e.weight * ((pos.bias && pos.bias[e.k]) || 1) * (fishDef(e.k).rarity === "junk" ? 0.2 : 1));
+    const tot = rows.reduce((a, b) => a + b, 0);
+    return clamp(tot / 120, 0.2, 1);
+  }
+
+  function drawStructure(now, hz, sp) {
+    const id = position().id;
+    ctx.save();
+    // soft "good water" glow under the structure
+    const g = ctx.createRadialGradient(hz.x, hz.y, 4, hz.x, hz.y, Math.max(hz.rx, hz.ry) * 1.1);
+    g.addColorStop(0, "rgba(120,200,120,0.10)"); g.addColorStop(1, "rgba(120,200,120,0)");
+    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(hz.x, hz.y, hz.rx * 1.1, hz.ry * 1.1, 0, 0, 6.29); ctx.fill();
+
+    const X = hz.x, Y = hz.y, R = Math.min(hz.rx, hz.ry);
+    if (id === "pads" || id === "weed") {
+      for (let i = 0; i < 6; i++) {
+        const a = i * 6.283 / 6 + now / 4000, px = X + Math.cos(a) * hz.rx * 0.7, py = Y + Math.sin(a) * hz.ry * 0.7, r = 11 + (i % 3) * 4;
+        ctx.fillStyle = "#3f7d3a"; ctx.beginPath(); ctx.ellipse(px, py, r, r * 0.6, 0, 0, 6.29); ctx.fill();
+        ctx.fillStyle = "#54a04a"; ctx.beginPath(); ctx.ellipse(px - 1, py - 1, r * 0.8, r * 0.45, 0, 0, 6.29); ctx.fill();
+        ctx.fillStyle = sp.water[1]; ctx.beginPath(); ctx.moveTo(px, py); ctx.arc(px, py, r, -0.5, 0.4); ctx.closePath(); ctx.fill();
+      }
+      ctx.fillStyle = "#f2a6d0"; ctx.beginPath(); ctx.arc(X, Y, 4, 0, 6.29); ctx.fill();
+    } else if (id === "dock") {
+      ctx.fillStyle = "rgba(80,55,32,0.95)";
+      ctx.fillRect(0, Y - 6, X + R, 12);
+      for (let px = 14; px < X + R; px += 26) { ctx.fillStyle = "rgba(40,28,16,0.9)"; ctx.fillRect(px, Y + 6, 6, 16); }
+      ctx.fillStyle = "rgba(60,42,24,0.95)"; ctx.fillRect(X - R, Y - 8, R * 2, 5);
+    } else if (id === "bank" || id === "pool" || id === "logs") {
+      ctx.save(); ctx.translate(X, Y); ctx.rotate(-0.25);
+      ctx.fillStyle = "#5a4128"; ctx.beginPath(); ctx.ellipse(0, 0, R + 16, 8, 0, 0, 6.29); ctx.fill();
+      ctx.fillStyle = "#3c2b18"; ctx.beginPath(); ctx.ellipse(R + 16, 0, 5, 8, 0, 0, 6.29); ctx.fill();
+      for (let bx = -R; bx < R; bx += 14) { ctx.strokeStyle = "rgba(40,28,16,.6)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(bx, -7); ctx.lineTo(bx, 7); ctx.stroke(); }
+      ctx.restore();
+    } else if (id === "reeds" || id === "tailout" || id === "flat") {
+      for (let i = -5; i <= 5; i++) {
+        const bx = X + i * 9 + Math.sin(now / 800 + i) * 2, h = 26 + (i % 3) * 8;
+        ctx.strokeStyle = "#5e7d3a"; ctx.lineWidth = 3; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(bx, Y + 6); ctx.lineTo(bx + Math.sin(now / 700 + i) * 3, Y + 6 - h); ctx.stroke();
+        ctx.fillStyle = "#7a5a2a"; ctx.beginPath(); ctx.ellipse(bx + Math.sin(now / 700 + i) * 3, Y + 6 - h, 2.4, 6, 0, 0, 6.29); ctx.fill();
+      }
+    } else if (id === "rocks" || id === "riffle" || id === "point") {
+      for (let i = 0; i < 4; i++) {
+        const px = X + (i - 1.5) * R * 0.55, py = Y + (i % 2) * 6, r = 9 + (i % 3) * 5;
+        ctx.fillStyle = "#6b6f73"; ctx.beginPath(); ctx.arc(px, py, r, Math.PI, 0); ctx.fill();
+        ctx.fillStyle = "#878c90"; ctx.beginPath(); ctx.arc(px - 2, py - 1, r * 0.7, Math.PI, 0); ctx.fill();
+      }
+    } else { // drop / hole / open — a marker buoy over deeper water
+      ctx.fillStyle = "rgba(0,0,0,0.14)"; ctx.beginPath(); ctx.ellipse(X, Y + 4, R, R * 0.5, 0, 0, 6.29); ctx.fill();
+      ctx.fillStyle = "#ff5d3d"; ctx.beginPath(); ctx.moveTo(X, Y - 16); ctx.lineTo(X - 6, Y + 2); ctx.lineTo(X + 6, Y + 2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#fff"; ctx.fillRect(X - 6, Y + 2, 12, 4);
+    }
+    // structure label
+    ctx.font = "16px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText(hz.ico, X, Y - hz.ry - 14);
+    ctx.restore();
+  }
+
+  // ===========================================================================
+  // Underwater view — watch the lure & the fish that pursue it
+  // ===========================================================================
+  const UW_TOP = 52;
+  function depthY(d) { return UW_TOP + d * (H - 34 - UW_TOP); }
+
+  function renderUnder(now) {
+    const sp = spot();
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, shade(sp.water[0], 30)); g.addColorStop(0.18, sp.water[0]); g.addColorStop(1, sp.water[1]);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+    // underside of the surface with moving light
+    ctx.fillStyle = "rgba(255,255,255,0.10)"; ctx.fillRect(0, 0, W, UW_TOP);
+    ctx.strokeStyle = "rgba(255,255,255,0.16)"; ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let x = 0; x <= W; x += 16) { const yy = UW_TOP + Math.sin(x * 0.05 + now / 380) * 3; x === 0 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy); }
+    ctx.stroke();
+    // god rays
+    ctx.save(); ctx.globalAlpha = 0.10;
+    for (let i = 0; i < 4; i++) {
+      const rx = W * (0.2 + i * 0.22) + Math.sin(now / 3000 + i) * 20;
+      ctx.fillStyle = "#dff6ff"; ctx.beginPath();
+      ctx.moveTo(rx, UW_TOP); ctx.lineTo(rx + 34, UW_TOP); ctx.lineTo(rx + 90, H); ctx.lineTo(rx - 30, H); ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+
+    // bottom: weeds or rocks
+    ctx.fillStyle = shade(sp.water[1], -12); ctx.fillRect(0, H - 30, W, 30);
+    if (sp.id === "deep") {
+      for (let i = 0; i < 6; i++) { const rx = (i + 0.5) * W / 6, rr = 14 + (i % 3) * 8; ctx.fillStyle = "rgba(10,16,30,0.9)"; ctx.beginPath(); ctx.arc(rx, H - 28, rr, Math.PI, 0); ctx.fill(); }
+    } else {
+      ctx.strokeStyle = "rgba(40,90,50,0.8)"; ctx.lineWidth = 4; ctx.lineCap = "round";
+      for (let i = 0; i < 11; i++) { const wx = (i + 0.5) * W / 11; ctx.beginPath(); ctx.moveTo(wx, H - 28); ctx.quadraticCurveTo(wx + Math.sin(now / 600 + i) * 12, H - 60, wx + Math.sin(now / 600 + i) * 6, H - 86); ctx.stroke(); }
+    }
+
+    // rising bubbles
+    for (const bb of S.bubbles) { ctx.strokeStyle = "rgba(255,255,255," + (bb.a * 0.6) + ")"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(bb.x, bb.y, bb.r, 0, 6.29); ctx.stroke(); }
+
+    // BITE ZONE band (where the bass are holding) — the key depth cue
+    const band = S.cond.band, zTop = depthY(clamp(band - 0.085, 0, 1)), zBot = depthY(clamp(band + 0.085, 0, 1));
+    const lureDepth = S.mode === "fight" ? clamp((S.bobberDepth != null ? S.bobberDepth : band), 0, 1) : S.rv.depth;
+    const inZone = Math.abs(lureDepth - band) < 0.10;
+    ctx.fillStyle = inZone ? "rgba(91,227,122,0.18)" : "rgba(255,211,92,0.10)";
+    ctx.fillRect(0, zTop, W, zBot - zTop);
+    ctx.setLineDash([7, 7]); ctx.strokeStyle = inZone ? "rgba(120,240,150,0.7)" : "rgba(255,211,92,0.5)"; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(0, zTop); ctx.lineTo(W, zTop); ctx.moveTo(0, zBot); ctx.lineTo(W, zBot); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = inZone ? "rgba(120,240,150,0.95)" : "rgba(255,211,92,0.9)";
+    ctx.font = "bold 10px system-ui"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+    ctx.fillText("🎯 BITE ZONE", 10, (zTop + zBot) / 2);
+
+    // depth ruler (right edge)
+    ctx.strokeStyle = "rgba(255,255,255,0.25)"; ctx.lineWidth = 1; ctx.textAlign = "right";
+    for (let d = 0; d <= 1.0001; d += 0.25) {
+      const yy = depthY(d); ctx.beginPath(); ctx.moveTo(W - 4, yy); ctx.lineTo(W - 12, yy); ctx.stroke();
+      ctx.fillStyle = "rgba(220,235,240,0.7)"; ctx.font = "9px system-ui"; ctx.fillText(Math.round(d * 24) + "ft", W - 14, yy);
+    }
+    ctx.textAlign = "left";
+
+    const rodEntry = { x: W * 0.28, y: UW_TOP };
+    // line-out readout at the rod entry
+    const frac = S.mode === "fight" ? S.ft.dist : S.rv.dist;
+    ctx.fillStyle = "rgba(220,235,240,0.85)"; ctx.font = "bold 10px system-ui"; ctx.textAlign = "left"; ctx.textBaseline = "bottom";
+    ctx.fillText("↤ " + Math.round(frac * (S.castFt || 60)) + " ft line out", rodEntry.x + 6, UW_TOP - 3);
+
+    if (S.mode === "retrieve" || S.mode === "strike") {
+      const lureX = lerp(W * 0.66, W * 0.34, 1 - S.rv.dist) + Math.sin(now / 130) * (S.mode === "strike" ? 1 : 3);
+      const lureY = depthY(S.rv.depth);
+      // pursuers closing in as interest builds
+      drawPursuers(now, lureX, lureY);
+      // line + lure
+      ctx.strokeStyle = "rgba(255,255,255,0.45)"; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.moveTo(rodEntry.x, rodEntry.y); ctx.lineTo(lureX, lureY); ctx.stroke();
+      drawLure(lureX, lureY, G.lure.id, COLORS[G.lure.color].hex, now / (lure().cadence === "fast" ? 70 : lure().cadence === "slow" ? 150 : 100), 1, -1);
+      // zone coaching arrow by the lure
+      if (S.mode === "retrieve") {
+        const inZ = Math.abs(lureDepth - band) < 0.1;
+        if (lure().style === "top") {
+          if (band > 0.24) zoneArrow(lureX + 26, lureY, 1, "FISH ARE DEEP");
+          else { ctx.strokeStyle = "rgba(120,240,150,0.9)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(lureX, lureY, 18 + Math.sin(now / 200) * 2, 0, 6.29); ctx.stroke(); }
+        } else if (lureDepth < band - 0.1) zoneArrow(lureX + 26, lureY, 1, "LET IT SINK");
+        else if (lureDepth > band + 0.1) zoneArrow(lureX + 26, lureY, -1, "REEL UP");
+        else { ctx.strokeStyle = "rgba(120,240,150,0.9)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(lureX, lureY, 18 + Math.sin(now / 200) * 2, 0, 6.29); ctx.stroke(); }
+      }
+    }
+
+    if (S.mode === "fight") {
+      const f = S.hookedFish;
+      const fx = lerp(W * 0.66, W * 0.34, 1 - S.ft.dist);
+      let fy;
+      if (S.ft.state === "jump") fy = UW_TOP - 6 - Math.abs(Math.sin(now / 80)) * 46;
+      else fy = depthY(clamp(0.45 + Math.sin(now / 240) * 0.12 + (S.ft.state === "run" ? 0.18 : 0), 0.1, 0.9));
+      S.bobberDepth = clamp((fy - UW_TOP) / (H - 34 - UW_TOP), 0, 1);
+      // line
+      const taut = S.ft.tension;
+      ctx.strokeStyle = taut > 0.7 ? "rgba(255,120,120,0.8)" : "rgba(255,255,255,0.5)"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(rodEntry.x, rodEntry.y);
+      const sag = 22 - taut * 26; ctx.quadraticCurveTo((rodEntry.x + fx) / 2, (rodEntry.y + fy) / 2 + sag, fx, fy); ctx.stroke();
+      const col = (f && f.art.body) || "#5e8f54";
+      const dir = S.ft.state === "run" ? 1 : -1;
+      drawFishShape(fx, fy, 16 + 12 * S.ft.size, col, dir, true);
+      // the lure in its mouth
+      drawLure(fx + dir * (16 + 12 * S.ft.size) * 0.6, fy, G.lure.id, COLORS[G.lure.color].hex, now / 120, 0.55, dir);
+      if (S.ft.state === "jump") splashAt(fx, UW_TOP, now);
+    }
+
+    drawRipplesSplashes();
+  }
+
+  function zoneArrow(x, y, dir, label) {
+    ctx.save(); ctx.fillStyle = "rgba(255,235,170,0.95)"; ctx.strokeStyle = "rgba(255,235,170,0.95)";
+    const yo = Math.sin(Date.now() / 200) * 3 * dir;
+    ctx.beginPath(); ctx.moveTo(x, y - 8 * dir + yo); ctx.lineTo(x - 5, y + yo); ctx.lineTo(x + 5, y + yo); ctx.closePath(); ctx.fill();
+    ctx.font = "bold 10px system-ui"; ctx.textAlign = "left"; ctx.textBaseline = "middle";
+    ctx.fillText(label, x + 10, y);
+    ctx.restore();
+  }
+
+  function drawPursuers(now, lx, ly) {
+    const t = S.rv.interest;
+    for (let i = 0; i < S.pursuers.length; i++) {
+      const p = S.pursuers[i];
+      const lead = i === 0;
+      const reach = (1 - t) * (110 + i * 36) + 20;
+      const px = lx + p.side * reach + Math.sin(now / 480 * p.sp + p.ph) * 8;
+      const py = lerp(depthY(p.depth), ly, lead ? t : t * 0.6) + Math.sin(now / 560 + p.ph) * 4;
+      const op = lead ? 0.25 + 0.65 * t : 0.18 + 0.3 * t;
+      const sz = (lead ? 15 : 12) + (lead ? 9 * t : 3);
+      const dir = px < lx ? 1 : -1;
+      const col = lead && t > 0.55 ? "rgba(70,120,70," + op + ")" : "rgba(14,32,34," + op + ")";
+      drawFishShape(px, py, sz, col, dir, lead && t > 0.6);
+    }
+  }
+
+  function drawRipplesSplashes() {
+    for (const r of S.ripples) {
+      ctx.strokeStyle = "rgba(255,255,255," + Math.max(0, r.a) + ")"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(r.x, r.y, r.r, r.r * 0.4, 0, 0, 6.29); ctx.stroke();
+    }
+    for (const s of S.splashes) {
+      ctx.strokeStyle = "rgba(255,255,255," + Math.max(0, s.a) + ")"; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, Math.PI * 1.08, Math.PI * 1.92); ctx.stroke();
+    }
+  }
+  function splashAt(x, y, now) { if (Math.random() < 0.2) S.splashes.push({ x: x + rnd(-10, 10), y, r: 3, a: 0.8 }); }
 
   function drawHotZone(now) {
     const hz = hotZone();

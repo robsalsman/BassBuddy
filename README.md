@@ -12,12 +12,16 @@ tournament mode and progression. (No assets or code from the original are used.)
 
 ## How to play
 
-1. **Aim & cast** — **press and hold** on the water to aim (a dashed line shows
-   your angle) while the **power meter** fills; **release** to cast. Reach the
-   glowing **structure** (lily pads, dock, drop-off…) for a bonus.
-2. **Work the lure** — **tap to twitch**, **hold to reel**. Keep the lure at the
-   fish's **holding depth** (watch the coaching) with good **action** to build a
-   bass's **interest** until it strikes. Match your **lure color** to the weather.
+1. **Read the water & cast** — fish shadows school on the visible **structure**
+   (lily pads, dock, logs, reeds, rocks…) so you can see where the bass are.
+   **Press and hold** to aim while the **power meter** fills; **release** to cast
+   your lure there.
+2. **Dive in & work the lure** — when the lure splashes down the camera drops to
+   an **underwater view** where you watch your actual lure and the bass that come
+   to chase it. **Tap to twitch**, **hold to reel**. Keep the lure in the
+   highlighted **BITE ZONE** (watch the **depth** and **line-out** readouts and
+   the up/down coaching) with good **action** to build a bass's **interest** until
+   it strikes. Match your **lure color** to the weather.
 3. **Set the hook** — when it strikes (**FISH ON!**), tap/flick to set the hook
    before it spits the lure.
 4. **Fight it** — the keystone: **reel only when the fish tires**, and **ease off
