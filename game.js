@@ -30,28 +30,35 @@
     pink:      { name: "Bubblegum",     hex: "#e85d9b", fam: "bright" },
     firetiger: { name: "Fire Tiger",    hex: "#e0a52a", fam: "bright" },
   };
-  // style: "top" = topwater (works the surface), "sink" = sinks & dives on the retrieve.
-  // band: ideal fish depth this lure presents to (0 surface .. 1 bottom).
-  // cadence: ideal twitch rhythm — "fast" rapid taps, "med" steady, "slow" spaced.
+  // The eight classic lures of the original, each with its own presentation.
+  // style: "top" works the surface, "sink" sinks & dives on the retrieve.
+  // band: depth this lure presents to (0 surface .. 1 bottom).
+  // cadence: ideal twitch rhythm — "fast" rapid taps, "med" steady, "slow" big spaced sweeps.
   const LURES = [
-    { id: "worm",    name: "Plastic Worm",  ico: "🪱", price: 0,    desc: "All-purpose bottom bait. Slow hops; bass can't resist.",
-      colors: ["green","black","red","white"], bite: 1.0, bassBias: 1.35, lmBias: 1.1, junk: 1.0, rareBias: 1.0, sizeBias: 1.0,
-      style: "sink", band: 0.85, cadence: "slow" },
-    { id: "spinner", name: "Spinnerbait",   ico: "🌀", price: 140,  desc: "Flash & vibration in the mid-column. Fast reaction strikes.",
-      colors: ["chartreuse","white","gold","shad"], bite: 1.45, bassBias: 1.2, lmBias: 1.15, junk: 0.7, rareBias: 1.1, sizeBias: 1.05,
-      style: "sink", band: 0.45, cadence: "med" },
-    { id: "crank",   name: "Crankbait",     ico: "🎣", price: 320,  desc: "Dives deep and rises on the reel — pulls mudders off the bottom.",
-      colors: ["firetiger","shad","red","chartreuse"], bite: 1.1, bassBias: 1.15, lmBias: 1.1, junk: 0.6, rareBias: 1.25, sizeBias: 1.2,
-      style: "sink", band: 0.7, cadence: "med" },
-    { id: "frog",    name: "Topwater Frog", ico: "🐸", price: 560,  desc: "Skittered across the surface. Largemouth explode on it.",
-      colors: ["green","black","white","brown"], bite: 1.0, bassBias: 1.25, lmBias: 1.9, junk: 0.4, rareBias: 1.15, sizeBias: 1.15,
-      style: "top", band: 0.08, cadence: "fast" },
-    { id: "jig",     name: "Football Jig",  ico: "🥅", price: 900,  desc: "Slow bottom craw for trophy bass.",
-      colors: ["brown","green","black","red"], bite: 0.85, bassBias: 1.5, lmBias: 1.5, junk: 0.5, rareBias: 1.5, sizeBias: 1.35,
-      style: "sink", band: 0.95, cadence: "slow" },
-    { id: "swim",    name: "Swimbait",      ico: "🐟", price: 1600, desc: "Big bait, big bass. Steady mid-depth swim; filters the small stuff.",
-      colors: ["shad","green","white","gold"], bite: 0.8, bassBias: 1.4, lmBias: 1.4, junk: 0.2, rareBias: 1.6, sizeBias: 1.55, minSize: 1.25,
-      style: "sink", band: 0.5, cadence: "med" },
+    { id: "worm",     name: "Plastic Worm", ico: "🪱", price: 0,    desc: "All-purpose soft plastic. Slow bottom hops; bass can't resist.",
+      colors: ["green","black","red","brown"], bite: 1.0, bassBias: 1.35, lmBias: 1.2, junk: 1.0, rareBias: 1.0, sizeBias: 1.0,
+      style: "sink", band: 0.9, cadence: "slow", motion: "Slow bottom hops" },
+    { id: "torpedo",  name: "Torpedo",      ico: "🚀", price: 130,  desc: "Prop topwater that kicks up the surface. Short sweeps; quick strikes.",
+      colors: ["shad","white","chartreuse","black"], bite: 1.3, bassBias: 1.2, lmBias: 1.4, junk: 0.5, rareBias: 1.05, sizeBias: 1.0,
+      style: "top", band: 0.08, cadence: "med", motion: "Short sweeps" },
+    { id: "jitterbug",name: "Jitterbug",    ico: "🐞", price: 200,  desc: "Wobbles wildly across the top. Tiny twitches draw active fish.",
+      colors: ["black","white","red","green"], bite: 1.45, bassBias: 1.15, lmBias: 1.35, junk: 0.5, rareBias: 1.1, sizeBias: 1.0,
+      style: "top", band: 0.05, cadence: "fast", motion: "Tiny twitches" },
+    { id: "pencil",   name: "Pencil Bait",  ico: "✏️", price: 320,  desc: "Walk-the-dog plug. Big sweeping motions call up bigger surface bass.",
+      colors: ["shad","gold","white","chartreuse"], bite: 1.05, bassBias: 1.25, lmBias: 1.5, junk: 0.4, rareBias: 1.15, sizeBias: 1.15,
+      style: "top", band: 0.06, cadence: "slow", motion: "Big sweeps" },
+    { id: "frog",     name: "Frog",         ico: "🐸", price: 470,  desc: "Weedless over cover. Short skitters — largemouth explode on it.",
+      colors: ["green","black","white","brown"], bite: 1.0, bassBias: 1.25, lmBias: 1.9, junk: 0.35, rareBias: 1.15, sizeBias: 1.2,
+      style: "top", band: 0.07, cadence: "fast", motion: "Short skitters" },
+    { id: "spoon",    name: "Spoon",        ico: "🥄", price: 620,  desc: "Flutters down, then darts up on the reel. Flashy and versatile.",
+      colors: ["gold","shad","chartreuse","white"], bite: 1.1, bassBias: 1.15, lmBias: 1.1, junk: 0.6, rareBias: 1.3, sizeBias: 1.2,
+      style: "sink", band: 0.55, cadence: "med", motion: "Flutter & dart" },
+    { id: "crank",    name: "Crankbait",    ico: "🎏", price: 820,  desc: "Dives deep and rises on the reel — pulls mudders off the bottom.",
+      colors: ["firetiger","shad","red","chartreuse"], bite: 1.1, bassBias: 1.15, lmBias: 1.1, junk: 0.55, rareBias: 1.3, sizeBias: 1.3,
+      style: "sink", band: 0.72, cadence: "med", motion: "Steady deep wind" },
+    { id: "furry",    name: "Furry Sinker", ico: "🧶", price: 1200, desc: "Hair-dressed bottom bait. Slow and big — filters out the small stuff.",
+      colors: ["brown","black","green","red"], bite: 0.85, bassBias: 1.45, lmBias: 1.5, junk: 0.4, rareBias: 1.55, sizeBias: 1.5, minSize: 1.2,
+      style: "sink", band: 0.82, cadence: "slow", motion: "Slow bottom drag" },
   ];
 
   // Fish. `art` drives the SVG. `lm:true` = largemouth black bass (tournament-legal).
@@ -177,6 +184,12 @@
         const m = Object.assign(d, s);
         m.lure = Object.assign(d.lure, s.lure || {});
         m.positions = Object.assign(d.positions, s.positions || {});
+        // migrate: drop any lures that no longer exist; keep the worm as the floor
+        const valid = new Set(LURES.map(l => l.id));
+        m.ownedLures = Array.from(new Set(["worm", ...(m.ownedLures || []).filter(id => valid.has(id))]));
+        if (!valid.has(m.lure.id)) m.lure.id = "worm";
+        const lu = LURES.find(l => l.id === m.lure.id);
+        if (lu && !lu.colors.includes(m.lure.color)) m.lure.color = lu.colors[0];
         return m;
       }
     } catch (e) {}
@@ -211,7 +224,7 @@
     shopRods: $("shopRods"), shopLures: $("shopLures"), shopSpots: $("shopSpots"), shopDex: $("shopDex"),
     rodChip: $("rodChip"), lureChip: $("lureChip"), spotChip: $("spotChip"),
     lureModal: $("lureModal"), lureClose: $("lureClose"), lureList: $("lureList"), colorRow: $("colorRow"),
-    mapModal: $("mapModal"), mapClose: $("mapClose"), mapVenues: $("mapVenues"), posGrid: $("posGrid"),
+    mapModal: $("mapModal"), mapClose: $("mapClose"), mapVenues: $("mapVenues"), posGrid: $("posGrid"), finder: $("finder"),
     tourneyBtn: $("tourneyBtn"),
     tourHud: $("tourHud"), tourClock: $("tourClock"), livewell: $("livewell"), tourTotal: $("tourTotal"), tourBig: $("tourBig"), tourQuit: $("tourQuit"),
     tourStartModal: $("tourStartModal"), tourFee: $("tourFee"), tourField: $("tourField"), tourStartFee: $("tourStartFee"),
@@ -1314,6 +1327,47 @@
       return `<div class="pos-cell ${sel ? "sel" : ""}" data-pos="${p.id}">
         <div class="pi">${p.ico}</div><div class="pn">${p.name}</div><div class="pd">${p.desc}</div></div>`;
     }).join("");
+    renderFinder();
+  }
+
+  // Sonar / fish-finder: what's biting, where, and what to throw — boat-mode scouting.
+  function renderFinder() {
+    const sp = spot(), pos = position(), c = S.cond, w = WEATHER[c.weather];
+    // species likelihood at this position (structure bias only)
+    const rows = sp.fish.map(e => ({ def: fishDef(e.k), w: e.weight * ((pos.bias && pos.bias[e.k]) || 1) }));
+    const tot = rows.reduce((a, b) => a + b.w, 0) || 1;
+    rows.sort((a, b) => b.w - a.w);
+    const top = rows.slice(0, 3).map(r => ({ def: r.def, pct: Math.round(r.w / tot * 100) }));
+
+    const band = c.band, depthFt = Math.round(band * 24);
+    const zone = band < 0.34 ? "SHALLOW" : band < 0.67 ? "MID-DEPTH" : "DEEP";
+    const recDepth = band < 0.34 ? "topwater & shallow" : band < 0.67 ? "mid-column" : "deep / bottom";
+    const recColor = preferredFam() === "natural" ? "natural (green · shad · black)" : "bright (chartreuse · red · gold)";
+
+    let blips = "";
+    const density = clamp(0.5 + (top[0] ? top[0].pct / 100 : 0), 0.4, 1.2);
+    const n = Math.round(5 + density * 4);
+    for (let i = 0; i < n; i++) {
+      const d = clamp(band + (Math.random() - 0.5) * 0.26, 0.05, 0.95);
+      const sz = 4 + Math.random() * 6;
+      blips += `<i class="blip" style="top:${(d * 100).toFixed(0)}%;left:${(14 + Math.random() * 72).toFixed(0)}%;width:${sz.toFixed(0)}px;height:${sz.toFixed(0)}px"></i>`;
+    }
+    const zTop = clamp((band - 0.09) * 100, 0, 82);
+
+    el.finder.innerHTML = `<div class="finder-wrap">
+      <div class="sonar">
+        <div class="sweep"></div>
+        <div class="bite-zone" style="top:${zTop}%;height:18%"><span>BITE</span></div>
+        ${blips}
+        <span class="s-top">0 ft</span><span class="s-bot">${Math.round(24)} ft</span>
+      </div>
+      <div class="finder-info">
+        <div class="fi-line">${w.ico} ${w.name} · ${c.temp}° · ${fmtClock(c.timeMin)}</div>
+        <div class="fi-line">Bass holding <b>${zone}</b> · ~${depthFt} ft</div>
+        <div class="fi-line">Throw <b>${recDepth}</b> lures in <b>${recColor}</b></div>
+        <div class="fi-species">${top.map(t => `<span class="fs">${fishSVG(t.def, 34)}<small>${t.pct}%</small></span>`).join("")}</div>
+      </div>
+    </div>`;
   }
   el.spotChip.addEventListener("click", openMap);
   el.mapClose.addEventListener("click", () => el.mapModal.classList.add("hidden"));

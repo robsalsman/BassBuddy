@@ -36,9 +36,13 @@ bright days, bright colors in fog/murk) — just like the original.
 
 - **Aim your cast** — tap anywhere in your casting range to place the lure;
   land it on the highlighted structure for faster bites and better fish.
-- **Lures that matter** — pick a **type** (worm, spinnerbait, crankbait, frog,
-  jig, swimbait) and a **color**. Match the color to the water clarity for more
-  bites; topwater frogs and jigs target big largemouth.
+- **Eight classic lures** — Plastic Worm, Torpedo, Jitterbug, Pencil Bait, Frog,
+  Spoon, Crankbait and Furry Sinker. Each has its own **style** (topwater vs
+  sinking), **depth**, and **retrieve cadence**, plus a **color** set — match the
+  color to the weather and the depth to where the bass are holding.
+- **Boat-mode Fish Finder** — a sonar readout on the "Where to Fish" screen shows
+  the bite depth, current conditions, the lure/color to throw, and the top species
+  at your chosen spot.
 - **Choose your spot** — 3 venues (Lily Cove, Rushing River, Midnight Lake), each
   with several **fishing positions** that change which species are biting.
 - **🏆 Tournament mode** — race the clock to boat your best **5 largemouth**.

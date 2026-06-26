@@ -235,6 +235,43 @@ html, body {
 .pos-cell .pn { font-weight: 800; font-size: 13px; margin-top: 2px; }
 .pos-cell .pd { font-size: 10px; color: #a9cdd9; margin-top: 2px; line-height: 1.3; }
 
+/* ---------- Fish finder ---------- */
+.finder-wrap { display: flex; gap: 12px; align-items: stretch; }
+.sonar {
+  position: relative; flex: 0 0 auto;
+  width: 88px; height: 138px;
+  border-radius: 10px; overflow: hidden;
+  background: linear-gradient(180deg, #06343f, #021a22);
+  border: 1px solid var(--ui-line);
+  box-shadow: inset 0 0 14px rgba(0,0,0,.5);
+}
+.sonar::before {
+  content: ""; position: absolute; inset: 0;
+  background: repeating-linear-gradient(0deg, rgba(91,227,122,.10) 0 1px, transparent 1px 15px);
+}
+.sonar .sweep {
+  position: absolute; left: 0; right: 0; height: 24px;
+  background: linear-gradient(180deg, rgba(91,227,122,.22), transparent);
+  animation: sonarSweep 2.6s linear infinite;
+}
+@keyframes sonarSweep { 0%{top:-24px} 100%{top:138px} }
+.bite-zone {
+  position: absolute; left: 0; right: 0;
+  background: rgba(255,211,92,.16);
+  border-top: 1px dashed rgba(255,211,92,.6); border-bottom: 1px dashed rgba(255,211,92,.6);
+}
+.bite-zone span { position: absolute; right: 3px; top: 1px; font-size: 8px; font-weight: 800; color: var(--gold); }
+.blip { position: absolute; border-radius: 50%; background: #84f7a4; box-shadow: 0 0 6px #5be37a; transform: translate(-50%,-50%); }
+.s-top, .s-bot { position: absolute; left: 5px; font-size: 9px; color: #9fc3d2; z-index: 2; }
+.s-top { top: 3px; } .s-bot { bottom: 3px; }
+.finder-info { flex: 1; font-size: 12px; min-width: 0; }
+.fi-line { margin-bottom: 5px; color: #cfe9f2; line-height: 1.35; }
+.fi-line b { color: var(--gold); }
+.fi-species { display: flex; gap: 8px; margin-top: 8px; }
+.fs { text-align: center; }
+.fs svg { width: 36px; height: 22px; }
+.fs small { display: block; font-size: 10px; color: #9fc3d2; font-weight: 700; }
+
 /* ---------- Tournament modals ---------- */
 .rules { list-style: none; text-align: left; margin: 4px 0 14px; font-size: 13px; }
 .rules li { padding: 4px 0; color: #d6ecf3; }
