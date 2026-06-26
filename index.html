@@ -30,6 +30,7 @@
     <button class="chip" id="rodChip"><span>🎣</span><b id="rodName">Twig Rod</b></button>
     <button class="chip" id="lureChip"><span id="lureIco">🪱</span><b id="lureName">Worm</b><i id="lureSwatch" class="swatch"></i></button>
     <button class="chip" id="spotChip"><span>📍</span><b id="spotName">Lily Cove</b><small id="posName">Lily Pads</small></button>
+    <div class="chip cond" id="condChip"><span id="condIcon">☀️</span><b id="condTemp">68°</b><small id="condClock">6:30a</small></div>
   </div>
 
   <!-- Tournament HUD (hidden until a tournament is running) -->
@@ -43,19 +44,33 @@
   <!-- Center status text -->
   <div id="status" class="status"></div>
 
-  <!-- Reeling minigame (vertical: hold to lift the catch-bar, keep fish inside) -->
-  <div id="reelGame" class="reel-game hidden">
-    <div class="reel-track">
-      <div class="reel-zone" id="reelZone"></div>
-      <div class="reel-fish" id="reelFishMark"></div>
-    </div>
-    <div class="reel-progress-wrap">
-      <div class="reel-progress" id="reelProgress"></div>
-    </div>
+  <!-- Cast power meter -->
+  <div id="castMeter" class="cast-meter hidden">
+    <div class="cm-label">CAST POWER</div>
+    <div class="cm-bar"><div class="cm-fill" id="cmFill"></div></div>
   </div>
-  <div id="reelTension" class="reel-tension hidden">REEL IT IN</div>
 
-  <!-- Big action button (hook / reel) -->
+  <!-- Retrieve phase: work the lure -->
+  <div id="retrievePanel" class="phase-panel hidden">
+    <div class="gauge-row">
+      <div class="gauge"><span>DEPTH</span><b id="rvDepth">0 ft</b></div>
+      <div class="gauge wide"><span>ACTION</span><div class="meter"><div id="rvAction" class="meter-fill action"></div></div></div>
+      <div class="gauge wide"><span>INTEREST</span><div class="meter"><div id="rvInterest" class="meter-fill gold"></div></div></div>
+    </div>
+    <div class="phase-hint" id="rvHint">TAP to twitch · HOLD to reel</div>
+  </div>
+
+  <!-- Fight phase: tension vs stamina -->
+  <div id="fightPanel" class="phase-panel hidden">
+    <div class="gauge-row">
+      <div class="gauge wide"><span>FISH STAMINA</span><div class="meter"><div id="ftStamina" class="meter-fill stam"></div></div></div>
+      <div class="gauge wide"><span>LINE TENSION</span><div class="meter"><div id="ftTension" class="meter-fill tens"></div><i class="snap-mark"></i></div></div>
+    </div>
+    <div class="dist-row"><span>🛶</span><div class="meter dist"><div id="ftDist" class="meter-fill distf"></div><i id="ftFishMark" class="dist-fish"></i></div><span>🐟</span></div>
+    <div class="phase-hint" id="ftHint">HOLD to reel — ease off when it runs!</div>
+  </div>
+
+  <!-- Big action button (context: hook / reel) -->
   <button id="actionBtn" class="action-btn hidden">TAP TO HOOK!</button>
 
   <!-- Catch result modal -->

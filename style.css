@@ -308,82 +308,65 @@ html, body {
   color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.6);
 }
 
-/* ---------- Reel minigame (vertical bar, Tiny-Fishing style) ---------- */
-.reel-game {
+/* ---------- Cast power meter ---------- */
+.cast-meter {
   position: absolute;
-  bottom: calc(118px + var(--safe-bot));
-  left: 50%;
-  transform: translateX(-50%);
-  height: 46vh;
-  max-height: 360px;
-  display: flex;
-  gap: 10px;
-  align-items: stretch;
+  bottom: calc(112px + var(--safe-bot));
+  left: 50%; transform: translateX(-50%);
+  width: 74%; max-width: 320px;
+  z-index: 18; text-align: center;
+}
+.cm-label { font-size: 12px; font-weight: 800; letter-spacing: 2px; color: #cfe9f2; text-shadow: 0 1px 3px rgba(0,0,0,.6); margin-bottom: 5px; }
+.cm-bar {
+  height: 22px; border-radius: 999px; overflow: hidden;
+  background: var(--ui); border: 1px solid var(--ui-line);
+}
+.cm-fill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, #5be37a, var(--gold) 55%, #ff7b3d);
+  border-radius: 999px;
+}
+
+/* ---------- Phase panels (retrieve / fight) ---------- */
+.phase-panel {
+  position: absolute;
+  bottom: calc(104px + var(--safe-bot));
+  left: 50%; transform: translateX(-50%);
+  width: 88%; max-width: 380px;
   z-index: 18;
-}
-.reel-track {
-  position: relative;
-  width: 56px;
-  height: 100%;
-  background: linear-gradient(180deg, rgba(8,32,42,.55), rgba(8,32,42,.85));
-  border: 2px solid var(--ui-line);
-  border-radius: 30px;
-  overflow: hidden;
-  box-shadow: inset 0 0 14px rgba(0,0,0,.4);
-}
-.reel-zone {
-  position: absolute;
-  left: 4px; right: 4px;
-  top: 40%;
-  height: 26%;
-  background: linear-gradient(180deg, rgba(120,240,150,.55), rgba(60,200,110,.55));
-  border: 2px solid rgba(150,255,180,.9);
-  border-radius: 22px;
-  box-shadow: 0 0 16px rgba(91,227,122,.55);
-}
-.reel-fish {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 30px; height: 30px;
-  margin-left: -15px; margin-top: -15px;
-  font-size: 26px;
-  line-height: 30px;
-  text-align: center;
-  filter: drop-shadow(0 2px 3px rgba(0,0,0,.4));
-}
-.reel-progress-wrap {
-  position: relative;
-  width: 16px;
-  height: 100%;
-  background: var(--ui);
+  background: linear-gradient(180deg, rgba(10,40,52,.82), rgba(7,28,38,.9));
   border: 1px solid var(--ui-line);
-  border-radius: 999px;
-  overflow: hidden;
+  border-radius: 16px;
+  padding: 10px 12px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 6px 18px rgba(0,0,0,.35);
 }
-.reel-progress {
-  position: absolute;
-  left: 0; right: 0; bottom: 0;
-  height: 6%;
-  background: linear-gradient(0deg, var(--gold-deep), var(--gold));
-  border-radius: 999px;
-  transition: height .08s linear;
+.gauge-row { display: flex; gap: 10px; align-items: center; }
+.gauge { flex: 0 0 auto; font-size: 10px; font-weight: 800; letter-spacing: 1px; color: #bfe0ec; text-align: center; }
+.gauge.wide { flex: 1; text-align: left; }
+.gauge span { display: block; margin-bottom: 4px; }
+.gauge b { font-size: 14px; color: #fff; }
+.meter {
+  position: relative;
+  height: 13px; border-radius: 999px; overflow: hidden;
+  background: rgba(0,0,0,.35); border: 1px solid var(--ui-line);
 }
-.reel-tension {
-  position: absolute;
-  bottom: calc(100px + var(--safe-bot));
-  left: 0; right: 0;
-  text-align: center;
-  font-size: 15px;
-  font-weight: 800;
-  letter-spacing: 2px;
-  color: var(--good);
-  text-shadow: 0 1px 4px rgba(0,0,0,.6);
-  z-index: 19;
-  pointer-events: none;
-}
-.reel-tension.warn { color: var(--bad); animation: shake .25s infinite; }
+.meter-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 50%; border-radius: 999px; transition: width .06s linear; }
+.meter-fill.action { background: linear-gradient(90deg, #2fae8e, #5be37a); }
+.meter-fill.gold   { background: linear-gradient(90deg, var(--gold-deep), var(--gold)); }
+.meter-fill.stam   { background: linear-gradient(90deg, #ff5d5d, #ffd35c 60%, #5be37a); }
+.meter-fill.tens   { background: linear-gradient(90deg, #5be37a, #ffd35c 60%, #ff3b3b); }
+.snap-mark { position: absolute; right: 8%; top: -2px; bottom: -2px; width: 2px; background: rgba(255,255,255,.7); }
+.dist-row { display: flex; align-items: center; gap: 6px; margin-top: 9px; font-size: 14px; }
+.meter.dist { flex: 1; height: 10px; }
+.distf { background: linear-gradient(90deg, #7fd4e8, #2a93b8); transition: width .12s linear; }
+.dist-fish { position: absolute; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px; border-radius: 50%; background: #fff; box-shadow: 0 0 6px #fff; }
+.phase-hint { text-align: center; font-size: 12px; font-weight: 700; color: #cfe9f2; margin-top: 8px; text-shadow: 0 1px 3px rgba(0,0,0,.5); }
+.phase-hint.warn { color: var(--bad); animation: shake .25s infinite; }
+.phase-hint.good { color: var(--good); }
 @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-3px)} 75%{transform:translateX(3px)} }
+.chip.cond { cursor: default; }
+.chip.cond small { color: #cfe9f2; }
 
 /* ---------- Action button ---------- */
 .action-btn {

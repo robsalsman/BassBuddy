@@ -30,19 +30,28 @@
     pink:      { name: "Bubblegum",     hex: "#e85d9b", fam: "bright" },
     firetiger: { name: "Fire Tiger",    hex: "#e0a52a", fam: "bright" },
   };
+  // style: "top" = topwater (works the surface), "sink" = sinks & dives on the retrieve.
+  // band: ideal fish depth this lure presents to (0 surface .. 1 bottom).
+  // cadence: ideal twitch rhythm — "fast" rapid taps, "med" steady, "slow" spaced.
   const LURES = [
-    { id: "worm",    name: "Plastic Worm",  ico: "🪱", price: 0,    desc: "All-purpose. Bass can't resist it.",
-      colors: ["green","black","red","white"], bite: 1.0, bassBias: 1.35, lmBias: 1.1, junk: 1.0, rareBias: 1.0, sizeBias: 1.0 },
-    { id: "spinner", name: "Spinnerbait",   ico: "🌀", price: 140,  desc: "Flash & vibration trigger fast reaction strikes.",
-      colors: ["chartreuse","white","gold","shad"], bite: 1.45, bassBias: 1.2, lmBias: 1.15, junk: 0.7, rareBias: 1.1, sizeBias: 1.05 },
-    { id: "crank",   name: "Crankbait",     ico: "🎣", price: 320,  desc: "Dives deep for chunkier, heavier fish.",
-      colors: ["firetiger","shad","red","chartreuse"], bite: 1.1, bassBias: 1.15, lmBias: 1.1, junk: 0.6, rareBias: 1.25, sizeBias: 1.2 },
-    { id: "frog",    name: "Topwater Frog", ico: "🐸", price: 560,  desc: "Surface blow-ups. Largemouth love it.",
-      colors: ["green","black","white","brown"], bite: 1.0, bassBias: 1.25, lmBias: 1.9, junk: 0.4, rareBias: 1.15, sizeBias: 1.15 },
+    { id: "worm",    name: "Plastic Worm",  ico: "🪱", price: 0,    desc: "All-purpose bottom bait. Slow hops; bass can't resist.",
+      colors: ["green","black","red","white"], bite: 1.0, bassBias: 1.35, lmBias: 1.1, junk: 1.0, rareBias: 1.0, sizeBias: 1.0,
+      style: "sink", band: 0.85, cadence: "slow" },
+    { id: "spinner", name: "Spinnerbait",   ico: "🌀", price: 140,  desc: "Flash & vibration in the mid-column. Fast reaction strikes.",
+      colors: ["chartreuse","white","gold","shad"], bite: 1.45, bassBias: 1.2, lmBias: 1.15, junk: 0.7, rareBias: 1.1, sizeBias: 1.05,
+      style: "sink", band: 0.45, cadence: "med" },
+    { id: "crank",   name: "Crankbait",     ico: "🎣", price: 320,  desc: "Dives deep and rises on the reel — pulls mudders off the bottom.",
+      colors: ["firetiger","shad","red","chartreuse"], bite: 1.1, bassBias: 1.15, lmBias: 1.1, junk: 0.6, rareBias: 1.25, sizeBias: 1.2,
+      style: "sink", band: 0.7, cadence: "med" },
+    { id: "frog",    name: "Topwater Frog", ico: "🐸", price: 560,  desc: "Skittered across the surface. Largemouth explode on it.",
+      colors: ["green","black","white","brown"], bite: 1.0, bassBias: 1.25, lmBias: 1.9, junk: 0.4, rareBias: 1.15, sizeBias: 1.15,
+      style: "top", band: 0.08, cadence: "fast" },
     { id: "jig",     name: "Football Jig",  ico: "🥅", price: 900,  desc: "Slow bottom craw for trophy bass.",
-      colors: ["brown","green","black","red"], bite: 0.85, bassBias: 1.5, lmBias: 1.5, junk: 0.5, rareBias: 1.5, sizeBias: 1.35 },
-    { id: "swim",    name: "Swimbait",      ico: "🐟", price: 1600, desc: "Big bait, big bass. Filters out the small stuff.",
-      colors: ["shad","green","white","gold"], bite: 0.8, bassBias: 1.4, lmBias: 1.4, junk: 0.2, rareBias: 1.6, sizeBias: 1.55, minSize: 1.25 },
+      colors: ["brown","green","black","red"], bite: 0.85, bassBias: 1.5, lmBias: 1.5, junk: 0.5, rareBias: 1.5, sizeBias: 1.35,
+      style: "sink", band: 0.95, cadence: "slow" },
+    { id: "swim",    name: "Swimbait",      ico: "🐟", price: 1600, desc: "Big bait, big bass. Steady mid-depth swim; filters the small stuff.",
+      colors: ["shad","green","white","gold"], bite: 0.8, bassBias: 1.4, lmBias: 1.4, junk: 0.2, rareBias: 1.6, sizeBias: 1.55, minSize: 1.25,
+      style: "sink", band: 0.5, cadence: "med" },
   ];
 
   // Fish. `art` drives the SVG. `lm:true` = largemouth black bass (tournament-legal).
@@ -190,8 +199,10 @@
     coins: $("coins"), rodName: $("rodName"), spotName: $("spotName"), posName: $("posName"),
     lureIco: $("lureIco"), lureName: $("lureName"), lureSwatch: $("lureSwatch"),
     status: $("status"), actionBtn: $("actionBtn"),
-    reelGame: $("reelGame"), reelZone: $("reelZone"), reelFishMark: $("reelFishMark"),
-    reelProgress: $("reelProgress"), reelTension: $("reelTension"),
+    castMeter: $("castMeter"), cmFill: $("cmFill"),
+    retrievePanel: $("retrievePanel"), rvDepth: $("rvDepth"), rvAction: $("rvAction"), rvInterest: $("rvInterest"), rvHint: $("rvHint"),
+    fightPanel: $("fightPanel"), ftStamina: $("ftStamina"), ftTension: $("ftTension"), ftDist: $("ftDist"), ftFishMark: $("ftFishMark"), ftHint: $("ftHint"),
+    condIcon: $("condIcon"), condTemp: $("condTemp"), condClock: $("condClock"),
     catchModal: $("catchModal"), catchRarity: $("catchRarity"), catchArt: $("catchArt"),
     catchName: $("catchName"), catchWeight: $("catchWeight"), catchReward: $("catchReward"),
     catchRewardWrap: $("catchRewardWrap"), catchRecord: $("catchRecord"), catchTourney: $("catchTourney"), catchOk: $("catchOk"),
@@ -392,16 +403,23 @@
   // ===========================================================================
   // Game state
   // ===========================================================================
+  // Phases: idle -> charging -> casting -> retrieve -> strike -> fight -> caught
   const S = {
-    mode: "idle",   // idle | casting | waiting | bite | reeling | caught
+    mode: "idle",
     bobber: { x: 0, y: 0, sx: 0, sy: 0, targetX: 0, targetY: 0, flyT: 0, dist: 0 },
     castBonus: false,
-    biteTimer: 0, biteWindow: 0,
+    castPower: 0, castDir: 1, castAim: null,
     hookedFish: null,
-    reel: { fishPos: 0.5, fishVel: 0, zoneCenter: 0.5, zoneSize: 0.28, progress: 0, vy: 0, jitter: 1, speed: 1 },
+    // retrieve
+    rv: { depth: 0, dist: 1, interest: 0, action: 0.5, lastTap: -999, taps: [], follower: 0 },
+    strikeWindow: 0,
+    // fight (tension vs stamina)
+    ft: { stamina: 1, tension: 0, dist: 1, state: "tire", stateT: 0, pull: 0, jumpY: 0 },
     holding: false,
-    fishes: [], ripples: [],
-    aim: null,      // pulsing reticle for last/queued cast point
+    pressT: 0, pressIsHold: false,
+    fishes: [], ripples: [], splashes: [],
+    aim: null,
+    cond: { timeMin: 6.5 * 60, weather: "sun", temp: 64, band: 0.3 },
     tournament: null,
   };
 
@@ -466,6 +484,45 @@
     el.lureIco.textContent = lu.ico;
     el.lureName.textContent = lu.name.split(" ")[lu.name.split(" ").length - 1];
     el.lureSwatch.style.background = COLORS[G.lure.color].hex;
+    renderConditions();
+  }
+
+  // ===========================================================================
+  // Conditions: time of day, weather, water temperature -> fish holding depth
+  // ===========================================================================
+  const WEATHER = {
+    sun:    { ico: "☀️", name: "Sunny",    fam: "natural", warm: 6 },
+    cloud:  { ico: "☁️", name: "Cloudy",   fam: "bright",  warm: 1 },
+    fog:    { ico: "🌫️", name: "Foggy",    fam: "bright",  warm: -1 },
+    night:  { ico: "🌙", name: "Night",    fam: "bright",  warm: -4 },
+  };
+  function rollConditions() {
+    const sp = spot();
+    if (sp.id === "deep") S.cond.weather = "night";
+    else { const r = Math.random(); S.cond.weather = r < 0.5 ? "sun" : r < 0.78 ? "cloud" : "fog"; }
+    S.cond.timeMin = (sp.id === "deep" ? 21 * 60 : 6 * 60) + Math.random() * 120;
+    recomputeCond();
+  }
+  function recomputeCond() {
+    const c = S.cond, hour = c.timeMin / 60;
+    // temperature: cooler at dawn/dusk/night, warmer midday
+    const midday = 1 - Math.abs(hour - 14) / 9;
+    c.temp = Math.round(clamp(54 + midday * 22 + WEATHER[c.weather].warm, 42, 86));
+    // fish holding depth: shallow when cool (dawn/dusk/night), deeper when warm midday
+    const warm = (c.temp - 54) / 32; // 0..1
+    c.band = clamp(0.18 + warm * 0.6, 0.08, 0.92);
+  }
+  function preferredFam() { return WEATHER[S.cond.weather].fam; }
+  function fmtClock(min) {
+    let h = Math.floor(min / 60) % 24, m = Math.floor(min % 60);
+    const ap = h < 12 ? "a" : "p"; let hh = h % 12; if (hh === 0) hh = 12;
+    return hh + ":" + String(m).padStart(2, "0") + ap;
+  }
+  function renderConditions() {
+    const c = S.cond, w = WEATHER[c.weather];
+    el.condIcon.textContent = w.ico;
+    el.condTemp.textContent = c.temp + "°";
+    el.condClock.textContent = fmtClock(c.timeMin);
   }
 
   // ===========================================================================
@@ -473,23 +530,21 @@
   // ===========================================================================
   function pickFish() {
     const sp = spot(), pos = position(), lu = lure(), luck = rod().luck;
-    const colorFam = COLORS[G.lure.color].fam;
-    const clarityMatch = colorFam === sp.clarity;
+    const colorMatch = COLORS[G.lure.color].fam === preferredFam();
+    // how well the lure was presented at the fish's holding depth
+    const depthMatch = clamp(1 - Math.abs(S.rv.depth - S.cond.band) * 1.6, 0, 1);
+    const goodAction = S.rv.action > 0.6;
 
     const table = sp.fish.map(entry => {
       const def = fishDef(entry.k);
       let w = entry.weight;
-      // position structure bias
       w *= (pos.bias && pos.bias[entry.k]) || 1;
-      // lure biases
       if (def.lm) w *= lu.lmBias;
       else if (def.name.includes("Bass")) w *= lu.bassBias;
       if (def.rarity === "rare") w *= lu.rareBias * (1 + luck * 4);
       if (def.rarity === "legendary") w *= lu.rareBias * (1 + luck * 6);
       if (def.rarity === "junk") w *= lu.junk * Math.max(0.2, 1 - luck * 2);
-      // color match nudges rarer fish up a touch
-      if (clarityMatch && (def.rarity === "rare" || def.rarity === "legendary")) w *= 1.2;
-      // cast landed on the structure: better odds of the good stuff
+      if (colorMatch && (def.rarity === "rare" || def.rarity === "legendary")) w *= 1.2;
       if (S.castBonus && (def.rarity === "rare" || def.rarity === "legendary" || def.lm)) w *= 1.25;
       return { def, w: Math.max(0.0001, w) };
     });
@@ -498,10 +553,11 @@
     let r = Math.random() * total, chosen = table[0].def;
     for (const x of table) { r -= x.w; if (r <= 0) { chosen = x.def; break; } }
 
-    // weight roll, biased bigger by rod power + lure size bias
     let lo = chosen.w[0], hi = chosen.w[1];
-    if (lu.minSize) lo = lo + (hi - lo) * (lu.minSize - 1) * 0.4; // swimbait filters small
-    const sizePush = clamp((rod().power - 1) * 0.4 + (lu.sizeBias - 1) * 0.5 + (S.castBonus ? 0.08 : 0), 0, 0.7);
+    if (lu.minSize) lo = lo + (hi - lo) * (lu.minSize - 1) * 0.4;
+    // presenting on the money (depth + color + clean action) earns bigger fish
+    const sizePush = clamp((rod().power - 1) * 0.4 + (lu.sizeBias - 1) * 0.5
+      + depthMatch * 0.18 + (colorMatch ? 0.08 : 0) + (goodAction ? 0.08 : 0) + (S.castBonus ? 0.08 : 0), 0, 0.85);
     const roll = Math.pow(Math.random(), 1.7 - sizePush);
     const weight = +(lo + (hi - lo) * roll).toFixed(1);
 
@@ -512,123 +568,157 @@
   }
 
   // ===========================================================================
-  // Input
+  // Input — one gesture model routed by phase
+  //   idle: press water = aim + charge meter, release = cast
+  //   retrieve: quick tap = twitch the lure, press-and-hold = reel
+  //   strike: tap/flick = set the hook
+  //   fight: hold = reel, release = give line
   // ===========================================================================
-  canvas.addEventListener("pointerdown", (e) => {
-    if (anyModalOpen()) return;
-    if (S.mode === "idle") {
-      const rect = canvas.getBoundingClientRect();
-      castTo(e.clientX - rect.left, e.clientY - rect.top);
-    } else if (S.mode === "bite") {
-      hookSet();
-    } else if (S.mode === "reeling") {
-      S.holding = true;
-    }
-  });
-  function release() { if (S.mode === "reeling") S.holding = false; }
-  canvas.addEventListener("pointerup", release);
-  canvas.addEventListener("pointercancel", release);
+  const HOLD_MS = 165;
+  let pressActive = false, holdCandidate = false, downX = 0, downY = 0, swiped = false;
+  function ptr(e) { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
 
-  el.actionBtn.addEventListener("pointerdown", (e) => {
-    e.preventDefault();
-    if (S.mode === "bite") hookSet();
-    else if (S.mode === "reeling") S.holding = true;
-  });
-  el.actionBtn.addEventListener("pointerup", (e) => { e.preventDefault(); release(); });
-  el.actionBtn.addEventListener("pointercancel", release);
-  el.actionBtn.addEventListener("pointerleave", release);
+  function onDown(x, y) {
+    if (anyModalOpen()) return;
+    pressActive = true; holdCandidate = false; swiped = false;
+    S.pressT = performance.now(); downX = x; downY = y;
+    if (S.mode === "idle") startCharge(x, y);
+    else if (S.mode === "strike") hookSet();
+    else if (S.mode === "fight") S.holding = true;
+    else if (S.mode === "retrieve") holdCandidate = true;
+  }
+  function onMove(x, y) {
+    if (!pressActive) return;
+    if (Math.abs(x - downX) > 24 || Math.abs(y - downY) > 24) swiped = true;
+  }
+  function onUp() {
+    if (!pressActive) return;
+    pressActive = false;
+    const dur = performance.now() - S.pressT;
+    if (S.mode === "charging") releaseCast();
+    else if (S.mode === "retrieve") { if (!holdCandidate || dur < HOLD_MS) twitch(); S.holding = false; holdCandidate = false; }
+    else if (S.mode === "fight") S.holding = false;
+  }
+  canvas.addEventListener("pointerdown", (e) => { const p = ptr(e); onDown(p.x, p.y); });
+  canvas.addEventListener("pointermove", (e) => { const p = ptr(e); onMove(p.x, p.y); });
+  canvas.addEventListener("pointerup", onUp);
+  canvas.addEventListener("pointercancel", onUp);
+  el.actionBtn.addEventListener("pointerdown", (e) => { e.preventDefault(); onDown(W / 2, H * 0.6); });
+  el.actionBtn.addEventListener("pointerup", (e) => { e.preventDefault(); onUp(); });
+  el.actionBtn.addEventListener("pointercancel", onUp);
+  el.actionBtn.addEventListener("pointerleave", () => { if (S.mode === "fight" || (S.mode === "retrieve" && holdCandidate)) onUp(); });
+
+  // promote a sustained retrieve press into a reel
+  function pollHold(now) {
+    if (S.mode === "retrieve" && pressActive && holdCandidate && now - S.pressT > HOLD_MS) S.holding = true;
+  }
 
   // ===========================================================================
   // Flow
   // ===========================================================================
-  function castTo(px, py) {
-    const wl = waterLine();
-    if (py < wl + 10) py = wl + 18;                 // keep it in the water
-    const tip = rodTip();
-    // clamp within casting range (rod power)
-    const maxR = clamp(H * (0.42 + rod().power * 0.16), 180, H * 0.9);
-    let dx = px - tip.x, dy = py - tip.y, d = Math.hypot(dx, dy);
-    if (d > maxR) { px = tip.x + dx / d * maxR; py = tip.y + dy / d * maxR; }
-    py = clamp(py, wl + 16, H - 150);
-    px = clamp(px, 26, W - 26);
-
-    S.mode = "casting";
-    S.bobber.sx = tip.x; S.bobber.sy = tip.y;
-    S.bobber.x = tip.x; S.bobber.y = tip.y;
-    S.bobber.targetX = px; S.bobber.targetY = py;
-    S.bobber.flyT = 0;
-    S.bobber.dist = Math.hypot(px - tip.x, py - tip.y) / maxR;
-    // bonus if landing on the chosen structure's hot zone
-    const hz = hotZone();
-    S.castBonus = Math.hypot(px - hz.x, py - hz.y) < hz.r;
+  function startCharge(x, y) {
+    S.mode = "charging";
+    S.castPower = 0; S.castDir = 1;
+    S.castAim = { x, y };
+    el.castMeter.classList.remove("hidden");
     showBtn(false);
     setStatus("");
-    S.aim = { x: px, y: py, t: 0 };
+  }
+  function releaseCast() {
+    el.castMeter.classList.add("hidden");
+    const tip = rodTip(), wl = waterLine();
+    const maxR = clamp(H * (0.40 + rod().power * 0.17), 200, H * 0.95);
+    let dx = S.castAim.x - tip.x, dy = S.castAim.y - tip.y, d = Math.hypot(dx, dy) || 1;
+    const reach = maxR * (0.32 + 0.68 * S.castPower);
+    let px = tip.x + dx / d * reach, py = tip.y + dy / d * reach;
+    py = clamp(py, wl + 18, H - 150); px = clamp(px, 26, W - 26);
+    S.mode = "casting";
+    S.bobber.sx = tip.x; S.bobber.sy = tip.y; S.bobber.x = tip.x; S.bobber.y = tip.y;
+    S.bobber.targetX = px; S.bobber.targetY = py;
+    S.bobber.flyT = 0; S.bobber.dist = reach / maxR;
+    const hz = hotZone();
+    S.castBonus = Math.hypot(px - hz.x, py - hz.y) < hz.r;
+    showBtn(false); setStatus("");
+    S.aim = null;
   }
 
-  function startWaiting() {
-    S.mode = "waiting";
-    showBtn(false);
-    setStatus(S.castBonus ? "On the spot! Wait for it…" : "Wait for it…");
+  function startRetrieve() {
     const lu = lure();
-    let base = rnd(1100, 4000);
-    base /= lu.bite;                                  // faster lures bite sooner
-    if (COLORS[G.lure.color].fam === spot().clarity) base *= 0.8; // right color
-    if (S.castBonus) base *= 0.7;                     // good structure
-    S.biteTimer = Math.max(500, base);
+    S.mode = "retrieve";
+    S.rv.dist = 1; S.rv.interest = 0; S.rv.action = 0.5; S.rv.taps = []; S.rv.follower = 0;
+    S.rv.depth = lu.style === "top" ? lu.band : 0.04;
+    S.holding = false;
+    el.retrievePanel.classList.remove("hidden");
+    showBtn(true); setBtn("HOLD TO REEL", "reel");
+    setStatus(S.castBonus ? "On the structure — work it!" : "Work the lure…");
     ripple(S.bobber.x, S.bobber.y);
   }
 
-  function triggerBite() {
-    S.mode = "bite";
-    S.hookedFish = pickFish();
-    S.biteWindow = 1500 - S.hookedFish.difficulty * 600;
-    showBtn(true);
-    setBtn("TAP TO HOOK!", "hook");
-    setStatus("FISH ON!", true);
-    vibrate(40);
-    ripple(S.bobber.x, S.bobber.y); ripple(S.bobber.x, S.bobber.y);
+  function twitch() {
+    const now = performance.now();
+    S.rv.taps.push(now);
+    if (S.rv.taps.length > 6) S.rv.taps.shift();
+    const lu = lure();
+    // topwater jumps to the surface and splashes; sinking lures hop up a touch
+    if (lu.style === "top") { S.rv.depth = clamp(lu.band, 0, 1); splash(S.bobber.x, waterLine()); }
+    else S.rv.depth = clamp(S.rv.depth - 0.05, 0, 1);
+    ripple(S.bobber.x, S.bobber.y);
+    vibrate(8);
   }
 
-  function missedBite() {
+  function endRetrieveMiss() {
+    setStatus("No takers — reel in and recast.");
+    advanceTime(4);
     resetToIdle();
-    showFail("Too slow — it spat the hook!");
+  }
+
+  function strike() {
+    S.mode = "strike";
+    S.hookedFish = pickFish();
+    S.strikeWindow = 950 - S.hookedFish.difficulty * 480;
+    el.retrievePanel.classList.add("hidden");
+    showBtn(true); setBtn("SET THE HOOK!", "hook");
+    setStatus("FISH ON!", true);
+    splash(S.bobber.x, S.bobber.y); splash(S.bobber.x, S.bobber.y);
+    vibrate(45);
+  }
+  function strikeMissed() {
+    setStatus("It spat the lure!");
+    advanceTime(3);
+    resetToIdle();
+    if (!S.tournament) showFail("It spat the lure — set the hook quicker!");
   }
 
   function hookSet() {
-    const f = S.hookedFish;
-    S.mode = "reeling";
-    showBtn(true);
-    setBtn("HOLD TO REEL!", "reel");
-    setStatus("");
-    el.reelGame.classList.remove("hidden");
-    el.reelTension.classList.remove("hidden");
-    const d = f.difficulty;
-    const R = S.reel;
-    R.fishPos = 0.5; R.fishVel = 0; R.zoneCenter = 0.5; R.vy = 0; R.progress = 0.14;
-    R.zoneSize = clamp(0.30 - d * 0.14, 0.13, 0.30) * (1 + rod().power * 0.10);
-    R.jitter = 0.5 + d * 1.6;
-    R.speed = 0.5 + d * 0.9;
-    el.reelFishMark.innerHTML = fishSVG(f, 38);
+    if (S.mode !== "strike") return;
+    const f = S.hookedFish, d = f.difficulty;
+    S.mode = "fight";
+    setStatus(""); setBtn("HOLD TO REEL", "reel"); showBtn(true);
+    el.fightPanel.classList.remove("hidden");
+    const T = S.ft;
+    T.stamina = 1; T.tension = 0; T.dist = clamp(S.rv.dist, 0.45, 1);
+    T.state = "run"; T.stateT = rnd(500, 1100); T.pull = 0.8; T.jumpY = 0;
+    T.maxStam = 1; T.size = d;
     S.holding = false;
     vibrate(30);
+    el.ftHint.textContent = "Wear it down — reel when it tires!";
   }
 
   function landFish() {
     const f = S.hookedFish;
     S.mode = "caught";
-    el.reelGame.classList.add("hidden");
-    el.reelTension.classList.add("hidden");
+    el.fightPanel.classList.add("hidden");
+    el.retrievePanel.classList.add("hidden");
     showBtn(false);
+    splash(S.bobber.x, waterLine());
 
-    // dex + records always
     G.caught[f.name] = (G.caught[f.name] || 0) + 1;
     const prev = G.records[f.name] || 0;
     const isRecord = f.weight > prev;
     if (isRecord) G.records[f.name] = f.weight;
+    advanceTime(5);
 
     if (S.tournament) { tourLand(f, isRecord, prev); save(); return; }
-
     G.coins += f.value;
     save(); updateHUD();
     vibrate([20, 40, 30]);
@@ -651,7 +741,8 @@
   }
 
   function loseFish(msg) {
-    if (S.tournament) { S.mode = "idle"; el.reelGame.classList.add("hidden"); el.reelTension.classList.add("hidden"); showBtn(false); vibrate(120); toast("💨 " + (msg || "It got off!")); setStatus("Tap the water to cast"); return; }
+    el.fightPanel.classList.add("hidden");
+    if (S.tournament) { S.mode = "idle"; showBtn(false); vibrate(120); toast("💥 " + (msg || "It got off!")); setStatus("Tap & hold the water to cast"); return; }
     resetToIdle();
     vibrate(120);
     showFail(msg || "The line snapped!");
@@ -663,13 +754,17 @@
     S.mode = "idle";
     S.hookedFish = null;
     S.castBonus = false;
-    el.reelGame.classList.add("hidden");
-    el.reelTension.classList.add("hidden");
+    S.holding = false;
+    el.retrievePanel.classList.add("hidden");
+    el.fightPanel.classList.add("hidden");
+    el.castMeter.classList.add("hidden");
     showBtn(false);
-    setStatus(S.tournament ? "Tap the water to cast" : "Tap the water to cast 🎣");
+    setStatus("Tap & hold the water to aim, release to cast 🎣");
   }
 
+  function advanceTime(min) { S.cond.timeMin += min; if (S.cond.timeMin >= 24 * 60) S.cond.timeMin -= 24 * 60; recomputeCond(); renderConditions(); }
   function ripple(x, y) { S.ripples.push({ x, y, r: 4, a: 0.7 }); }
+  function splash(x, y) { S.splashes.push({ x, y, r: 3, a: 0.9 }); }
 
   // ===========================================================================
   // Tournament mode
@@ -769,7 +864,7 @@
     T.ended = true;
     // bail out of any active fight
     S.mode = "idle"; S.hookedFish = null;
-    el.reelGame.classList.add("hidden"); el.reelTension.classList.add("hidden"); showBtn(false);
+    el.fightPanel.classList.add("hidden"); el.retrievePanel.classList.add("hidden"); el.castMeter.classList.add("hidden"); showBtn(false);
 
     const myTotal = wellTotal();
     // AI field — winning bags scale with venue
@@ -853,70 +948,137 @@
 
   function update(dt, now) {
     if (S.tournament && !S.tournament.ended) updateTourClock(dt);
+    pollHold(now);
 
+    if (S.mode === "charging") {
+      S.castPower += S.castDir * dt * 0.0017;
+      if (S.castPower >= 1) { S.castPower = 1; S.castDir = -1; }
+      if (S.castPower <= 0) { S.castPower = 0; S.castDir = 1; }
+      el.cmFill.style.width = (S.castPower * 100) + "%";
+    }
     if (S.mode === "casting") {
       S.bobber.flyT += dt / 520;
       const p = clamp(S.bobber.flyT, 0, 1);
       S.bobber.x = S.bobber.sx + (S.bobber.targetX - S.bobber.sx) * p;
       const arc = Math.sin(p * Math.PI) * (60 + S.bobber.dist * 130);
       S.bobber.y = S.bobber.sy + (S.bobber.targetY - S.bobber.sy) * p - arc;
-      if (p >= 1) { S.bobber.y = S.bobber.targetY; startWaiting(); }
+      if (p >= 1) { S.bobber.y = S.bobber.targetY; startRetrieve(); }
     }
-    if (S.mode === "waiting") {
-      S.biteTimer -= dt;
-      S.bobber.y = S.bobber.targetY + Math.sin(now / 600) * 3;
-      if (S.biteTimer <= 0) triggerBite();
+    if (S.mode === "retrieve") {
+      updateRetrieve(dt, now);
+      if (S.mode === "retrieve") {
+        const tip = rodTip(), wl = waterLine(), wd = H - wl - 96;
+        S.bobber.x = tip.x + (S.bobber.targetX - tip.x) * S.rv.dist;
+        S.bobber.y = wl + 8 + S.rv.depth * wd;
+      }
     }
-    if (S.mode === "bite") {
-      S.biteWindow -= dt;
-      S.bobber.y = S.bobber.targetY + Math.sin(now / 70) * 6;
-      if (Math.random() < 0.25) ripple(S.bobber.x, S.bobber.y);
-      if (S.biteWindow <= 0) missedBite();
+    if (S.mode === "strike") {
+      S.strikeWindow -= dt;
+      S.bobber.y += Math.sin(now / 60) * 1.4;
+      if (Math.random() < 0.3) ripple(S.bobber.x, S.bobber.y);
+      if (S.strikeWindow <= 0) strikeMissed();
     }
-    if (S.mode === "reeling") updateReel(dt, now);
+    if (S.mode === "fight") {
+      updateFight(dt, now);
+      if (S.mode === "fight") {
+        const tip = rodTip(), wl = waterLine();
+        S.bobber.x = tip.x + (S.bobber.targetX - tip.x) * S.ft.dist;
+        S.bobber.y = S.ft.state === "jump" ? wl - 16 - Math.abs(Math.sin(now / 80)) * 16 : wl + 14 + Math.sin(now / 200) * 3;
+      }
+    }
 
     for (const f of S.fishes) {
-      f.x += f.dir * f.spd * dt * 0.06;
-      f.wob += dt * 0.004;
+      f.x += f.dir * f.spd * dt * 0.06; f.wob += dt * 0.004;
       if (f.x < -30) { f.x = W + 30; f.y = waterLine() + 40 + Math.random() * (H - waterLine() - 160); }
       if (f.x > W + 30) { f.x = -30; f.y = waterLine() + 40 + Math.random() * (H - waterLine() - 160); }
     }
     for (const r of S.ripples) { r.r += dt * 0.05; r.a -= dt * 0.0012; }
     S.ripples = S.ripples.filter(r => r.a > 0);
-    if (S.aim) { S.aim.t += dt; if (S.mode !== "casting" && S.mode !== "idle") S.aim = null; }
+    for (const s of S.splashes) { s.r += dt * 0.08; s.a -= dt * 0.0022; }
+    S.splashes = S.splashes.filter(s => s.a > 0);
   }
 
-  function updateReel(dt, now) {
-    const R = S.reel, d = S.hookedFish.difficulty, step = dt / 16.67;
-    R.fishVel += (Math.random() - 0.5) * R.jitter * 0.004 * step;
-    if (Math.random() < (0.02 + d * 0.03) * step) R.fishVel += (Math.random() - 0.5) * R.speed * 0.04;
-    R.fishVel = clamp(R.fishVel, -0.02 * R.speed, 0.02 * R.speed);
-    R.fishPos += R.fishVel * step;
-    if (R.fishPos < 0.06) { R.fishPos = 0.06; R.fishVel = Math.abs(R.fishVel); }
-    if (R.fishPos > 0.94) { R.fishPos = 0.94; R.fishVel = -Math.abs(R.fishVel); }
-
-    if (S.holding) R.vy -= 0.0011 * step; else R.vy += 0.0009 * step;
-    R.vy *= 0.90;
-    R.zoneCenter += R.vy * step;
-    const half = R.zoneSize / 2;
-    if (R.zoneCenter < half) { R.zoneCenter = half; R.vy = 0; }
-    if (R.zoneCenter > 1 - half) { R.zoneCenter = 1 - half; R.vy = 0; }
-
-    const onFish = Math.abs(R.zoneCenter - R.fishPos) < half;
-    if (onFish) {
-      R.progress += 0.0052 * (1.25 - d * 0.45) * step;
-      el.reelTension.classList.remove("warn"); el.reelTension.textContent = "REEL IT IN!";
-    } else {
-      R.progress -= 0.0016 * (0.7 + d * 0.6) * step;
-      el.reelTension.classList.add("warn"); el.reelTension.textContent = "KEEP ON IT!";
+  function updateRetrieve(dt, now) {
+    const R = S.rv, lu = lure(), step = dt / 16.67;
+    const ideal = lu.cadence === "fast" ? 250 : lu.cadence === "slow" ? 600 : 410;
+    let q = 0.5;
+    if (R.taps.length >= 2) {
+      let sum = 0; for (let i = 1; i < R.taps.length; i++) sum += R.taps[i] - R.taps[i - 1];
+      const avg = sum / (R.taps.length - 1), ratio = avg / ideal;
+      q = clamp(1 - Math.abs(Math.log(ratio)) * 0.9, 0, 1);
     }
-    if (R.progress >= 1) { landFish(); return; }
-    if (R.progress <= 0) { loseFish("The bass slipped the hook!"); return; }
+    const sinceTap = now - (R.taps[R.taps.length - 1] || -9999);
+    if (sinceTap > ideal * 2.4 && !(S.holding && lu.cadence === "med")) q *= 0.35;
+    if (S.holding && lu.cadence === "med") q = Math.max(q, 0.72);   // steady swim
+    R.action += (q - R.action) * 0.10;
 
-    el.reelProgress.style.height = (R.progress * 100) + "%";
-    el.reelZone.style.height = (R.zoneSize * 100) + "%";
-    el.reelZone.style.top = ((R.zoneCenter - half) * 100) + "%";
-    el.reelFishMark.style.top = (R.fishPos * 100) + "%";
+    if (S.holding) {
+      R.dist = clamp(R.dist - 0.0020 * step * (1 + rod().power * 0.10), 0, 1);
+      if (lu.style === "sink") R.depth = clamp(R.depth - 0.004 * step, 0, 1);
+    } else {
+      if (lu.style === "sink") R.depth = clamp(R.depth + 0.0026 * step, 0, lu.band + 0.05);
+      else R.depth = lu.band;
+    }
+
+    const depthMatch = clamp(1 - Math.abs(R.depth - S.cond.band) * 1.8, 0, 1);
+    const colorMatch = COLORS[G.lure.color].fam === preferredFam() ? 1 : 0.7;
+    const struct = S.castBonus ? 1.25 : 1;
+    const build = (R.action > 0.55 ? 1 : 0.25) * depthMatch * colorMatch * struct * lu.bite;
+    R.interest = clamp(R.interest + (build * 0.011 - 0.0016) * step, 0, 1);
+    R.follower = R.interest;
+    if (R.interest >= 1) { strike(); return; }
+    if (R.dist <= 0) { endRetrieveMiss(); return; }
+
+    el.rvDepth.textContent = Math.round(R.depth * 24) + " ft";
+    el.rvAction.style.width = (R.action * 100) + "%";
+    el.rvInterest.style.width = (R.interest * 100) + "%";
+    let hint;
+    if (R.depth < S.cond.band - 0.12) hint = lu.style === "sink" ? "Let it sink deeper…" : "Fish are holding deeper";
+    else if (R.depth > S.cond.band + 0.12) hint = "Too deep — reel it up";
+    else hint = R.action > 0.6 ? "Perfect action — a bass is closing in!" : "On their level — work it!";
+    el.rvHint.textContent = hint;
+    el.rvHint.className = "phase-hint" + (R.interest > 0.5 ? " good" : "");
+  }
+
+  function updateFight(dt, now) {
+    const T = S.ft;
+    T.stateT -= dt;
+    if (T.stateT <= 0) {
+      const tired = T.stamina < 0.33, r = Math.random();
+      if (T.state === "tire") {
+        if (!tired && r < 0.3) { T.state = "jump"; T.stateT = rnd(450, 800); }
+        else { T.state = "run"; T.stateT = rnd(650, 1500) * (0.6 + T.size * 0.8); }
+      } else { T.state = "tire"; T.stateT = rnd(700, 1400) * (1.2 - T.size * 0.5); }
+    }
+    const sFactor = 0.35 + 0.65 * T.stamina;
+    let pull = T.state === "jump" ? 1.5 : T.state === "run" ? 1.0 : 0.2;
+    pull *= sFactor * (0.7 + T.size * 0.7);
+    T.pull = pull;
+    const rodTol = 1 + (rod().power - 1) * 0.55;
+
+    if (S.holding) {
+      T.tension += dt * (0.00050 + pull * 0.00150) / rodTol;
+      T.dist = clamp(T.dist - dt * 0.00017 * (1.25 - pull * 0.6), 0, 1);
+      T.stamina = clamp(T.stamina - dt * (0.00006 + (T.state === "tire" ? 0.00019 : 0.00004)), 0, 1);
+    } else {
+      T.tension -= dt * 0.0016;
+      if (T.state === "run") T.dist = clamp(T.dist + dt * 0.00010, 0, 1);
+      T.stamina = clamp(T.stamina - dt * 0.00003, 0, 1);
+    }
+    T.tension = clamp(T.tension, 0, 1);
+    if (T.state === "jump" && Math.random() < 0.06) splash(S.bobber.x, waterLine());
+
+    if (T.tension >= 1) { loseFish("The line snapped!"); return; }
+    if (T.dist <= 0 && T.stamina < 0.25) { landFish(); return; }
+    if (T.dist <= 0 && T.stamina >= 0.25) { T.dist = 0.04; T.state = "run"; T.stateT = rnd(450, 900); }
+
+    el.ftStamina.style.width = (T.stamina * 100) + "%";
+    el.ftTension.style.width = (T.tension * 100) + "%";
+    el.ftDist.style.width = ((1 - T.dist) * 100) + "%";
+    el.ftFishMark.style.left = ((1 - T.dist) * 100) + "%";
+    const running = T.state !== "tire";
+    el.ftHint.textContent = T.tension > 0.78 ? "EASE OFF — about to snap!" : running ? "It's running — give it line!" : "Tired — reel it in!";
+    el.ftHint.className = "phase-hint" + (T.tension > 0.78 || running ? " warn" : " good");
   }
 
   // hot zone (chosen structure) in screen coords
@@ -935,20 +1097,36 @@
   // ===========================================================================
   // Render
   // ===========================================================================
+  function drawFishShape(x, y, size, fill, dir, eye) {
+    ctx.save(); ctx.translate(x, y); ctx.scale(dir, 1);
+    ctx.fillStyle = fill;
+    ctx.beginPath(); ctx.ellipse(0, 0, size, size * 0.5, 0, 0, 6.29); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-size, 0); ctx.lineTo(-size - size * 0.55, -size * 0.42); ctx.lineTo(-size - size * 0.55, size * 0.42); ctx.closePath(); ctx.fill();
+    if (eye) {
+      ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(size * 0.55, -size * 0.12, size * 0.14, 0, 6.29); ctx.fill();
+      ctx.fillStyle = "#16242b"; ctx.beginPath(); ctx.arc(size * 0.58, -size * 0.12, size * 0.07, 0, 6.29); ctx.fill();
+    }
+    ctx.restore();
+  }
+
   function render(now) {
     const sp = spot(), wl = waterLine();
+    const w = S.cond.weather, night = w === "night" || sp.id === "deep";
     const sky = ctx.createLinearGradient(0, 0, 0, wl);
     sky.addColorStop(0, sp.sky[0]); sky.addColorStop(1, sp.sky[1]);
     ctx.fillStyle = sky; ctx.fillRect(0, 0, W, wl);
 
-    const isNight = sp.id === "deep";
-    ctx.beginPath(); ctx.arc(W * 0.78, wl * 0.42, 34, 0, 6.29);
-    ctx.fillStyle = isNight ? "rgba(230,235,255,.9)" : "rgba(255,238,170,.95)"; ctx.fill();
-
-    ctx.fillStyle = isNight ? "rgba(20,30,60,.6)" : "rgba(70,150,120,.45)";
+    // sun / moon by weather
+    if (w === "sun" || night) {
+      ctx.beginPath(); ctx.arc(W * 0.78, wl * 0.42, 30, 0, 6.29);
+      ctx.fillStyle = night ? "rgba(232,236,255,.92)" : "rgba(255,238,170,.95)"; ctx.fill();
+    }
+    ctx.fillStyle = night ? "rgba(20,30,60,.6)" : "rgba(70,150,120,.45)";
     ctx.beginPath(); ctx.moveTo(0, wl);
     for (let x = 0; x <= W; x += 40) ctx.lineTo(x, wl - 26 - Math.sin(x * 0.01 + 1) * 18 - Math.sin(x * 0.03) * 8);
     ctx.lineTo(W, wl); ctx.closePath(); ctx.fill();
+    // overcast / fog haze
+    if (w === "cloud" || w === "fog") { ctx.fillStyle = w === "fog" ? "rgba(208,218,224,0.24)" : "rgba(150,162,172,0.16)"; ctx.fillRect(0, 0, W, wl); }
 
     const water = ctx.createLinearGradient(0, wl, 0, H);
     water.addColorStop(0, sp.water[0]); water.addColorStop(1, sp.water[1]);
@@ -962,10 +1140,15 @@
       ctx.stroke();
     }
 
-    // chosen structure hot zone (where the good fish are)
-    if (S.mode === "idle" || S.mode === "casting" || S.mode === "waiting") drawHotZone(now);
+    // fish-holding depth band hint (a faint shaded zone where bass are holding)
+    if (S.mode === "idle" || S.mode === "charging" || S.mode === "retrieve") {
+      const by = wl + 8 + S.cond.band * (H - wl - 96);
+      ctx.fillStyle = "rgba(91,227,122,0.06)";
+      ctx.fillRect(0, by - 18, W, 36);
+    }
 
-    // ambient fish
+    if (S.mode === "idle" || S.mode === "charging" || S.mode === "casting") drawHotZone(now);
+
     for (const f of S.fishes) {
       ctx.save(); ctx.translate(f.x, f.y + Math.sin(f.wob) * 3); ctx.scale(f.dir, 1);
       ctx.fillStyle = "rgba(255,255,255,0.10)";
@@ -974,31 +1157,52 @@
       ctx.restore();
     }
 
+    // a bass closing in on the lure during the retrieve
+    if (S.mode === "retrieve" && S.rv.interest > 0.22) {
+      const t = S.rv.interest, dir = S.bobber.x > W / 2 ? -1 : 1;
+      const fx = S.bobber.x - dir * (54 * (1 - t) + 16), fy = S.bobber.y + 26 * (1 - t) + 6;
+      drawFishShape(fx, fy, 12 + 9 * t, "rgba(18,38,38," + (0.25 + 0.5 * t) + ")", dir, false);
+    }
+
     for (const r of S.ripples) {
       ctx.strokeStyle = "rgba(255,255,255," + Math.max(0, r.a) + ")"; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.ellipse(r.x, r.y, r.r, r.r * 0.4, 0, 0, 6.29); ctx.stroke();
     }
+    for (const s of S.splashes) {
+      ctx.strokeStyle = "rgba(255,255,255," + Math.max(0, s.a) + ")"; ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, Math.PI * 1.08, Math.PI * 1.92); ctx.stroke();
+    }
 
-    // aim reticle
-    if (S.aim && S.mode === "idle") {
-      const pulse = 10 + Math.sin(now / 200) * 3;
-      ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(S.aim.x, S.aim.y, pulse, 0, 6.29); ctx.stroke();
+    // aim line while charging the cast
+    if (S.mode === "charging" && S.castAim) {
+      const tip = rodTip();
+      ctx.setLineDash([5, 6]); ctx.strokeStyle = "rgba(255,255,255,0.4)"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(tip.x, tip.y); ctx.lineTo(S.castAim.x, S.castAim.y); ctx.stroke(); ctx.setLineDash([]);
+      ctx.strokeStyle = "rgba(255,235,170,0.85)"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(S.castAim.x, S.castAim.y, 10, 0, 6.29); ctx.stroke();
     }
 
     drawAngler();
 
-    if (["casting", "waiting", "bite", "reeling"].includes(S.mode)) {
+    if (["casting", "retrieve", "strike", "fight"].includes(S.mode)) {
       const tip = rodTip();
-      ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 1.5;
+      const taut = S.mode === "fight" ? S.ft.tension : 0;
+      ctx.strokeStyle = taut > 0.7 ? "rgba(255,120,120,0.7)" : "rgba(255,255,255,0.5)";
+      ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(tip.x, tip.y);
-      const midX = (tip.x + S.bobber.x) / 2, midY = (tip.y + S.bobber.y) / 2 + 18;
+      const sag = S.mode === "fight" ? (18 - taut * 22) : 18;
+      const midX = (tip.x + S.bobber.x) / 2, midY = (tip.y + S.bobber.y) / 2 + sag;
       ctx.quadraticCurveTo(midX, midY, S.bobber.x, S.bobber.y); ctx.stroke();
-      // bobber
-      ctx.beginPath(); ctx.arc(S.bobber.x, S.bobber.y, 7, 0, 6.29); ctx.fillStyle = "#fff"; ctx.fill();
-      ctx.beginPath(); ctx.arc(S.bobber.x, S.bobber.y - 1, 7, Math.PI, 0); ctx.fillStyle = "#ff4d3d"; ctx.fill();
-      ctx.lineWidth = 1; ctx.strokeStyle = "rgba(0,0,0,.3)";
-      ctx.beginPath(); ctx.arc(S.bobber.x, S.bobber.y, 7, 0, 6.29); ctx.stroke();
+
+      if (S.mode === "fight") {
+        const col = (S.hookedFish && S.hookedFish.art.body) || "#5e8f54";
+        drawFishShape(S.bobber.x, S.bobber.y, 15 + 11 * S.ft.size, col, S.ft.dist > 0.04 ? 1 : -1, true);
+      } else {
+        ctx.beginPath(); ctx.arc(S.bobber.x, S.bobber.y, 7, 0, 6.29); ctx.fillStyle = "#fff"; ctx.fill();
+        ctx.beginPath(); ctx.arc(S.bobber.x, S.bobber.y - 1, 7, Math.PI, 0); ctx.fillStyle = "#ff4d3d"; ctx.fill();
+        ctx.lineWidth = 1; ctx.strokeStyle = "rgba(0,0,0,.3)";
+        ctx.beginPath(); ctx.arc(S.bobber.x, S.bobber.y, 7, 0, 6.29); ctx.stroke();
+      }
     }
   }
 
@@ -1118,7 +1322,7 @@
     const p = e.target.closest(".pos-cell");
     if (v) {
       if (v.dataset.owned === "true") {
-        if (G.spot !== v.dataset.venue) { G.spot = v.dataset.venue; seedFish(); resetToIdle(); }
+        if (G.spot !== v.dataset.venue) { G.spot = v.dataset.venue; seedFish(); rollConditions(); resetToIdle(); }
         save(); updateHUD(); renderMap();
       } else { toast("Unlock this spot in the 🛒 shop"); }
     } else if (p) {
@@ -1187,8 +1391,8 @@
     else if (d.equipRod) { G.rod = d.equipRod; }
     else if (d.buyLure) { const l = LURES.find(x => x.id === d.buyLure); if (G.coins >= l.price) { G.coins -= l.price; G.ownedLures.push(l.id); G.lure.id = l.id; G.lure.color = l.colors[0]; } }
     else if (d.equipLure) { const l = LURES.find(x => x.id === d.equipLure); G.lure.id = l.id; if (!l.colors.includes(G.lure.color)) G.lure.color = l.colors[0]; }
-    else if (d.buySpot) { const s = SPOTS.find(x => x.id === d.buySpot); if (G.coins >= s.price) { G.coins -= s.price; G.ownedSpots.push(s.id); G.spot = s.id; seedFish(); resetToIdle(); } }
-    else if (d.goSpot) { if (G.spot !== d.goSpot) { G.spot = d.goSpot; seedFish(); resetToIdle(); } }
+    else if (d.buySpot) { const s = SPOTS.find(x => x.id === d.buySpot); if (G.coins >= s.price) { G.coins -= s.price; G.ownedSpots.push(s.id); G.spot = s.id; seedFish(); rollConditions(); resetToIdle(); } }
+    else if (d.goSpot) { if (G.spot !== d.goSpot) { G.spot = d.goSpot; seedFish(); rollConditions(); resetToIdle(); } }
     else return;
     save(); updateHUD(); renderShop();
   });
@@ -1196,9 +1400,10 @@
   // ===========================================================================
   // Boot
   // ===========================================================================
+  rollConditions();
   updateHUD();
   showBtn(false);
-  setStatus("Tap the water to cast 🎣");
+  setStatus("Tap & hold the water to aim, release to cast 🎣");
   requestAnimationFrame(frame);
 
   document.addEventListener("touchmove", e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });

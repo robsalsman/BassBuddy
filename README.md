@@ -5,15 +5,32 @@ No installs, no accounts, no build step — just open it in a phone browser and 
 
 ![Lily Cove](https://img.shields.io/badge/play-in%20browser-ffd35c) ![No deps](https://img.shields.io/badge/dependencies-none-5be37a)
 
+A faithful tribute to the SNES classic **Super Black Bass** — its cast-meter,
+work-the-lure retrieve, hook-set and tension-vs-stamina fight — rebuilt for
+one-thumb mobile play with original art and code, then extended with a modern
+tournament mode and progression. (No assets or code from the original are used.)
+
 ## How to play
 
-1. **Tap the water** where you want your lure to land — aim for the glowing
-   structure (lily pads, dock, drop-off…) where the good fish hold.
-2. **Wait for a bite.** When you see **FISH ON!**, tap to set the hook (be quick!).
-3. **Reel it in.** Hold to lift your green catch-bar, release to let it drop.
-   Keep the bar over the fish to fill the progress meter and land your catch.
-4. **Earn 🪙 coins**, beat your personal-best weights, and spend coins in the
-   **🛒 Tackle Shop** on better rods, lures, and new fishing spots.
+1. **Aim & cast** — **press and hold** on the water to aim (a dashed line shows
+   your angle) while the **power meter** fills; **release** to cast. Reach the
+   glowing **structure** (lily pads, dock, drop-off…) for a bonus.
+2. **Work the lure** — **tap to twitch**, **hold to reel**. Keep the lure at the
+   fish's **holding depth** (watch the coaching) with good **action** to build a
+   bass's **interest** until it strikes. Match your **lure color** to the weather.
+3. **Set the hook** — when it strikes (**FISH ON!**), tap/flick to set the hook
+   before it spits the lure.
+4. **Fight it** — the keystone: **reel only when the fish tires**, and **ease off
+   when it runs or jumps**. Watch the **line tension** — peg it and the line
+   **snaps**. Wear big bass down to land them.
+5. **Earn 🪙 coins**, beat your personal-best weights, and spend coins in the
+   **🛒 Tackle Shop** on better rods, lures, and new lakes.
+
+## Conditions matter
+
+Time of day, weather, and water temperature set **where the bass hold** (shallow
+at dawn/dusk, deeper midday) and which **lure color** they see best (natural on
+bright days, bright colors in fog/murk) — just like the original.
 
 ## Features
 
