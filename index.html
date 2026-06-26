@@ -20,25 +20,28 @@
       <span class="coin">🪙</span>
       <span id="coins">0</span>
     </div>
-    <div class="hud-pill">
-      <span>🎣</span>
-      <span id="rodName">Twig Rod</span>
-    </div>
-    <div class="hud-pill" id="depthPill">
-      <span>🌊</span>
-      <span id="spotName">Lily Cove</span>
-    </div>
+    <div class="hud-spacer"></div>
+    <button id="tourneyBtn" class="hud-btn alt">🏆</button>
     <button id="shopBtn" class="hud-btn">🛒</button>
+  </div>
+
+  <!-- Loadout chips -->
+  <div id="loadout" class="loadout">
+    <button class="chip" id="rodChip"><span>🎣</span><b id="rodName">Twig Rod</b></button>
+    <button class="chip" id="lureChip"><span id="lureIco">🪱</span><b id="lureName">Worm</b><i id="lureSwatch" class="swatch"></i></button>
+    <button class="chip" id="spotChip"><span>📍</span><b id="spotName">Lily Cove</b><small id="posName">Lily Pads</small></button>
+  </div>
+
+  <!-- Tournament HUD (hidden until a tournament is running) -->
+  <div id="tourHud" class="tour-hud hidden">
+    <div class="tour-clock"><span>⏱️</span><b id="tourClock">2:30</b></div>
+    <div class="livewell" id="livewell"></div>
+    <div class="tour-total"><span id="tourTotal">0.00</span> lb<small id="tourBig"></small></div>
+    <button id="tourQuit" class="tour-quit">End</button>
   </div>
 
   <!-- Center status text -->
   <div id="status" class="status"></div>
-
-  <!-- Cast power meter -->
-  <div id="castMeter" class="cast-meter hidden">
-    <div class="cast-fill" id="castFill"></div>
-    <div class="cast-label">CAST POWER</div>
-  </div>
 
   <!-- Reeling minigame (vertical: hold to lift the catch-bar, keep fish inside) -->
   <div id="reelGame" class="reel-game hidden">
@@ -52,20 +55,21 @@
   </div>
   <div id="reelTension" class="reel-tension hidden">REEL IT IN</div>
 
-  <!-- Big action button -->
-  <button id="actionBtn" class="action-btn">TAP &amp; HOLD TO CAST</button>
+  <!-- Big action button (hook / reel) -->
+  <button id="actionBtn" class="action-btn hidden">TAP TO HOOK!</button>
 
   <!-- Catch result modal -->
   <div id="catchModal" class="modal hidden">
     <div class="modal-card catch-card">
       <div class="catch-rarity" id="catchRarity">COMMON</div>
-      <div class="catch-emoji" id="catchEmoji">🐟</div>
+      <div class="catch-art" id="catchArt"></div>
       <div class="catch-name" id="catchName">Largemouth Bass</div>
       <div class="catch-stats">
         <div><span id="catchWeight">2.4</span> lb</div>
-        <div class="reward">+<span id="catchReward">12</span> 🪙</div>
+        <div class="reward" id="catchRewardWrap">+<span id="catchReward">12</span> 🪙</div>
       </div>
       <div class="catch-record" id="catchRecord"></div>
+      <div class="catch-tourney hidden" id="catchTourney"></div>
       <button class="big-btn" id="catchOk">NICE! KEEP FISHING</button>
     </div>
   </div>
@@ -76,6 +80,63 @@
       <div class="catch-emoji">💨</div>
       <div class="catch-name" id="failMsg">It got away!</div>
       <button class="big-btn" id="failOk">TRY AGAIN</button>
+    </div>
+  </div>
+
+  <!-- Lure tray -->
+  <div id="lureModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="shop-head">
+        <h2>🪝 Tackle Box</h2>
+        <button class="close-btn" id="lureClose">✕</button>
+      </div>
+      <p class="muted">Pick a lure, then a color. Match the color to the water for more bites.</p>
+      <div class="lure-list" id="lureList"></div>
+      <div class="color-head">Color</div>
+      <div class="color-row" id="colorRow"></div>
+    </div>
+  </div>
+
+  <!-- Map / spot + position picker -->
+  <div id="mapModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="shop-head">
+        <h2>🗺️ Where to Fish</h2>
+        <button class="close-btn" id="mapClose">✕</button>
+      </div>
+      <div class="map-venues" id="mapVenues"></div>
+      <div class="color-head">Spot on the water</div>
+      <div class="pos-grid" id="posGrid"></div>
+    </div>
+  </div>
+
+  <!-- Tournament start modal -->
+  <div id="tourStartModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="catch-emoji">🏆</div>
+      <div class="catch-name">Bass Tournament</div>
+      <p class="muted" id="tourRules"></p>
+      <ul class="rules">
+        <li>⏱️ Race the clock to boat your best 5 <b>largemouth</b>.</li>
+        <li>🪣 5-fish live well — a 6th auto-culls your smallest.</li>
+        <li>🐟 Only largemouth count. Everything else is released.</li>
+        <li>🏅 Heaviest 5-fish bag wins. Big Bass earns a bonus.</li>
+      </ul>
+      <div class="tour-entry">Entry: <b id="tourFee">50</b> 🪙 · Field of <b id="tourField">10</b></div>
+      <button class="big-btn" id="tourStartBtn">START · <span id="tourStartFee">50</span> 🪙</button>
+      <button class="text-btn" id="tourStartCancel">Maybe later</button>
+    </div>
+  </div>
+
+  <!-- Tournament results modal -->
+  <div id="tourResultModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="catch-emoji" id="tourResultMedal">🏅</div>
+      <div class="catch-name" id="tourPlace">3rd Place</div>
+      <div class="tour-bag" id="tourBag"></div>
+      <div class="tour-result-stats" id="tourResultStats"></div>
+      <div class="tour-standings" id="tourStandings"></div>
+      <button class="big-btn" id="tourResultOk">COLLECT</button>
     </div>
   </div>
 
@@ -90,11 +151,13 @@
 
       <div class="shop-tabs">
         <button class="tab active" data-tab="rods">Rods</button>
+        <button class="tab" data-tab="lures">Lures</button>
         <button class="tab" data-tab="spots">Spots</button>
         <button class="tab" data-tab="dex">Fish-Dex</button>
       </div>
 
       <div class="shop-body" id="shopRods"></div>
+      <div class="shop-body hidden" id="shopLures"></div>
       <div class="shop-body hidden" id="shopSpots"></div>
       <div class="shop-body hidden" id="shopDex"></div>
     </div>

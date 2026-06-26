@@ -7,20 +7,31 @@ No installs, no accounts, no build step — just open it in a phone browser and 
 
 ## How to play
 
-1. **Tap & hold** the big button to charge your cast — release to fling your line.
+1. **Tap the water** where you want your lure to land — aim for the glowing
+   structure (lily pads, dock, drop-off…) where the good fish hold.
 2. **Wait for a bite.** When you see **FISH ON!**, tap to set the hook (be quick!).
-3. **Reel it in.** Hold the button to lift your green catch-bar, release to let it
-   drop. Keep the bar over the fish to fill the progress meter and land your catch.
+3. **Reel it in.** Hold to lift your green catch-bar, release to let it drop.
+   Keep the bar over the fish to fill the progress meter and land your catch.
 4. **Earn 🪙 coins**, beat your personal-best weights, and spend coins in the
-   **🛒 Tackle Shop** on better rods and new fishing spots.
+   **🛒 Tackle Shop** on better rods, lures, and new fishing spots.
 
 ## Features
 
-- **One-thumb gameplay** — the entire game is driven by a single tap-and-hold button.
-- **Three fishing spots** — Lily Cove, Rushing River, and Midnight Lake, each with
-  its own scenery, fish, and bigger payouts.
-- **Rods that matter** — upgrade for stronger reels, bigger fish, and rarer luck.
-- **20+ fish** across common → uncommon → rare → legendary, plus the odd old boot. 🥾
+- **Aim your cast** — tap anywhere in your casting range to place the lure;
+  land it on the highlighted structure for faster bites and better fish.
+- **Lures that matter** — pick a **type** (worm, spinnerbait, crankbait, frog,
+  jig, swimbait) and a **color**. Match the color to the water clarity for more
+  bites; topwater frogs and jigs target big largemouth.
+- **Choose your spot** — 3 venues (Lily Cove, Rushing River, Midnight Lake), each
+  with several **fishing positions** that change which species are biting.
+- **🏆 Tournament mode** — race the clock to boat your best **5 largemouth**.
+  Real bass-tournament rules: a 5-fish live well, **auto-culling** when you hook a
+  sixth, **only largemouth count** (everything else is released), Big Bass bonus,
+  an AI field, weigh-in standings, and coin payouts by placement.
+- **Species-accurate fish art** — every fish is drawn to look like itself
+  (a bronze barred smallmouth, a whiskered catfish, a big-eyed walleye…).
+- **Rods that matter** — upgrade for stronger reels, longer casts, and rarer luck.
+- **14 species** across common → uncommon → rare → legendary, plus junk. 🥾
 - **Fish-Dex** that tracks every species you've caught and your record weights.
 - **Progress saved automatically** in your browser (localStorage).
 - **Mobile-first** — haptic feedback, safe-area aware, no zoom/scroll jank.
