@@ -36,6 +36,25 @@ Time of day, weather, and water temperature set **where the bass hold** (shallow
 at dawn/dusk, deeper midday) and which **lure color** they see best (natural on
 bright days, bright colors in fog/murk) — just like the original.
 
+## Two ways to play
+
+- **🎯 Career** — start with a twig rod and a worm and earn coins to unlock better
+  rods, lures and lakes. The full progression.
+- **🕹️ Arcade** — everything unlocked and free tournament entry. A sandbox to
+  experiment and learn which lure-and-spot combos work in which conditions.
+
+Switch anytime from the mode button; your unlocks and records are kept.
+
+## Read the conditions, pick your combo
+
+The **tackle box shows a live bite rating** for every lure for the current
+time, weather, water temperature, depth and structure — with a one-line "why"
+(e.g. *"Fish are deep — a topwater won't reach"*, *"Too flashy — go natural in
+bright light"*). The fish finder recommends the **best lure right now**. It's
+honest (the rating drives the real catch odds) and modeled on real fishing, so
+it doubles as practice for picking lures in real conditions — which is the whole
+game in tournament mode: choosing **when, where and what** to fish.
+
 ## Features
 
 - **Aim your cast** — tap anywhere in your casting range to place the lure;

@@ -173,6 +173,7 @@
       positions: { cove: "pads", river: "riffle", deep: "weed" },
       records: {}, caught: {},
       tourWins: 0, bestBag: 0,
+      mode: "career",   // "career" (earn & unlock) | "arcade" (everything unlocked)
     };
   }
   function load() {
@@ -203,6 +204,12 @@
   const spot = () => SPOTS.find(s => s.id === G.spot) || SPOTS[0];
   const position = () => { const sp = spot(); return sp.positions.find(p => p.id === G.positions[sp.id]) || sp.positions[0]; };
 
+  // Arcade unlocks everything; career goes by what you've earned.
+  const isArcade = () => G.mode === "arcade";
+  const ownsRod = id => isArcade() || G.ownedRods.includes(id);
+  const ownsLure = id => isArcade() || G.ownedLures.includes(id);
+  const ownsSpot = id => isArcade() || G.ownedSpots.includes(id);
+
   // ===========================================================================
   // DOM refs
   // ===========================================================================
@@ -223,9 +230,9 @@
     shopBtn: $("shopBtn"), shopModal: $("shopModal"), shopClose: $("shopClose"), shopCoins: $("shopCoins"),
     shopRods: $("shopRods"), shopLures: $("shopLures"), shopSpots: $("shopSpots"), shopDex: $("shopDex"),
     rodChip: $("rodChip"), lureChip: $("lureChip"), spotChip: $("spotChip"),
-    lureModal: $("lureModal"), lureClose: $("lureClose"), lureList: $("lureList"), colorRow: $("colorRow"),
+    lureModal: $("lureModal"), lureClose: $("lureClose"), lureList: $("lureList"), colorRow: $("colorRow"), lureCond: $("lureCond"),
     mapModal: $("mapModal"), mapClose: $("mapClose"), mapVenues: $("mapVenues"), posGrid: $("posGrid"), finder: $("finder"),
-    tourneyBtn: $("tourneyBtn"),
+    tourneyBtn: $("tourneyBtn"), modeBtn: $("modeBtn"), modeModal: $("modeModal"), modeClose: $("modeClose"),
     tourHud: $("tourHud"), tourClock: $("tourClock"), livewell: $("livewell"), tourTotal: $("tourTotal"), tourBig: $("tourBig"), tourQuit: $("tourQuit"),
     tourStartModal: $("tourStartModal"), tourFee: $("tourFee"), tourField: $("tourField"), tourStartFee: $("tourStartFee"),
     tourStartBtn: $("tourStartBtn"), tourStartCancel: $("tourStartCancel"), tourRules: $("tourRules"),
@@ -498,8 +505,32 @@
     el.lureIco.textContent = lu.ico;
     el.lureName.textContent = lu.name.split(" ")[lu.name.split(" ").length - 1];
     el.lureSwatch.style.background = COLORS[G.lure.color].hex;
+    el.modeBtn.textContent = isArcade() ? "🕹️ Arcade" : "🎯 Career";
+    el.modeBtn.classList.toggle("arcade", isArcade());
     renderConditions();
   }
+
+  // ---- Game mode (career / arcade) ----
+  function reconcileOwnership() {
+    if (!G.ownedRods.includes(G.rod)) G.rod = G.ownedRods[G.ownedRods.length - 1] || "twig";
+    if (!G.ownedLures.includes(G.lure.id)) { G.lure.id = "worm"; G.lure.color = lure().colors[0]; }
+    if (!G.ownedSpots.includes(G.spot)) { G.spot = G.ownedSpots[0] || "cove"; seedFish(); rollConditions(); }
+  }
+  function setMode(m) {
+    if (G.mode === m) { el.modeModal.classList.add("hidden"); return; }
+    if (S.tournament) { toast("Finish the tournament first"); return; }
+    G.mode = m;
+    if (m === "career") reconcileOwnership();
+    save(); updateHUD(); resetToIdle();
+    el.modeModal.classList.add("hidden");
+    toast(m === "arcade" ? "🕹️ Arcade — everything unlocked!" : "🎯 Career — back to your progress");
+  }
+  el.modeBtn.addEventListener("click", () => {
+    el.modeModal.querySelectorAll(".mode-opt").forEach(o => o.classList.toggle("sel", o.dataset.mode === G.mode));
+    el.modeModal.classList.remove("hidden");
+  });
+  el.modeClose.addEventListener("click", () => el.modeModal.classList.add("hidden"));
+  el.modeModal.addEventListener("click", (e) => { const o = e.target.closest(".mode-opt"); if (o) setMode(o.dataset.mode); });
 
   // ===========================================================================
   // Conditions: time of day, weather, water temperature -> fish holding depth
@@ -538,6 +569,97 @@
     el.condIcon.textContent = w.ico;
     el.condTemp.textContent = c.temp + "°";
     el.condClock.textContent = fmtClock(c.timeMin);
+  }
+
+  // ===========================================================================
+  // Bite-rating engine — realistic "what to throw right now" scoring.
+  // Combines depth, light/color, time, water temp, weather and structure so the
+  // rating both drives the catch odds and teaches real lure selection.
+  // ===========================================================================
+  const STRUCT_GROUP = {
+    pads: "veg", weed: "veg", reeds: "veg", tailout: "veg", flat: "veg",
+    dock: "wood", bank: "wood", logs: "wood", pool: "wood",
+    rocks: "rock", point: "rock", riffle: "rock",
+    drop: "deep", hole: "deep", open: "open",
+  };
+  const STRUCT_PREF = {
+    frog:      { veg: 1.0, wood: 0.8, rock: 0.5, deep: 0.25, open: 0.6 },
+    pencil:    { veg: 0.7, wood: 0.6, rock: 0.6, deep: 0.35, open: 0.95 },
+    torpedo:   { veg: 0.75, wood: 0.6, rock: 0.6, deep: 0.35, open: 0.95 },
+    jitterbug: { veg: 0.85, wood: 0.7, rock: 0.5, deep: 0.3, open: 0.75 },
+    worm:      { veg: 0.85, wood: 1.0, rock: 0.7, deep: 0.8, open: 0.6 },
+    furry:     { veg: 0.6, wood: 1.0, rock: 0.85, deep: 0.95, open: 0.6 },
+    spoon:     { veg: 0.45, wood: 0.6, rock: 0.85, deep: 0.9, open: 0.9 },
+    crank:     { veg: 0.35, wood: 0.6, rock: 1.0, deep: 0.95, open: 0.85 },
+  };
+
+  // score a lure for the current conditions; returns {score 0..1, pct, stars, tip, good}
+  function lureScore(lu, colorId) {
+    const c = S.cond, band = c.band, hour = c.timeMin / 60, temp = c.temp;
+    const pos = position();
+    const lowLight = hour < 8 || hour > 18 || c.weather === "night" || c.weather === "fog";
+    const overcast = c.weather === "cloud" || c.weather === "fog" || c.weather === "night";
+    const bright = c.weather === "sun";
+    const top = lu.style === "top";
+
+    // 1) depth — can the lure present where the fish are holding?
+    let depth;
+    if (top) depth = clamp(1 - Math.max(0, band - 0.12) / 0.4, 0.05, 1);
+    else if (band > lu.band + 0.08) depth = clamp(1 - (band - lu.band) / 0.5, 0.1, 0.6);
+    else depth = clamp(1 - Math.abs(band - lu.band) * 0.7, 0.55, 1);
+
+    // 2) color vs available light
+    const col = COLORS[colorId || G.lure.color];
+    const color = col.fam === preferredFam() ? 1 : 0.58;
+
+    // 3) time of day
+    let time;
+    if (top) time = lowLight ? 1 : (hour >= 10 && hour <= 16 ? 0.35 : 0.72);
+    else if (lu.id === "crank" || lu.id === "spoon") time = (hour >= 8 && hour <= 18) ? 0.95 : 0.7;
+    else time = 0.85;
+
+    // 4) water temperature
+    const slow = lu.id === "worm" || lu.id === "furry";
+    let tempS;
+    if (temp < 55) tempS = slow ? 1 : (top ? 0.4 : 0.7);
+    else if (temp > 72) tempS = top ? 1 : (slow ? 0.72 : 0.9);
+    else tempS = 0.9;
+
+    // 5) weather / activity
+    const moving = ["torpedo", "jitterbug", "crank", "spoon"].includes(lu.id);
+    let weath;
+    if (moving) weath = overcast ? 1 : 0.72;
+    else if (slow) weath = bright ? 1 : 0.78;
+    else weath = overcast ? 0.85 : 0.95;
+
+    // 6) structure / position
+    const grp = STRUCT_GROUP[pos.id] || "open";
+    const structS = (STRUCT_PREF[lu.id] && STRUCT_PREF[lu.id][grp]) != null ? STRUCT_PREF[lu.id][grp] : 0.6;
+
+    const score = depth * 0.30 + color * 0.15 + time * 0.15 + tempS * 0.12 + weath * 0.12 + structS * 0.16;
+
+    // educational tip — call out the limiting factor (or the strength)
+    const factors = [
+      ["depth", depth], ["color", color], ["time", time], ["temp", tempS], ["weather", weath], ["struct", structS],
+    ].sort((a, b) => a[1] - b[1]);
+    const weak = factors[0];
+    let tip;
+    if (weak[1] >= 0.62) tip = "✓ Dialed in for these conditions";
+    else if (weak[0] === "depth") tip = top ? "Fish are deep — a topwater won't reach" : "Wrong depth for where they're holding";
+    else if (weak[0] === "color") tip = bright ? "Too flashy — go natural in bright light" : "Too dull — go bright in low visibility";
+    else if (weak[0] === "time") tip = "Topwater fades in midday sun — save it for low light";
+    else if (weak[0] === "temp") tip = temp < 55 ? "Cold water — fish want a slow bait" : "Warm & active — a faster bait shines";
+    else if (weak[0] === "weather") tip = moving ? "Calm & clear — finesse beats flash" : "Active, overcast day — try a moving bait";
+    else tip = "Not the cover this lure loves";
+
+    return { score, pct: Math.round(score * 100), stars: clamp(Math.round(score * 5), 1, 5), tip, good: weak[1] >= 0.62 };
+  }
+
+  function bestLureNow() {
+    const pool = LURES.filter(l => ownsLure(l.id));
+    let best = null, bs = -1;
+    for (const l of pool) { const s = lureScore(l).score; if (s > bs) { bs = s; best = l; } }
+    return best ? { lure: best, ...lureScore(best) } : null;
   }
 
   // ===========================================================================
@@ -800,15 +922,15 @@
   function tourConfig() {
     const sp = spot();
     const dur = 150000; // 2:30
-    const fee = sp.id === "deep" ? 150 : sp.id === "river" ? 90 : 50;
+    const fee = isArcade() ? 0 : (sp.id === "deep" ? 150 : sp.id === "river" ? 90 : 50);
     const field = 10;
     return { dur, fee, field };
   }
   function openTourStart() {
     if (S.tournament) return;
     const cfg = tourConfig();
-    el.tourFee.textContent = cfg.fee;
-    el.tourStartFee.textContent = cfg.fee;
+    el.tourFee.textContent = cfg.fee || "FREE";
+    el.tourStartFee.textContent = cfg.fee || "FREE";
     el.tourField.textContent = cfg.field;
     el.tourRules.textContent = `${spot().name} • ${Math.round(cfg.dur / 60000)}:${String(Math.round(cfg.dur / 1000) % 60).padStart(2, "0")} on the clock.`;
     el.tourStartBtn.disabled = G.coins < cfg.fee;
@@ -908,8 +1030,8 @@
     const board = ai.concat([me]).sort((a, b) => b.total - a.total);
     const place = board.findIndex(x => x.me) + 1;
 
-    // payouts
-    const fee = T.fee;
+    // payouts (arcade has no entry fee but still pays a base purse)
+    const fee = T.fee || 50;
     let payout = 0;
     if (place === 1) payout = fee * 6;
     else if (place === 2) payout = fee * 3.5;
@@ -1057,11 +1179,12 @@
       else R.depth = lu.band;
     }
 
-    const depthMatch = clamp(1 - Math.abs(R.depth - S.cond.band) * 1.8, 0, 1);
-    const colorMatch = COLORS[G.lure.color].fam === preferredFam() ? 1 : 0.7;
-    const struct = S.castBonus ? 1.25 : 1;
-    const build = (R.action > 0.55 ? 1 : 0.25) * depthMatch * colorMatch * struct * lu.bite;
-    R.interest = clamp(R.interest + (build * 0.011 - 0.0016) * step, 0, 1);
+    // strategic suitability (the bite rating) × live skill (working it at the right depth)
+    const sc = lureScore(lu).score;
+    const depthNow = clamp(1 - Math.abs(R.depth - S.cond.band) * 1.8, 0, 1);
+    const struct = S.castBonus ? 1.2 : 1;
+    const build = (R.action > 0.55 ? 1 : 0.3) * (0.25 + sc) * depthNow * struct;
+    R.interest = clamp(R.interest + (build * 0.012 - 0.0016) * step, 0, 1);
     R.follower = R.interest;
     if (R.interest >= 1) { strike(); return; }
     if (R.dist <= 0) { endRetrieveMiss(); return; }
@@ -1559,14 +1682,26 @@
   // Lure tray
   // ===========================================================================
   function openLures() { renderLures(); el.lureModal.classList.remove("hidden"); }
+  function ratingColor(p) { return p >= 75 ? "#5be37a" : p >= 50 ? "#ffd35c" : p >= 30 ? "#ff9d3d" : "#ff5d5d"; }
+  function starStr(n) { return "★★★★★".slice(0, n) + "☆☆☆☆☆".slice(0, 5 - n); }
   function renderLures() {
-    el.lureList.innerHTML = LURES.map(l => {
-      const owned = G.ownedLures.includes(l.id);
+    const c = S.cond, w = WEATHER[c.weather], band = c.band;
+    const zone = band < 0.34 ? "shallow" : band < 0.67 ? "mid-depth" : "deep";
+    el.lureCond.innerHTML = `${w.ico} ${w.name} · ${c.temp}° · ${fmtClock(c.timeMin)} · bass holding <b>${zone}</b> (~${Math.round(band * 24)}ft)`;
+    // rate every lure for right now, best first
+    const rated = LURES.map(l => ({ l, owned: ownsLure(l.id), r: lureScore(l) }))
+      .sort((a, b) => b.r.score - a.r.score);
+    el.lureList.innerHTML = rated.map(({ l, owned, r }) => {
       const sel = G.lure.id === l.id;
+      const tag = owned ? (sel ? "✓ ON" : "TAP") : "🔒 " + l.price + "🪙";
       return `<div class="lure-opt ${sel ? "sel" : ""} ${owned ? "" : "locked"}" data-lure="${l.id}" data-owned="${owned}">
         <div class="ico">${l.ico}</div>
-        <div class="info"><div class="nm">${l.name}</div><div class="ds">${l.desc}</div></div>
-        <div class="tag">${owned ? (sel ? "✓" : "TAP") : "🔒 " + l.price + "🪙"}</div></div>`;
+        <div class="info">
+          <div class="nm">${l.name} <span class="stars" style="color:${ratingColor(r.pct)}">${starStr(r.stars)}</span></div>
+          <div class="rate"><div class="rate-bar"><i style="width:${r.pct}%;background:${ratingColor(r.pct)}"></i></div><b style="color:${ratingColor(r.pct)}">${r.pct}</b></div>
+          <div class="ds">${r.tip}</div>
+        </div>
+        <div class="tag">${tag}</div></div>`;
     }).join("");
     renderColors();
   }
@@ -1575,9 +1710,10 @@
     el.colorRow.innerHTML = l.colors.map(c => {
       const col = COLORS[c];
       const sel = G.lure.color === c;
-      const good = col.fam === spot().clarity;
+      const good = col.fam === preferredFam();
+      const r = lureScore(l, c).pct;
       return `<div class="color-dot ${sel ? "sel" : ""}" data-color="${c}" style="background:${col.hex}">
-        <small>${col.name}${good ? " ⭐" : ""}</small></div>`;
+        <small>${col.name}${good ? " ⭐" : ""} · ${r}</small></div>`;
     }).join("");
   }
   el.lureChip.addEventListener("click", openLures);
@@ -1605,7 +1741,7 @@
   function openMap() { renderMap(); el.mapModal.classList.remove("hidden"); }
   function renderMap() {
     el.mapVenues.innerHTML = SPOTS.map(s => {
-      const owned = G.ownedSpots.includes(s.id);
+      const owned = ownsSpot(s.id);
       const sel = G.spot === s.id;
       return `<div class="venue ${sel ? "sel" : ""} ${owned ? "" : "locked"}" data-venue="${s.id}" data-owned="${owned}">
         <div class="ico">${s.ico}</div>
@@ -1627,6 +1763,7 @@
   // Sonar / fish-finder: what's biting, where, and what to throw — boat-mode scouting.
   function renderFinder() {
     const sp = spot(), pos = position(), c = S.cond, w = WEATHER[c.weather];
+    const best = bestLureNow();
     // species likelihood at this position (structure bias only)
     const rows = sp.fish.map(e => ({ def: fishDef(e.k), w: e.weight * ((pos.bias && pos.bias[e.k]) || 1) }));
     const tot = rows.reduce((a, b) => a + b.w, 0) || 1;
@@ -1659,6 +1796,7 @@
         <div class="fi-line">${w.ico} ${w.name} · ${c.temp}° · ${fmtClock(c.timeMin)}</div>
         <div class="fi-line">Bass holding <b>${zone}</b> · ~${depthFt} ft</div>
         <div class="fi-line">Throw <b>${recDepth}</b> lures in <b>${recColor}</b></div>
+        ${best ? `<div class="fi-line">Best lure: <b>${best.lure.ico} ${best.lure.name}</b> <span style="color:${ratingColor(best.pct)}">${best.pct}</span></div>` : ""}
         <div class="fi-species">${top.map(t => `<span class="fs">${fishSVG(t.def, 34)}<small>${t.pct}%</small></span>`).join("")}</div>
       </div>
     </div>`;
@@ -1694,7 +1832,7 @@
     el.shopCoins.textContent = G.coins;
     // Rods
     el.shopRods.innerHTML = RODS.map(r => {
-      const owned = G.ownedRods.includes(r.id), eq = G.rod === r.id;
+      const owned = ownsRod(r.id), eq = G.rod === r.id;
       const btn = owned ? (eq ? `<button class="item-btn equipped" disabled>EQUIPPED</button>` : `<button class="item-btn owned" data-equip-rod="${r.id}">EQUIP</button>`)
                         : `<button class="item-btn buy" data-buy-rod="${r.id}" ${G.coins < r.price ? "disabled" : ""}>${r.price} 🪙</button>`;
       return `<div class="item"><div class="item-ico">${r.ico}</div><div class="item-info"><div class="item-name">${r.name}</div>
@@ -1702,7 +1840,7 @@
     }).join("");
     // Lures
     el.shopLures.innerHTML = LURES.map(l => {
-      const owned = G.ownedLures.includes(l.id), eq = G.lure.id === l.id;
+      const owned = ownsLure(l.id), eq = G.lure.id === l.id;
       const btn = owned ? (eq ? `<button class="item-btn equipped" disabled>EQUIPPED</button>` : `<button class="item-btn owned" data-equip-lure="${l.id}">EQUIP</button>`)
                         : `<button class="item-btn buy" data-buy-lure="${l.id}" ${G.coins < l.price ? "disabled" : ""}>${l.price} 🪙</button>`;
       const swatches = l.colors.map(c => `<i style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${COLORS[c].hex};margin-right:3px;border:1px solid rgba(255,255,255,.4)"></i>`).join("");
@@ -1711,7 +1849,7 @@
     }).join("");
     // Spots
     el.shopSpots.innerHTML = SPOTS.map(s => {
-      const owned = G.ownedSpots.includes(s.id), active = G.spot === s.id;
+      const owned = ownsSpot(s.id), active = G.spot === s.id;
       const btn = owned ? (active ? `<button class="item-btn equipped" disabled>FISHING</button>` : `<button class="item-btn owned" data-go-spot="${s.id}">GO</button>`)
                         : `<button class="item-btn buy" data-buy-spot="${s.id}" ${G.coins < s.price ? "disabled" : ""}>${s.price} 🪙</button>`;
       return `<div class="item"><div class="item-ico">${s.ico}</div><div class="item-info"><div class="item-name">${s.name}</div>

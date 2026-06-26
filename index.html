@@ -21,6 +21,7 @@
       <span id="coins">0</span>
     </div>
     <div class="hud-spacer"></div>
+    <button id="modeBtn" class="hud-mode">🎯 Career</button>
     <button id="tourneyBtn" class="hud-btn alt">🏆</button>
     <button id="shopBtn" class="hud-btn">🛒</button>
   </div>
@@ -106,7 +107,8 @@
         <h2>🪝 Tackle Box</h2>
         <button class="close-btn" id="lureClose">✕</button>
       </div>
-      <p class="muted">Pick a lure, then a color. Match the color to the water for more bites.</p>
+      <p class="muted">Bite ratings for right now — read the conditions and pick your combo.</p>
+      <div class="lure-cond" id="lureCond"></div>
       <div class="lure-list" id="lureList"></div>
       <div class="color-head">Color</div>
       <div class="color-row" id="colorRow"></div>
@@ -125,6 +127,26 @@
       <div class="pos-grid" id="posGrid"></div>
       <div class="color-head">📡 Fish Finder</div>
       <div class="finder" id="finder"></div>
+    </div>
+  </div>
+
+  <!-- Game mode picker -->
+  <div id="modeModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="catch-emoji">🎮</div>
+      <div class="catch-name">Game Mode</div>
+      <p class="muted">Switch anytime. Your unlocks and records are kept.</p>
+      <div class="mode-opts">
+        <button class="mode-opt" data-mode="career">
+          <div class="mo-h">🎯 Career</div>
+          <div class="mo-d">Start simple and earn coins to unlock rods, lures and lakes. The full progression.</div>
+        </button>
+        <button class="mode-opt" data-mode="arcade">
+          <div class="mo-h">🕹️ Arcade</div>
+          <div class="mo-d">Everything unlocked, free tournament entry. A sandbox to learn which lure-and-spot combos work in which conditions.</div>
+        </button>
+      </div>
+      <button class="text-btn" id="modeClose">Close</button>
     </div>
   </div>
 

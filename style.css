@@ -78,6 +78,23 @@ html, body {
 }
 .hud-btn.alt { background: #ffe7a6; }
 .hud-btn:active { transform: scale(.9); }
+.hud-mode {
+  flex: 0 0 auto; border: 1px solid var(--ui-line);
+  background: var(--ui); color: var(--txt);
+  border-radius: 999px; padding: 0 12px; height: 42px;
+  font-size: 13px; font-weight: 800; cursor: pointer;
+  backdrop-filter: blur(6px); box-shadow: 0 3px 10px rgba(0,0,0,.25); white-space: nowrap;
+}
+.hud-mode.arcade { background: #5c9bff; color: #04122e; border-color: transparent; }
+.hud-mode:active { transform: scale(.94); }
+.mode-opts { display: flex; flex-direction: column; gap: 10px; margin: 10px 0 4px; }
+.mode-opt {
+  text-align: left; background: rgba(255,255,255,.05);
+  border: 1px solid var(--ui-line); border-radius: 16px; padding: 14px; cursor: pointer; color: var(--txt);
+}
+.mode-opt.sel { border-color: var(--gold); background: rgba(255,211,92,.12); }
+.mode-opt .mo-h { font-weight: 800; font-size: 17px; }
+.mode-opt .mo-d { font-size: 12px; color: #a9cdd9; margin-top: 4px; line-height: 1.4; }
 
 /* ---------- Loadout chips ---------- */
 .loadout {
@@ -196,8 +213,18 @@ html, body {
 .lure-opt .ico { font-size: 26px; width: 32px; text-align: center; }
 .lure-opt .info { flex: 1; }
 .lure-opt .nm { font-weight: 800; font-size: 15px; }
-.lure-opt .ds { font-size: 11px; color: #a9cdd9; margin-top: 1px; }
-.lure-opt .tag { font-size: 11px; font-weight: 800; color: #8aa0ab; }
+.lure-opt .nm .stars { font-size: 12px; letter-spacing: -1px; margin-left: 4px; }
+.lure-opt .ds { font-size: 11px; color: #a9cdd9; margin-top: 2px; }
+.lure-opt .tag { font-size: 11px; font-weight: 800; color: #8aa0ab; flex: 0 0 auto; }
+.lure-opt .rate { display: flex; align-items: center; gap: 6px; margin-top: 3px; }
+.lure-opt .rate-bar { flex: 1; height: 6px; border-radius: 999px; background: rgba(0,0,0,.3); overflow: hidden; }
+.lure-opt .rate-bar i { display: block; height: 100%; border-radius: 999px; }
+.lure-opt .rate b { font-size: 11px; min-width: 20px; text-align: right; }
+.lure-cond {
+  background: rgba(0,0,0,.25); border: 1px solid var(--ui-line); border-radius: 12px;
+  padding: 8px 11px; font-size: 12px; color: #d6ecf3; margin-bottom: 12px; line-height: 1.4;
+}
+.lure-cond b { color: var(--gold); }
 .color-head { font-size: 12px; font-weight: 800; letter-spacing: 1px; color: #bfe0ec; margin: 14px 0 8px; text-transform: uppercase; }
 .color-row { display: flex; gap: 10px; flex-wrap: wrap; }
 .color-dot {
