@@ -505,6 +505,8 @@ html, body {
   background: #6b7785; color: #fff;
   margin-bottom: 8px;
 }
+.catch-rarity.lunker { animation: lunkerPulse .5s ease-in-out infinite; box-shadow: 0 0 16px rgba(255,211,92,.8); }
+@keyframes lunkerPulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.12)} }
 .catch-emoji { font-size: 86px; line-height: 1; animation: bob 1.4s ease-in-out infinite; filter: drop-shadow(0 8px 10px rgba(0,0,0,.4)); }
 @keyframes bob { 0%,100%{transform:translateY(0) rotate(-4deg)} 50%{transform:translateY(-8px) rotate(4deg)} }
 .catch-name { font-size: 24px; font-weight: 800; margin: 10px 0 4px; }

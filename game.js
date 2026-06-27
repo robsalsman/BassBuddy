@@ -61,15 +61,18 @@
       style: "sink", band: 0.82, cadence: "slow", motion: "Slow bottom drag" },
   ];
 
-  // Fish. `art` drives the SVG. `lm:true` = largemouth black bass (tournament-legal).
+  // Fish. `art` drives the SVG. `bass:true` = black bass (counts in tournaments);
+  // `lm:true` marks a largemouth specifically.
   const F = {
     bluegill:  { name: "Bluegill",        w: [0.2, 1.1],  rarity: "common", base: 5,
                  art: { shape: "panfish", body: "#4f7fa0", belly: "#e0a23a", pat: "panel" } },
-    largemouth:{ name: "Largemouth Bass", w: [1.0, 6.5],  rarity: "common", base: 11, lm: true,
+    largemouth:{ name: "Largemouth Bass", w: [1.0, 7.0],  rarity: "common", base: 12, lm: true, bass: true,
                  art: { shape: "bass", body: "#6f9e4e", belly: "#eef1d6", pat: "lateral", patColor: "#33401f", bigmouth: true } },
-    smallmouth:{ name: "Smallmouth Bass", w: [0.8, 4.5],  rarity: "uncommon", base: 16,
+    smallmouth:{ name: "Smallmouth Bass", w: [0.8, 5.0],  rarity: "common", base: 14, bass: true,
                  art: { shape: "bass", body: "#a07b46", belly: "#efe6cf", pat: "bars", patColor: "#6e4f28", eye: "#c23a2a" } },
-    golden:    { name: "Golden Bass",     w: [3.0, 8.5],  rarity: "rare", base: 60,
+    spotted:   { name: "Spotted Bass",    w: [0.6, 4.5],  rarity: "common", base: 13, bass: true,
+                 art: { shape: "bass", body: "#6f8a3e", belly: "#eef0d2", pat: "spots", patColor: "#2f3d1c", eye: "#c23a2a" } },
+    golden:    { name: "Golden Bass",     w: [3.0, 9.0],  rarity: "rare", base: 70, bass: true,
                  art: { shape: "bass", body: "#e8b53a", belly: "#fff3c4", pat: "lateral", patColor: "#b07a16", bigmouth: true, shimmer: true } },
     rainbow:   { name: "Rainbow Trout",   w: [0.6, 4.0],  rarity: "common", base: 14,
                  art: { shape: "trout", body: "#7fae9c", belly: "#f2f0e6", pat: "trout" } },
@@ -79,7 +82,7 @@
                  art: { shape: "musky", body: "#8aa05a", belly: "#eef0d8", pat: "bars", patColor: "#46562a" } },
     walleye:   { name: "Walleye",         w: [1.0, 8.0],  rarity: "common", base: 22,
                  art: { shape: "walleye", body: "#b59b54", belly: "#f2ead0", pat: "bars", patColor: "#7c6a32", bigeye: true } },
-    giant:     { name: "Giant Bass",      w: [6.0, 18.0], rarity: "uncommon", base: 45, lm: true,
+    giant:     { name: "Giant Largemouth", w: [6.0, 18.0], rarity: "uncommon", base: 45, lm: true, bass: true,
                  art: { shape: "bass", body: "#5e8f54", belly: "#e8edcf", pat: "lateral", patColor: "#2c3f22", bigmouth: true } },
     sturgeon:  { name: "Sturgeon",        w: [10.0, 48.0],rarity: "rare", base: 130,
                  art: { shape: "sturgeon", body: "#8b8f8a", belly: "#d8d6cc" } },
@@ -98,62 +101,64 @@
     {
       id: "cove", name: "Lily Cove", ico: "🌿", price: 0, clarity: "natural",
       sky: ["#7fd4e8", "#bff0f7"], water: ["#2a93b8", "#0a3a4a"],
-      desc: "Calm, clear starter water. Natural colors shine here.",
+      desc: "Calm, clear largemouth water — lily pads and laydowns.",
       fish: [
-        { k: "bluegill", weight: 46 }, { k: "largemouth", weight: 40 },
-        { k: "smallmouth", weight: 16 }, { k: "golden", weight: 4 }, { k: "boot", weight: 9 },
+        { k: "largemouth", weight: 52 }, { k: "spotted", weight: 13 }, { k: "smallmouth", weight: 11 },
+        { k: "giant", weight: 5 }, { k: "golden", weight: 3 }, { k: "bluegill", weight: 10 }, { k: "boot", weight: 6 },
       ],
       positions: [
-        { id: "pads", name: "Lily Pads", ico: "🪷", desc: "Largemouth ambush spot.",
-          zone: [0.30, 0.32, 0.18, 0.16], bias: { largemouth: 1.7, bluegill: 1.3, golden: 1.3, smallmouth: 0.7 } },
+        { id: "pads", name: "Lily Pads", ico: "🪷", desc: "Prime largemouth ambush cover.",
+          zone: [0.30, 0.32, 0.18, 0.16], bias: { largemouth: 1.9, spotted: 1.1, giant: 1.3, bluegill: 1.3, smallmouth: 0.6 } },
         { id: "dock", name: "Boat Dock", ico: "🛶", desc: "Shade-loving bass stack up.",
-          zone: [0.70, 0.30, 0.16, 0.14], bias: { largemouth: 1.5, smallmouth: 1.3, bluegill: 1.1 } },
-        { id: "open", name: "Open Water", ico: "🌊", desc: "Roaming schools, smallmouth.",
-          zone: [0.50, 0.62, 0.22, 0.16], bias: { smallmouth: 1.6, bluegill: 1.2 } },
-        { id: "drop", name: "The Drop-off", ico: "📉", desc: "Deeper edge, bigger fish.",
-          zone: [0.50, 0.84, 0.26, 0.14], bias: { golden: 2.2, largemouth: 1.2, smallmouth: 1.2, bluegill: 0.5 } },
+          zone: [0.70, 0.30, 0.16, 0.14], bias: { largemouth: 1.6, smallmouth: 1.3, spotted: 1.3 } },
+        { id: "open", name: "Open Water", ico: "🌊", desc: "Roaming smallmouth & spots.",
+          zone: [0.50, 0.62, 0.22, 0.16], bias: { smallmouth: 1.7, spotted: 1.5, bluegill: 0.7 } },
+        { id: "drop", name: "The Drop-off", ico: "📉", desc: "Deeper edge — the big girls.",
+          zone: [0.50, 0.84, 0.26, 0.14], bias: { giant: 2.3, golden: 2.0, largemouth: 1.3, spotted: 1.2, bluegill: 0.3 } },
       ],
     },
     {
-      id: "river", name: "Rushing River", ico: "🏞️", price: 200, clarity: "stained",
+      id: "river", name: "Boulder River", ico: "🏞️", price: 200, clarity: "natural",
       sky: ["#9fdcc0", "#d7f3e6"], water: ["#2fae8e", "#0c4438"],
-      desc: "Stained current. Bright colors get noticed.",
+      desc: "Clear rocky current — smallmouth and spotted bass country.",
       fish: [
-        { k: "rainbow", weight: 40 }, { k: "largemouth", weight: 28 },
-        { k: "catfish", weight: 18 }, { k: "muskie", weight: 5 }, { k: "can", weight: 9 },
+        { k: "smallmouth", weight: 38 }, { k: "spotted", weight: 26 }, { k: "largemouth", weight: 14 },
+        { k: "giant", weight: 3 }, { k: "catfish", weight: 7 }, { k: "rainbow", weight: 6 }, { k: "muskie", weight: 3 }, { k: "can", weight: 5 },
       ],
       positions: [
-        { id: "riffle", name: "Riffles", ico: "💨", desc: "Oxygen-rich, trout hold here.",
-          zone: [0.32, 0.42, 0.18, 0.14], bias: { rainbow: 1.8, catfish: 0.6 } },
-        { id: "pool", name: "Deep Pool", ico: "🌀", desc: "Catfish and toothy muskie.",
-          zone: [0.68, 0.66, 0.20, 0.18], bias: { catfish: 1.8, muskie: 1.8, rainbow: 0.7 } },
-        { id: "bank", name: "Undercut Bank", ico: "🪵", desc: "Largemouth tuck under cover.",
-          zone: [0.22, 0.70, 0.18, 0.16], bias: { largemouth: 1.9, muskie: 1.3 } },
-        { id: "tailout", name: "Tailout", ico: "🏞️", desc: "Mixed bag in the seam.",
-          zone: [0.55, 0.84, 0.26, 0.13], bias: { rainbow: 1.3, largemouth: 1.2, catfish: 1.2 } },
+        { id: "riffle", name: "Rocky Riffles", ico: "💨", desc: "Oxygen-rich — smallmouth feed.",
+          zone: [0.32, 0.42, 0.18, 0.14], bias: { smallmouth: 1.9, spotted: 1.4, rainbow: 1.4 } },
+        { id: "pool", name: "Deep Pool", ico: "🌀", desc: "Big bass and toothy muskie.",
+          zone: [0.68, 0.66, 0.20, 0.18], bias: { largemouth: 1.4, spotted: 1.2, catfish: 1.6, muskie: 1.8 } },
+        { id: "bank", name: "Undercut Bank", ico: "🪵", desc: "Largemouth tuck under wood.",
+          zone: [0.22, 0.70, 0.18, 0.16], bias: { largemouth: 1.9, spotted: 1.3, smallmouth: 1.1 } },
+        { id: "tailout", name: "Current Seam", ico: "🏞️", desc: "Smallmouth & spots stage here.",
+          zone: [0.55, 0.84, 0.26, 0.13], bias: { smallmouth: 1.5, spotted: 1.5, largemouth: 1.2 } },
       ],
     },
     {
-      id: "deep", name: "Midnight Lake", ico: "🌙", price: 900, clarity: "bright",
+      id: "deep", name: "Trophy Lake", ico: "🏆", price: 900, clarity: "bright",
       sky: ["#3a4b7a", "#1b2447"], water: ["#243a78", "#070d2a"],
-      desc: "Dark, deep, full of trophies. Bright colors only.",
+      desc: "Deep, low-light trophy lake — where giant bass live.",
       fish: [
-        { k: "walleye", weight: 32 }, { k: "giant", weight: 26 },
-        { k: "sturgeon", weight: 12 }, { k: "glowfish", weight: 8 }, { k: "monster", weight: 3 },
+        { k: "largemouth", weight: 30 }, { k: "giant", weight: 26 }, { k: "spotted", weight: 14 },
+        { k: "smallmouth", weight: 10 }, { k: "golden", weight: 6 }, { k: "walleye", weight: 6 },
+        { k: "sturgeon", weight: 4 }, { k: "glowfish", weight: 2 }, { k: "monster", weight: 1 },
       ],
       positions: [
-        { id: "weed", name: "Weed Edge", ico: "🌿", desc: "Giant largemouth prowl.",
-          zone: [0.30, 0.44, 0.18, 0.16], bias: { giant: 2.0, walleye: 1.2 } },
-        { id: "point", name: "Main-Lake Point", ico: "📍", desc: "Walleye & ancient sturgeon.",
-          zone: [0.70, 0.58, 0.18, 0.16], bias: { walleye: 1.8, sturgeon: 1.7 } },
-        { id: "hole", name: "Deep Hole", ico: "🕳️", desc: "Something huge lives down there.",
-          zone: [0.50, 0.84, 0.24, 0.14], bias: { sturgeon: 2.0, monster: 2.4, walleye: 0.6 } },
-        { id: "flat", name: "Moonlit Flat", ico: "🌙", desc: "Glowfish drift in the dark.",
-          zone: [0.50, 0.40, 0.26, 0.14], bias: { glowfish: 2.4, walleye: 1.3 } },
+        { id: "weed", name: "Weed Edge", ico: "🌿", desc: "Giant largemouth prowl the grass.",
+          zone: [0.30, 0.44, 0.18, 0.16], bias: { giant: 2.1, largemouth: 1.5, spotted: 1.1 } },
+        { id: "point", name: "Main-Lake Point", ico: "📍", desc: "Smallmouth, spots & old sturgeon.",
+          zone: [0.70, 0.58, 0.18, 0.16], bias: { smallmouth: 1.6, spotted: 1.5, walleye: 1.5, sturgeon: 1.5 } },
+        { id: "hole", name: "Deep Hole", ico: "🕳️", desc: "Where the true giants lurk.",
+          zone: [0.50, 0.84, 0.24, 0.14], bias: { giant: 1.9, golden: 1.6, sturgeon: 2.0, monster: 2.6, largemouth: 1.2 } },
+        { id: "flat", name: "Moonlit Flat", ico: "🌙", desc: "Spots & smallmouth roam the flat.",
+          zone: [0.50, 0.40, 0.26, 0.14], bias: { spotted: 1.7, smallmouth: 1.4, golden: 1.4, glowfish: 1.8 } },
       ],
     },
   ];
 
+  const LUNKER_LB = 6;   // a black bass this heavy earns a "LUNKER!" callout
   const RARITY_COLOR = { junk: "#8a96a0", common: "#9fb3bf", uncommon: "#5be37a", rare: "#5c9bff", legendary: "#ffd35c" };
   const RARITY_MULT  = { junk: 0.5, common: 1, uncommon: 1.4, rare: 2.2, legendary: 4 };
   const RARITY_HARD  = { junk: 0.05, common: 0.2, uncommon: 0.4, rare: 0.65, legendary: 0.9 };
@@ -298,6 +303,11 @@
     } else if (a.pat === "glow") {
       s += `<ellipse cx="${cx}" cy="${cy}" rx="${rx - 4}" ry="${ry - 3}" fill="#d6fbff" opacity="0.3"/>`;
       for (const [dx, dy] of [[-18, -6], [2, -8], [16, 4], [-6, 6]]) s += `<circle cx="${cx + dx}" cy="${cy + dy}" r="2" fill="#eafdff"/>`;
+    } else if (a.pat === "spots") {
+      // spotted bass: dark lateral blotch row + rows of small spots below it
+      const pc = a.patColor || "#33401f";
+      for (let i = 0; i < 6; i++) { const x = cx - rx + 14 + i * (rx * 1.5 / 6); s += `<ellipse cx="${x}" cy="${cy - 2}" rx="4" ry="5" fill="${pc}" opacity="0.42"/>`; }
+      for (let i = 0; i < 7; i++) { const x = cx - rx + 12 + i * (rx * 1.6 / 7); s += `<circle cx="${x}" cy="${cy + ry * 0.45}" r="1.8" fill="${pc}" opacity="0.6"/>`; }
     }
     return s;
   }
@@ -701,7 +711,7 @@
     const rangeFrac = (weight - lo) / Math.max(0.01, hi - lo);
     const difficulty = clamp(RARITY_HARD[chosen.rarity] * 0.6 + rangeFrac * 0.5, 0.05, 0.98);
     const value = Math.max(1, Math.round(chosen.base * (0.6 + weight / hi) * RARITY_MULT[chosen.rarity]));
-    return { def: chosen, name: chosen.name, art: chosen.art, rarity: chosen.rarity, lm: !!chosen.lm, weight, difficulty, value };
+    return { def: chosen, name: chosen.name, art: chosen.art, rarity: chosen.rarity, lm: !!chosen.lm, bass: !!chosen.bass, weight, difficulty, value };
   }
 
   // ===========================================================================
@@ -873,9 +883,12 @@
   }
 
   function showCatch(f, isRecord, prev) {
-    el.catchRarity.textContent = f.rarity.toUpperCase();
-    el.catchRarity.style.background = RARITY_COLOR[f.rarity];
-    el.catchRarity.style.color = f.rarity === "legendary" ? "#5a3a00" : "#06222c";
+    const lunk = f.bass && f.weight >= LUNKER_LB;
+    el.catchRarity.textContent = lunk ? "🏆 LUNKER!" : f.rarity.toUpperCase();
+    el.catchRarity.style.background = lunk ? "#ffd35c" : RARITY_COLOR[f.rarity];
+    el.catchRarity.style.color = (lunk || f.rarity === "legendary") ? "#5a3a00" : "#06222c";
+    el.catchRarity.classList.toggle("lunker", lunk);
+    if (lunk) vibrate([30, 50, 30, 50, 60]);
     el.catchArt.innerHTML = fishSVG(f, 170);
     el.catchName.textContent = f.name;
     el.catchWeight.textContent = f.weight;
@@ -947,22 +960,23 @@
     document.getElementById("loadout").classList.add("hidden");
     renderWell();
     resetToIdle();
-    toast("🏁 Lines in! Boat your best 5 largemouth!");
+    toast("🏁 Lines in! Boat your best 5 black bass!");
     save();
   }
   function tourLand(f, isRecord, prev) {
     const T = S.tournament;
-    if (!f.lm) {
-      toast(`Released — ${f.name}<br><small>only largemouth count</small>`);
+    if (!f.bass) {
+      toast(`Released — ${f.name}<br><small>only black bass count</small>`);
       vibrate(20);
       resetToIdle();
       return;
     }
+    const lunk = f.weight >= LUNKER_LB;
     const entry = { name: f.name, weight: f.weight, art: f.art };
     let msg = "";
     if (T.well.length < 5) {
       T.well.push(entry);
-      msg = `🪣 Live well: ${T.well.length}/5<br><b>${f.weight} lb largemouth</b>`;
+      msg = `🪣 Live well: ${T.well.length}/5<br><b>${lunk ? "🏆 LUNKER! " : ""}${f.weight} lb bass</b>`;
     } else {
       // auto-cull smallest
       let minI = 0; for (let i = 1; i < T.well.length; i++) if (T.well[i].weight < T.well[minI].weight) minI = i;
