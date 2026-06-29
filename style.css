@@ -77,6 +77,11 @@ html, body {
   transition: transform .1s;
 }
 .hud-btn.alt { background: #ffe7a6; }
+.hud-btn.three-d {
+  width: auto; padding: 0 12px; font-size: 13px; font-weight: 800;
+  display: inline-flex; align-items: center; justify-content: center;
+  text-decoration: none; background: linear-gradient(135deg,#5be37a,#2ec7c7); color: #06321a;
+}
 .hud-btn:active { transform: scale(.9); }
 .hud-mode {
   flex: 0 0 auto; border: 1px solid var(--ui-line);
