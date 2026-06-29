@@ -93,7 +93,7 @@
   // Venues, each with a fish table and selectable fishing positions.
   const SPOTS = [
     {
-      id: "cove", name: "Lily Cove", ico: "🌿", price: 0, clarity: "natural",
+      id: "cove", name: "Lily Cove", ico: "🌿", price: 0, clarity: "natural", baseDepth: 0.30,
       sky: ["#7fd4e8", "#bff0f7"], water: ["#2a93b8", "#0a3a4a"],
       desc: "Calm, clear largemouth water — lily pads and laydowns.",
       fish: [
@@ -101,18 +101,18 @@
         { k: "giant", weight: 8 }, { k: "golden", weight: 6 },
       ],
       positions: [
-        { id: "pads", name: "Lily Pads", ico: "🪷", desc: "Prime largemouth ambush cover.",
+        { id: "pads", name: "Lily Pads", ico: "🪷", desc: "Prime largemouth ambush cover.", depth: -0.14,
           zone: [0.30, 0.32, 0.18, 0.16], bias: { largemouth: 1.9, spotted: 1.1, giant: 1.3, smallmouth: 0.6 } },
-        { id: "dock", name: "Boat Dock", ico: "🛶", desc: "Shade-loving bass stack up.",
+        { id: "dock", name: "Boat Dock", ico: "🛶", desc: "Shade-loving bass stack up.", depth: -0.1,
           zone: [0.70, 0.30, 0.16, 0.14], bias: { largemouth: 1.6, smallmouth: 1.3, spotted: 1.3 } },
-        { id: "open", name: "Open Water", ico: "🌊", desc: "Roaming smallmouth & spots.",
+        { id: "open", name: "Open Water", ico: "🌊", desc: "Roaming smallmouth & spots.", depth: 0.0,
           zone: [0.50, 0.62, 0.22, 0.16], bias: { smallmouth: 1.7, spotted: 1.5 } },
-        { id: "drop", name: "The Drop-off", ico: "📉", desc: "Deeper edge — the big girls.",
+        { id: "drop", name: "The Drop-off", ico: "📉", desc: "Deeper edge — the big girls.", depth: 0.26,
           zone: [0.50, 0.84, 0.26, 0.14], bias: { giant: 2.3, golden: 2.0, largemouth: 1.3, spotted: 1.2 } },
       ],
     },
     {
-      id: "river", name: "Boulder River", ico: "🏞️", price: 200, clarity: "natural",
+      id: "river", name: "Boulder River", ico: "🏞️", price: 200, clarity: "natural", baseDepth: 0.46,
       sky: ["#9fdcc0", "#d7f3e6"], water: ["#2fae8e", "#0c4438"],
       desc: "Clear rocky current — smallmouth and spotted bass country.",
       fish: [
@@ -120,18 +120,18 @@
         { k: "giant", weight: 3 }, { k: "catfish", weight: 7 }, { k: "rainbow", weight: 4 }, { k: "muskie", weight: 2 },
       ],
       positions: [
-        { id: "riffle", name: "Rocky Riffles", ico: "💨", desc: "Oxygen-rich — smallmouth feed.",
+        { id: "riffle", name: "Rocky Riffles", ico: "💨", desc: "Oxygen-rich — smallmouth feed.", depth: -0.14,
           zone: [0.32, 0.42, 0.18, 0.14], bias: { smallmouth: 1.9, spotted: 1.4, rainbow: 1.4 } },
-        { id: "pool", name: "Deep Pool", ico: "🌀", desc: "Big bass and toothy muskie.",
+        { id: "pool", name: "Deep Pool", ico: "🌀", desc: "Big bass and toothy muskie.", depth: 0.2,
           zone: [0.68, 0.66, 0.20, 0.18], bias: { largemouth: 1.4, spotted: 1.2, catfish: 1.6, muskie: 1.8 } },
-        { id: "bank", name: "Undercut Bank", ico: "🪵", desc: "Largemouth tuck under wood.",
+        { id: "bank", name: "Undercut Bank", ico: "🪵", desc: "Largemouth tuck under wood.", depth: -0.08,
           zone: [0.22, 0.70, 0.18, 0.16], bias: { largemouth: 1.9, spotted: 1.3, smallmouth: 1.1 } },
-        { id: "tailout", name: "Current Seam", ico: "🏞️", desc: "Smallmouth & spots stage here.",
+        { id: "tailout", name: "Current Seam", ico: "🏞️", desc: "Smallmouth & spots stage here.", depth: 0.04,
           zone: [0.55, 0.84, 0.26, 0.13], bias: { smallmouth: 1.5, spotted: 1.5, largemouth: 1.2 } },
       ],
     },
     {
-      id: "deep", name: "Trophy Lake", ico: "🏆", price: 900, clarity: "bright",
+      id: "deep", name: "Trophy Lake", ico: "🏆", price: 900, clarity: "bright", baseDepth: 0.66,
       sky: ["#3a4b7a", "#1b2447"], water: ["#243a78", "#070d2a"],
       desc: "Deep, low-light trophy lake — where giant bass live.",
       fish: [
@@ -140,13 +140,13 @@
         { k: "sturgeon", weight: 4 }, { k: "glowfish", weight: 2 }, { k: "monster", weight: 1 },
       ],
       positions: [
-        { id: "weed", name: "Weed Edge", ico: "🌿", desc: "Giant largemouth prowl the grass.",
+        { id: "weed", name: "Weed Edge", ico: "🌿", desc: "Giant largemouth prowl the grass.", depth: -0.1,
           zone: [0.30, 0.44, 0.18, 0.16], bias: { giant: 2.1, largemouth: 1.5, spotted: 1.1 } },
-        { id: "point", name: "Main-Lake Point", ico: "📍", desc: "Smallmouth, spots & old sturgeon.",
+        { id: "point", name: "Main-Lake Point", ico: "📍", desc: "Smallmouth, spots & old sturgeon.", depth: 0.02,
           zone: [0.70, 0.58, 0.18, 0.16], bias: { smallmouth: 1.6, spotted: 1.5, walleye: 1.5, sturgeon: 1.5 } },
-        { id: "hole", name: "Deep Hole", ico: "🕳️", desc: "Where the true giants lurk.",
+        { id: "hole", name: "Deep Hole", ico: "🕳️", desc: "Where the true giants lurk.", depth: 0.24,
           zone: [0.50, 0.84, 0.24, 0.14], bias: { giant: 1.9, golden: 1.6, sturgeon: 2.0, monster: 2.6, largemouth: 1.2 } },
-        { id: "flat", name: "Moonlit Flat", ico: "🌙", desc: "Spots & smallmouth roam the flat.",
+        { id: "flat", name: "Moonlit Flat", ico: "🌙", desc: "Spots & smallmouth roam the flat.", depth: -0.2,
           zone: [0.50, 0.40, 0.26, 0.14], bias: { spotted: 1.7, smallmouth: 1.4, golden: 1.4, glowfish: 1.8 } },
       ],
     },
@@ -590,14 +590,23 @@
     recomputeCond();
   }
   function recomputeCond() {
-    const c = S.cond, hour = c.timeMin / 60;
-    // temperature: cooler at dawn/dusk/night, warmer midday
-    const midday = 1 - Math.abs(hour - 14) / 9;
-    c.temp = Math.round(clamp(54 + midday * 22 + WEATHER[c.weather].warm, 42, 86));
-    // fish holding depth: shallow at dawn/dusk/night, deeper in the midday sun
-    const warm = (c.temp - 54) / 32;                 // 0..1
-    const byTime = clamp(1 - Math.abs(hour - 14) / 9, 0, 1); // 0 dawn/dusk .. 1 midday
-    c.band = clamp(0.15 + byTime * 0.55 + (warm - 0.4) * 0.18, 0.08, 0.92);
+    const c = S.cond, hour = c.timeMin / 60, sp = spot(), pos = position(), wx = c.weather;
+    const midday = clamp(1 - Math.abs(hour - 14) / 9, 0, 1);
+    c.temp = Math.round(clamp(54 + midday * 22 + WEATHER[wx].warm, 42, 86));
+
+    // Holding depth = venue base + structure + time + weather + temperature.
+    const base = (sp.baseDepth != null ? sp.baseDepth : 0.4) + ((pos && pos.depth) || 0);
+    const timeShift = (midday - 0.5) * 0.42;                       // deep midday, shallow at dawn/dusk
+    const weatherShift = wx === "sun" ? 0.08 : wx === "cloud" ? -0.04 : wx === "fog" ? -0.08 : -0.10; // night up
+    const tempShift = c.temp < 52 ? 0.12 : c.temp > 80 ? 0.10 : 0; // temp extremes push deep
+    c.band = clamp(base + timeShift + weatherShift + tempShift, 0.06, 0.95);
+
+    // Feeding window: wide & easy when fish are active, tight when conditions are tough.
+    const lowLight = midday < 0.45 || wx !== "sun";
+    const moderate = c.temp >= 58 && c.temp <= 76;
+    let activity = 0.4 + (lowLight ? 0.22 : 0) + (moderate ? 0.2 : 0) + (wx === "cloud" || wx === "fog" ? 0.16 : 0);
+    c.activity = clamp(activity, 0.2, 1);
+    c.window = 0.05 + c.activity * 0.09;                            // zone half-width 0.05..0.14
   }
   function preferredFam() { return WEATHER[S.cond.weather].fam; }
   function fmtClock(min) {
@@ -1246,7 +1255,7 @@
 
     // strategic suitability (the bite rating) × live skill (working it at the right depth)
     const sc = lureScore(lu).score;
-    const depthNow = clamp(1 - Math.abs(R.depth - S.cond.band) * 1.8, 0, 1);
+    const depthNow = clamp(1 - Math.abs(R.depth - S.cond.band) / ((S.cond.window || 0.09) * 3), 0, 1);
     const struct = S.castBonus ? 1.2 : 1;
     const build = (R.action > 0.55 ? 1 : 0.3) * (0.25 + sc) * depthNow * struct;
     R.interest = clamp(R.interest + (build * 0.012 - 0.0016) * step, 0, 1);
@@ -1263,8 +1272,8 @@
     if (lu.style === "top") {
       if (band > 0.24) hint = "Fish are holding deep — try a sinking lure";
       else hint = R.action > 0.6 ? "Perfect action — a bass is closing in!" : "Working the surface — keep twitching!";
-    } else if (R.depth < band - 0.12) hint = "Let it sink deeper…";
-    else if (R.depth > band + 0.12) hint = "Too deep — reel it up";
+    } else if (R.depth < band - (S.cond.window || 0.1)) hint = "Let it sink deeper…";
+    else if (R.depth > band + (S.cond.window || 0.1)) hint = "Too deep — reel it up";
     else hint = R.action > 0.6 ? "Perfect action — a bass is closing in!" : "On their level — work it!";
     el.rvHint.textContent = hint;
     el.rvHint.className = "phase-hint" + (R.interest > 0.5 ? " good" : "");
@@ -1692,10 +1701,11 @@
     // rising bubbles
     for (const bb of S.bubbles) { ctx.strokeStyle = "rgba(255,255,255," + (bb.a * 0.6) + ")"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(bb.x, bb.y, bb.r, 0, 6.29); ctx.stroke(); }
 
-    // BITE ZONE band (where the bass are holding) — the key depth cue
-    const band = S.cond.band, zTop = depthY(clamp(band - 0.085, 0, 1)), zBot = depthY(clamp(band + 0.085, 0, 1));
+    // BITE ZONE band (where the bass are holding) — width varies with feeding activity
+    const band = S.cond.band, win = S.cond.window || 0.085;
+    const zTop = depthY(clamp(band - win, 0, 1)), zBot = depthY(clamp(band + win, 0, 1));
     const lureDepth = S.mode === "fight" ? clamp((S.bobberDepth != null ? S.bobberDepth : band), 0, 1) : S.rv.depth;
-    const inZone = Math.abs(lureDepth - band) < 0.10;
+    const inZone = Math.abs(lureDepth - band) < win;
     ctx.fillStyle = inZone ? "rgba(91,227,122,0.18)" : "rgba(255,211,92,0.10)";
     ctx.fillRect(0, zTop, W, zBot - zTop);
     ctx.setLineDash([7, 7]); ctx.strokeStyle = inZone ? "rgba(120,240,150,0.7)" : "rgba(255,211,92,0.5)"; ctx.lineWidth = 1.5;
@@ -1742,12 +1752,11 @@
       drawLure(lureX, lureY, G.lure.id, COLORS[G.lure.color].hex, now / (lure().cadence === "fast" ? 70 : lure().cadence === "slow" ? 150 : 100), 1, -1);
       // zone coaching arrow by the lure
       if (S.mode === "retrieve") {
-        const inZ = Math.abs(lureDepth - band) < 0.1;
         if (lure().style === "top") {
           if (band > 0.24) zoneArrow(lureX + 26, lureY, 1, "FISH ARE DEEP");
           else { ctx.strokeStyle = "rgba(120,240,150,0.9)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(lureX, lureY, 18 + Math.sin(now / 200) * 2, 0, 6.29); ctx.stroke(); }
-        } else if (lureDepth < band - 0.1) zoneArrow(lureX + 26, lureY, 1, "LET IT SINK");
-        else if (lureDepth > band + 0.1) zoneArrow(lureX + 26, lureY, -1, "REEL UP");
+        } else if (lureDepth < band - win) zoneArrow(lureX + 26, lureY, 1, "LET IT SINK");
+        else if (lureDepth > band + win) zoneArrow(lureX + 26, lureY, -1, "REEL UP");
         else { ctx.strokeStyle = "rgba(120,240,150,0.9)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(lureX, lureY, 18 + Math.sin(now / 200) * 2, 0, 6.29); ctx.stroke(); }
       }
     }
@@ -2121,7 +2130,7 @@
         save(); updateHUD(); renderMap();
       } else { toast("Unlock this spot in the 🛒 shop"); }
     } else if (p) {
-      G.positions[spot().id] = p.dataset.pos; save(); updateHUD(); renderPositions();
+      G.positions[spot().id] = p.dataset.pos; recomputeCond(); save(); updateHUD(); renderPositions();
     }
   });
 
