@@ -7,6 +7,196 @@
 // =============================================================================
 import * as THREE from "./vendor/three.module.min.js";
 
+// =============================================================================
+// Detailed, realistic procedural bass — shared by the fight, the 3D preview,
+// and the catch screen. The skin is painted to an offscreen canvas (scales,
+// flank gradient, species markings, gill plate, lateral line) and used as the
+// colour map; a matching grayscale bump map gives the scales real relief under
+// the lights. All original art — nothing sampled from another game.
+// art = { body, belly, back?, patColor, pat:'lateral'|'bars'|'spots', eye, bigmouth }
+// =============================================================================
+function hexNum(c) { return (typeof c === "string") ? new THREE.Color(c).getHex() : c; }
+
+function bassTextures(art) {
+  const W = 1024, H = 384;
+  const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+  const g = cv.getContext("2d");
+  const bv = document.createElement("canvas"); bv.width = W; bv.height = H;
+  const b = bv.getContext("2d");
+
+  const body = new THREE.Color(art.body || "#6f9e4e");
+  const back = art.back ? new THREE.Color(art.back) : body.clone().multiplyScalar(0.45);
+  const belly = new THREE.Color(art.belly || "#eef1d6");
+  const flank = body.clone().lerp(new THREE.Color("#ffffff"), 0.12);
+  const css = c => `rgb(${(c.r*255)|0},${(c.g*255)|0},${(c.b*255)|0})`;
+
+  // base flank gradient (v: 0=back .. 0.5=belly .. 1=back), mirrored
+  const grad = g.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0.00, css(back));
+  grad.addColorStop(0.18, css(body));
+  grad.addColorStop(0.40, css(flank));
+  grad.addColorStop(0.50, css(belly));
+  grad.addColorStop(0.60, css(flank));
+  grad.addColorStop(0.82, css(body));
+  grad.addColorStop(1.00, css(back));
+  g.fillStyle = grad; g.fillRect(0, 0, W, H);
+  b.fillStyle = "#808080"; b.fillRect(0, 0, W, H);
+
+  // overlapping scales across the flanks (skip the very belly + back ridge)
+  const sw = 26, sh = 18;
+  for (let row = 1; row < H / sh - 1; row++) {
+    const cy = row * sh, vy = cy / H;
+    if (vy < 0.06 || vy > 0.94) continue;
+    const bellyFade = 1 - Math.min(1, Math.abs(vy - 0.5) / 0.42); // scales fade into the belly
+    for (let col = -1; col < W / sw + 1; col++) {
+      const cx = col * sw + (row % 2 ? sw / 2 : 0);
+      g.beginPath(); g.arc(cx, cy, sw * 0.62, Math.PI * 0.05, Math.PI * 0.95);
+      g.strokeStyle = `rgba(0,0,0,${0.10 + bellyFade * 0.05})`; g.lineWidth = 1.4; g.stroke();
+      g.beginPath(); g.arc(cx, cy - 1.5, sw * 0.6, Math.PI * 1.05, Math.PI * 1.95);
+      g.strokeStyle = `rgba(255,255,255,${0.06 + bellyFade * 0.05})`; g.lineWidth = 1.2; g.stroke();
+      // bump relief: bright top rim, dark bottom rim
+      b.beginPath(); b.arc(cx, cy - 1.5, sw * 0.6, Math.PI * 1.05, Math.PI * 1.95); b.strokeStyle = "rgba(255,255,255,0.5)"; b.lineWidth = 2; b.stroke();
+      b.beginPath(); b.arc(cx, cy, sw * 0.62, Math.PI * 0.05, Math.PI * 0.95); b.strokeStyle = "rgba(0,0,0,0.5)"; b.lineWidth = 2; b.stroke();
+    }
+  }
+
+  // species markings along the flanks (two mirrored bands: v≈0.30 and v≈0.70)
+  const pc = css(new THREE.Color(art.patColor || "#2a3618"));
+  for (const vy of [0.30, 0.70]) {
+    const y = vy * H;
+    if (art.pat === "lateral") {                       // largemouth: ragged dark lateral blotch line
+      for (let x = W * 0.10; x < W * 0.86; x += 16) {
+        const hb = 7 + Math.abs(Math.sin(x * 0.05) * 6 + Math.sin(x * 0.13) * 4);
+        g.fillStyle = pc; g.globalAlpha = 0.5;
+        g.beginPath(); g.ellipse(x, y, 12, hb, 0, 0, 6.28); g.fill();
+      }
+    } else if (art.pat === "bars") {                   // smallmouth: vertical bars
+      g.fillStyle = pc; g.globalAlpha = 0.42;
+      for (let x = W * 0.16; x < W * 0.82; x += W * 0.085) {
+        const bw = 10 + Math.sin(x) * 3; g.fillRect(x - bw / 2, vy < 0.5 ? y - 40 : y, bw, 64);
+      }
+    } else if (art.pat === "spots") {                  // spotted: rows of small dark spots
+      g.fillStyle = pc; g.globalAlpha = 0.5;
+      for (let x = W * 0.12; x < W * 0.84; x += 26) {
+        g.beginPath(); g.arc(x, y + 18, 4.5, 0, 6.28); g.fill();
+        g.beginPath(); g.arc(x + 13, y + 38, 4, 0, 6.28); g.fill();
+      }
+    }
+    g.globalAlpha = 1;
+  }
+
+  // gill plate near the head + reddish gill margin, and a shaded cheek
+  const gx = W * 0.80;
+  g.strokeStyle = "rgba(0,0,0,0.28)"; g.lineWidth = 3;
+  g.beginPath(); g.moveTo(gx, H * 0.10); g.quadraticCurveTo(gx - 30, H * 0.5, gx, H * 0.90); g.stroke();
+  b.strokeStyle = "rgba(40,40,40,1)"; b.lineWidth = 4;
+  b.beginPath(); b.moveTo(gx, H * 0.10); b.quadraticCurveTo(gx - 30, H * 0.5, gx, H * 0.90); b.stroke();
+  g.strokeStyle = "rgba(150,40,40,0.30)"; g.lineWidth = 6;
+  g.beginPath(); g.moveTo(gx + 2, H * 0.18); g.quadraticCurveTo(gx - 26, H * 0.5, gx + 2, H * 0.82); g.stroke();
+  // dark mouth gape at the snout, lower jaw
+  g.fillStyle = "rgba(15,10,8,0.7)";
+  g.beginPath(); g.ellipse(W * 0.96, H * 0.62, W * 0.05, H * 0.06, 0, 0, 6.28); g.fill();
+
+  const map = new THREE.CanvasTexture(cv);
+  const bump = new THREE.CanvasTexture(bv);
+  map.anisotropy = 4;
+  return { map, bump };
+}
+
+function makeBass(art) {
+  art = art || {};
+  const LEN = 2.4, SEG = 80, RING = 28;
+  const group = new THREE.Group();
+
+  const depth = t => {
+    const bd = Math.sin(Math.pow(Math.min(t, 1), 1.2) * Math.PI);
+    let d = 0.05 + bd * 0.50;
+    if (t > 0.84) d = Math.max(d, 0.34) * (1 - (t - 0.84) / 0.16 * 0.62);
+    if (t < 0.10) d *= t / 0.10;
+    return d;
+  };
+  const widthFac = t => 0.34 + Math.sin(Math.min(t, 1) * Math.PI) * 0.12;
+
+  const positions = [], uvs = [], indices = [];
+  for (let i = 0; i <= SEG; i++) {
+    const t = i / SEG, x = (t - 0.5) * LEN, d = depth(t), w = widthFac(t);
+    for (let j = 0; j <= RING; j++) {
+      const a = j / RING * Math.PI * 2;
+      positions.push(x, Math.cos(a) * d, Math.sin(a) * d * w);
+      uvs.push(t, j / RING);
+    }
+  }
+  for (let i = 0; i < SEG; i++) for (let j = 0; j < RING; j++) {
+    const a = i * (RING + 1) + j, bb = a + RING + 1;
+    indices.push(a, bb, a + 1, bb, bb + 1, a + 1);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setIndex(indices); geo.computeVertexNormals();
+
+  const { map, bump } = bassTextures(art);
+  const mat = new THREE.MeshStandardMaterial({ map, bumpMap: bump, bumpScale: 0.04, roughness: 0.42, metalness: 0.16 });
+  const mesh = new THREE.Mesh(geo, mat);
+  group.add(mesh);
+  group.geo = geo; group.basePos = Float32Array.from(positions); group.len = LEN;
+  group.disposables = [geo, mat, map, bump];
+
+  // fins — translucent membrane with faint rays painted on
+  const finCv = document.createElement("canvas"); finCv.width = 64; finCv.height = 64;
+  const fg = finCv.getContext("2d");
+  const finCol = new THREE.Color(art.back || (new THREE.Color(art.body || "#6f9e4e")).multiplyScalar(0.5));
+  fg.fillStyle = `rgba(${(finCol.r*255)|0},${(finCol.g*255)|0},${(finCol.b*255)|0},0.92)`; fg.fillRect(0, 0, 64, 64);
+  fg.strokeStyle = "rgba(0,0,0,0.22)"; fg.lineWidth = 1.5;
+  for (let i = 4; i < 64; i += 7) { fg.beginPath(); fg.moveTo(i, 0); fg.lineTo(i - 6, 64); fg.stroke(); }
+  const finTex = new THREE.CanvasTexture(finCv);
+  const finMat = new THREE.MeshStandardMaterial({ map: finTex, roughness: 0.8, side: THREE.DoubleSide, transparent: true, opacity: 0.92 });
+  group.disposables.push(finTex, finMat);
+
+  const tail = new THREE.Shape();
+  tail.moveTo(0, 0); tail.lineTo(-0.78, 0.66); tail.lineTo(-0.62, 0.30); tail.lineTo(-0.5, 0);
+  tail.lineTo(-0.62, -0.30); tail.lineTo(-0.78, -0.66); tail.closePath();
+  const tailMesh = new THREE.Mesh(new THREE.ShapeGeometry(tail), finMat);
+  tailMesh.position.x = -LEN / 2 + 0.04; group.add(tailMesh); group.tail = tailMesh;
+
+  // split dorsal: spiny front + soft rear
+  const spiny = new THREE.Shape();
+  spiny.moveTo(-0.1, 0); spiny.lineTo(0.05, 0.40); spiny.lineTo(0.25, 0.30); spiny.lineTo(0.45, 0.42); spiny.lineTo(0.6, 0.30); spiny.lineTo(0.7, 0); spiny.closePath();
+  const sd = new THREE.Mesh(new THREE.ShapeGeometry(spiny), finMat);
+  sd.rotation.y = Math.PI / 2; sd.position.set(LEN * 0.06, depth(0.55) * 0.98, 0); group.add(sd);
+  const soft = new THREE.Shape();
+  soft.moveTo(-0.7, 0); soft.quadraticCurveTo(-0.45, 0.42, -0.1, 0.30); soft.lineTo(-0.05, 0); soft.closePath();
+  const softD = new THREE.Mesh(new THREE.ShapeGeometry(soft), finMat);
+  softD.rotation.y = Math.PI / 2; softD.position.set(-LEN * 0.18, depth(0.4) * 0.98, 0); group.add(softD);
+  // anal fin (underside)
+  const af = new THREE.Mesh(new THREE.ShapeGeometry(soft), finMat);
+  af.rotation.y = Math.PI / 2; af.scale.set(0.6, -0.6, 0.6); af.position.set(-LEN * 0.22, -depth(0.34) * 0.95, 0); group.add(af);
+  // pectoral + pelvic fins
+  for (const s of [1, -1]) {
+    const pf = new THREE.Mesh(new THREE.ShapeGeometry(soft), finMat);
+    pf.scale.set(0.42, 0.42, 0.42); pf.rotation.x = s * 0.9; pf.rotation.z = -0.4;
+    pf.position.set(LEN * 0.20, -depth(0.7) * 0.25, s * depth(0.7) * widthFac(0.7) * 0.95); group.add(pf);
+    const pv = new THREE.Mesh(new THREE.ShapeGeometry(soft), finMat);
+    pv.scale.set(0.28, 0.28, 0.28); pv.rotation.x = s * 1.1;
+    pv.position.set(LEN * 0.06, -depth(0.55) * 0.85, s * depth(0.55) * widthFac(0.55) * 0.6); group.add(pv);
+  }
+
+  // eyes — glossy: white sclera, coloured iris, black pupil, specular dot
+  const ex = LEN * 0.36, ed = depth(0.86);
+  const scleraMat = new THREE.MeshStandardMaterial({ color: 0xf6f3e8, roughness: 0.25 });
+  const irisMat = new THREE.MeshStandardMaterial({ color: hexNum(art.eye || "#caa23a"), roughness: 0.2, metalness: 0.2 });
+  const pupilMat = new THREE.MeshStandardMaterial({ color: 0x05080a, roughness: 0.1 });
+  const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  for (const s of [1, -1]) {
+    const zc = s * ed * widthFac(0.86);
+    const ew = new THREE.Mesh(new THREE.SphereGeometry(0.085, 16, 16), scleraMat); ew.position.set(ex, ed * 0.5, zc * 0.9); group.add(ew);
+    const ir = new THREE.Mesh(new THREE.SphereGeometry(0.05, 16, 16), irisMat); ir.position.set(ex + 0.04, ed * 0.5, zc * 1.0); group.add(ir);
+    const pu = new THREE.Mesh(new THREE.SphereGeometry(0.026, 12, 12), pupilMat); pu.position.set(ex + 0.06, ed * 0.5, zc * 1.05); group.add(pu);
+    const hi = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 8), hiMat); hi.position.set(ex + 0.07, ed * 0.56, zc * 1.06); group.add(hi);
+  }
+  return group;
+}
+
 const Scene3D = (() => {
   let renderer, scene, camera, canvas, ready = false, visible = false;
   let surf, bottom, motes, biteSlab, biteEdgeTop, biteEdgeBot;
@@ -135,85 +325,10 @@ const Scene3D = (() => {
     return g;
   }
 
-  // ---- full procedural bass (used for the hooked fish in the fight) ----
-  function buildFish(art) {
-    const LEN = 2.4, SEG = 64, RING = 20;
-    const body = new THREE.Color(art.body || 0x6f9e4e);
-    const back = body.clone().multiplyScalar(0.5);
-    const belly = new THREE.Color(art.belly || 0xeef1d6);
-    const mid = body.clone();
-    const pat = new THREE.Color(art.patColor || 0x2a3618);
-    const mouthC = new THREE.Color(0x20140e);
-    const group = new THREE.Group();
-
-    const depth = t => {
-      const b = Math.sin(Math.pow(Math.min(t, 1), 1.2) * Math.PI);
-      let d = 0.05 + b * 0.50;
-      if (t > 0.84) d = Math.max(d, 0.34) * (1 - (t - 0.84) / 0.16 * 0.62);
-      if (t < 0.10) d *= t / 0.10;
-      return d;
-    };
-    const widthFac = t => 0.34 + Math.sin(Math.min(t, 1) * Math.PI) * 0.12;
-
-    const positions = [], colors = [], indices = [];
-    for (let i = 0; i <= SEG; i++) {
-      const t = i / SEG, x = (t - 0.5) * LEN, d = depth(t), w = widthFac(t);
-      for (let j = 0; j <= RING; j++) {
-        const a = j / RING * Math.PI * 2, y = Math.cos(a) * d, z = Math.sin(a) * d * w;
-        positions.push(x, y, z);
-        const ty = Math.cos(a) * 0.5 + 0.5;
-        let col = ty < 0.5 ? belly.clone().lerp(mid, ty * 2) : mid.clone().lerp(back, (ty - 0.5) * 2);
-        if (t > 0.80 && t < 0.97 && ty > 0.30 && ty < 0.52) col.lerp(mouthC, 0.65);
-        const flank = Math.abs(z) > d * w * 0.4;
-        if (flank && t < 0.82) {
-          if (art.pat === "lateral") { if (Math.abs(Math.cos(a)) < 0.30 && Math.sin(t * 24) > 0.35) col.lerp(pat, 0.55); }
-          else if (art.pat === "bars") { if (ty > 0.42 && Math.sin(t * 34) > 0.55) col.lerp(pat, 0.5); }
-          else if (art.pat === "spots") { if (ty < 0.5 && Math.sin(t * 40) * Math.cos(a * 5) > 0.5) col.lerp(pat, 0.55); }
-        }
-        colors.push(col.r, col.g, col.b);
-      }
-    }
-    for (let i = 0; i < SEG; i++) for (let j = 0; j < RING; j++) {
-      const a = i * (RING + 1) + j, b = a + RING + 1;
-      indices.push(a, b, a + 1, b, b + 1, a + 1);
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-    geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
-    geo.setIndex(indices); geo.computeVertexNormals();
-    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.14 }));
-    group.add(mesh);
-    group.geo = geo; group.basePos = Float32Array.from(positions); group.len = LEN;
-
-    const finMat = new THREE.MeshStandardMaterial({ color: back.getHex(), roughness: 0.75, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
-    const tailShape = new THREE.Shape();
-    tailShape.moveTo(0, 0); tailShape.lineTo(-0.75, 0.62); tailShape.lineTo(-0.55, 0); tailShape.lineTo(-0.75, -0.62); tailShape.closePath();
-    const tail = new THREE.Mesh(new THREE.ShapeGeometry(tailShape), finMat);
-    tail.position.x = -LEN / 2 + 0.02; group.add(tail); group.tail = tail;
-    const dorsal = new THREE.Shape();
-    dorsal.moveTo(-0.7, 0); dorsal.lineTo(-0.5, 0.34); dorsal.lineTo(-0.05, 0.46); dorsal.lineTo(0.4, 0.30); dorsal.lineTo(0.7, 0); dorsal.closePath();
-    const df = new THREE.Mesh(new THREE.ShapeGeometry(dorsal), finMat);
-    df.rotation.y = Math.PI / 2; df.position.set(-LEN * 0.02, depth(0.5) * 0.98, 0); group.add(df);
-    for (const s of [1, -1]) {
-      const pf = new THREE.Mesh(new THREE.ShapeGeometry(dorsal), finMat);
-      pf.scale.set(0.42, 0.42, 0.42); pf.rotation.x = s * 0.8; pf.rotation.z = -0.3;
-      pf.position.set(LEN * 0.22, -depth(0.7) * 0.2, s * depth(0.7) * widthFac(0.7) * 0.9); group.add(pf);
-    }
-    const eyeW = new THREE.MeshStandardMaterial({ color: 0xf6f3e8, roughness: 0.3 });
-    const eyeB = new THREE.MeshStandardMaterial({ color: art.eye || 0x16242b, roughness: 0.15 });
-    const ex = LEN * 0.36, ed = depth(0.86);
-    for (const s of [1, -1]) {
-      const ew = new THREE.Mesh(new THREE.SphereGeometry(0.075, 14, 14), eyeW);
-      ew.position.set(ex, ed * 0.45, s * ed * widthFac(0.86) * 0.92); group.add(ew);
-      const eb = new THREE.Mesh(new THREE.SphereGeometry(0.04, 12, 12), eyeB);
-      eb.position.set(ex + 0.03, ed * 0.45, s * ed * widthFac(0.86) * 1.02); group.add(eb);
-    }
-    return group;
-  }
-
   function disposeFish(g) {
     if (!g) return; scene.remove(g);
-    g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); });
+    if (g.disposables) g.disposables.forEach(d => d.dispose && d.dispose());
+    g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material && !g.disposables) o.material.dispose(); });
   }
 
   function undulate(g, t, strength) {
@@ -275,7 +390,7 @@ const Scene3D = (() => {
     // the fight — full procedural bass
     if (st.mode === "fight" && st.fight) {
       const f = st.fight, key = JSON.stringify(f.art || {});
-      if (!fightFish || key !== fightArtKey) { disposeFish(fightFish); fightFish = buildFish(f.art || {}); scene.add(fightFish); fightArtKey = key; }
+      if (!fightFish || key !== fightArtKey) { disposeFish(fightFish); fightFish = makeBass(f.art || {}); scene.add(fightFish); fightArtKey = key; }
       fightFish.visible = true;
       const fx = xOf(f.dist);
       let fy;
@@ -303,5 +418,7 @@ const Scene3D = (() => {
 
   return { init, setVisible, setVenue, frame, isReady: () => ready };
 })();
+
+export { makeBass, bassTextures };
 
 window.Scene3D = Scene3D;

@@ -36,11 +36,13 @@
 
 <script type="module">
 import * as THREE from "./vendor/three.module.min.js";
+import { makeBass } from "./render3d.js";
 
+// Same skins the game uses for these species.
 const SPECIES = {
-  largemouth: { back: 0x33401f, mid: 0x6f9e4e, belly: 0xeef1d6, pattern: "blotch", pat: 0x2a3618, eye: 0x16242b, len: 2.4 },
-  smallmouth: { back: 0x5e4524, mid: 0xa07b46, belly: 0xefe6cf, pattern: "bars",  pat: 0x6e4f28, eye: 0xc23a2a, len: 2.2 },
-  spotted:    { back: 0x2f3d1c, mid: 0x6f8a3e, belly: 0xeef0d2, pattern: "spots", pat: 0x2a3618, eye: 0xc23a2a, len: 2.1 },
+  largemouth: { body: "#6f9e4e", belly: "#eef1d6", patColor: "#33401f", pat: "lateral", eye: "#caa23a", bigmouth: true },
+  smallmouth: { body: "#a07b46", belly: "#efe6cf", patColor: "#6e4f28", pat: "bars",    eye: "#c23a2a" },
+  spotted:    { body: "#6f8a3e", belly: "#eef0d2", patColor: "#2f3d1c", pat: "spots",   eye: "#c23a2a" },
 };
 
 const canvas = document.getElementById("c");
@@ -112,91 +114,15 @@ try {
   el.textContent = "3D needs WebGL, which isn't available here: " + e.message;
 }
 
-// ---- build an original procedural bass mesh ----
+// ---- build the detailed, textured bass (shared with the game) ----
 function buildFish(sp) {
-  if (fish) { scene.remove(fish); fish.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material) o.material.dispose(); }); }
-  const S = SPECIES[sp], LEN = S.len, SEG = 72, RING = 22;
-  fish = new THREE.Group();
-
-  // half-body DEPTH profile (t: 0 tail tip .. 1 snout). Bass are deep-bodied
-  // mid, with a blunt deep head, tapering to a narrow caudal peduncle.
-  const depth = t => {
-    const body = Math.sin(Math.pow(Math.min(t, 1), 1.2) * Math.PI); // peak shifted toward head
-    let d = 0.05 + body * 0.50;
-    if (t > 0.84) d = Math.max(d, 0.34) * (1 - (t - 0.84) / 0.16 * 0.62); // blunt snout
-    if (t < 0.10) d *= t / 0.10;                                          // pinch tail base
-    return d;
-  };
-  // lateral WIDTH factor — bass are strongly laterally compressed (thin),
-  // fullest through the head/shoulder and pinched at the tail.
-  const widthFac = t => 0.34 + Math.sin(Math.min(t, 1) * Math.PI) * 0.12;
-
-  const positions = [], colors = [], indices = [];
-  const cBack = new THREE.Color(S.back), cMid = new THREE.Color(S.mid), cBelly = new THREE.Color(S.belly), cPat = new THREE.Color(S.pat);
-  const cMouth = new THREE.Color(0x20140e);
-  for (let i = 0; i <= SEG; i++) {
-    const t = i / SEG, x = (t - 0.5) * LEN, d = depth(t), w = widthFac(t);
-    for (let j = 0; j <= RING; j++) {
-      const a = j / RING * Math.PI * 2;
-      const y = Math.cos(a) * d, z = Math.sin(a) * d * w;
-      positions.push(x, y, z);
-      const ty = (Math.cos(a) * 0.5 + 0.5); // 0 belly, 1 back
-      let col = ty < 0.5 ? cBelly.clone().lerp(cMid, ty * 2) : cMid.clone().lerp(cBack, (ty - 0.5) * 2);
-      // dark mouth line across the lower head (the iconic large gape)
-      if (t > 0.80 && t < 0.97 && ty > 0.30 && ty < 0.52) col.lerp(cMouth, 0.65);
-      // species markings on the flanks
-      const flank = Math.abs(z) > d * w * 0.4;
-      if (flank && t < 0.82) {
-        if (S.pattern === "blotch") { if (Math.abs(Math.cos(a)) < 0.30 && Math.sin(t * 24) > 0.35) col.lerp(cPat, 0.55); } // lateral blotch band
-        else if (S.pattern === "bars") { if (ty > 0.42 && Math.sin(t * 34) > 0.55) col.lerp(cPat, 0.5); }                  // vertical bars
-        else if (S.pattern === "spots") { if (ty < 0.5 && Math.sin(t * 40) * Math.cos(a * 5) > 0.5) col.lerp(cPat, 0.55); } // rows of spots
-      }
-      colors.push(col.r, col.g, col.b);
-    }
+  if (fish) {
+    scene.remove(fish);
+    if (fish.disposables) fish.disposables.forEach(d => d.dispose && d.dispose());
+    fish.traverse(o => { if (o.geometry) o.geometry.dispose(); });
   }
-  for (let i = 0; i < SEG; i++) for (let j = 0; j < RING; j++) {
-    const a = i * (RING + 1) + j, b = a + RING + 1;
-    indices.push(a, b, a + 1, b, b + 1, a + 1);
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-  geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
-  geo.setIndex(indices);
-  geo.computeVertexNormals();
-  const body = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.14 }));
-  fish.add(body);
-  geomRef = geo; basePos = Float32Array.from(positions);
-
-  const finMat = new THREE.MeshStandardMaterial({ color: S.back, roughness: 0.75, side: THREE.DoubleSide, transparent: true, opacity: 0.9 });
-  // tail fin (slightly forked, vertical)
-  const tailShape = new THREE.Shape();
-  tailShape.moveTo(0, 0); tailShape.lineTo(-0.75, 0.62); tailShape.lineTo(-0.55, 0); tailShape.lineTo(-0.75, -0.62); tailShape.closePath();
-  const tail = new THREE.Mesh(new THREE.ShapeGeometry(tailShape), finMat);
-  tail.position.x = -LEN / 2 + 0.02; fish.add(tail); fish.tail = tail;
-  // spiny + soft dorsal ridge along the back
-  const dorsal = new THREE.Shape();
-  dorsal.moveTo(-0.7, 0); dorsal.lineTo(-0.5, 0.34); dorsal.lineTo(-0.05, 0.46); dorsal.lineTo(0.4, 0.30); dorsal.lineTo(0.7, 0); dorsal.closePath();
-  const df = new THREE.Mesh(new THREE.ShapeGeometry(dorsal), finMat);
-  df.rotation.y = Math.PI / 2; df.position.set(-LEN * 0.02, depth(0.5) * 0.98, 0); fish.add(df);
-  // anal fin (underside, rear)
-  const af = new THREE.Mesh(new THREE.ShapeGeometry(dorsal), finMat);
-  af.scale.set(0.4, -0.5, 0.4); af.rotation.y = Math.PI / 2; af.position.set(-LEN * 0.22, -depth(0.34) * 0.95, 0); fish.add(af);
-  // pectoral fins
-  for (const s of [1, -1]) {
-    const pf = new THREE.Mesh(new THREE.ShapeGeometry(dorsal), finMat);
-    pf.scale.set(0.42, 0.42, 0.42); pf.rotation.x = s * 0.8; pf.rotation.z = -0.3;
-    pf.position.set(LEN * 0.22, -depth(0.7) * 0.2, s * depth(0.7) * widthFac(0.7) * 0.9); fish.add(pf);
-  }
-  // eyes — high on the deep head
-  const eyeW = new THREE.MeshStandardMaterial({ color: 0xf6f3e8, roughness: 0.3 });
-  const eyeB = new THREE.MeshStandardMaterial({ color: S.eye, roughness: 0.15 });
-  const ex = LEN * 0.36, ed = depth(0.86);
-  for (const s of [1, -1]) {
-    const ew = new THREE.Mesh(new THREE.SphereGeometry(0.075, 14, 14), eyeW);
-    ew.position.set(ex, ed * 0.45, s * ed * widthFac(0.86) * 0.92); fish.add(ew);
-    const eb = new THREE.Mesh(new THREE.SphereGeometry(0.04, 12, 12), eyeB);
-    eb.position.set(ex + 0.03, ed * 0.45, s * ed * widthFac(0.86) * 1.02); fish.add(eb);
-  }
+  fish = makeBass(SPECIES[sp]);
+  geomRef = fish.geo; basePos = fish.basePos;
   scene.add(fish);
 }
 
