@@ -64,8 +64,6 @@
   // Fish. `art` drives the SVG. `bass:true` = black bass (counts in tournaments);
   // `lm:true` marks a largemouth specifically.
   const F = {
-    bluegill:  { name: "Bluegill",        w: [0.2, 1.1],  rarity: "common", base: 5,
-                 art: { shape: "panfish", body: "#4f7fa0", belly: "#e0a23a", pat: "panel" } },
     largemouth:{ name: "Largemouth Bass", w: [1.0, 7.0],  rarity: "common", base: 12, lm: true, bass: true,
                  art: { shape: "bass", body: "#6f9e4e", belly: "#eef1d6", pat: "lateral", patColor: "#33401f", bigmouth: true } },
     smallmouth:{ name: "Smallmouth Bass", w: [0.8, 5.0],  rarity: "common", base: 14, bass: true,
@@ -90,10 +88,6 @@
                  art: { shape: "monster", body: "#3f8d63", belly: "#9be0b4" } },
     glowfish:  { name: "Glowfish",        w: [2.0, 6.0],  rarity: "rare", base: 120,
                  art: { shape: "trout", body: "#39c5d6", belly: "#c6f9ff", pat: "glow" } },
-    boot:      { name: "Old Boot",        w: [1.0, 2.0],  rarity: "junk", base: 1,
-                 art: { shape: "boot" } },
-    can:       { name: "Tin Can",         w: [0.3, 0.7],  rarity: "junk", base: 1,
-                 art: { shape: "can" } },
   };
 
   // Venues, each with a fish table and selectable fishing positions.
@@ -103,18 +97,18 @@
       sky: ["#7fd4e8", "#bff0f7"], water: ["#2a93b8", "#0a3a4a"],
       desc: "Calm, clear largemouth water — lily pads and laydowns.",
       fish: [
-        { k: "largemouth", weight: 52 }, { k: "spotted", weight: 13 }, { k: "smallmouth", weight: 11 },
-        { k: "giant", weight: 5 }, { k: "golden", weight: 3 }, { k: "bluegill", weight: 10 }, { k: "boot", weight: 6 },
+        { k: "largemouth", weight: 56 }, { k: "spotted", weight: 16 }, { k: "smallmouth", weight: 14 },
+        { k: "giant", weight: 8 }, { k: "golden", weight: 6 },
       ],
       positions: [
         { id: "pads", name: "Lily Pads", ico: "🪷", desc: "Prime largemouth ambush cover.",
-          zone: [0.30, 0.32, 0.18, 0.16], bias: { largemouth: 1.9, spotted: 1.1, giant: 1.3, bluegill: 1.3, smallmouth: 0.6 } },
+          zone: [0.30, 0.32, 0.18, 0.16], bias: { largemouth: 1.9, spotted: 1.1, giant: 1.3, smallmouth: 0.6 } },
         { id: "dock", name: "Boat Dock", ico: "🛶", desc: "Shade-loving bass stack up.",
           zone: [0.70, 0.30, 0.16, 0.14], bias: { largemouth: 1.6, smallmouth: 1.3, spotted: 1.3 } },
         { id: "open", name: "Open Water", ico: "🌊", desc: "Roaming smallmouth & spots.",
-          zone: [0.50, 0.62, 0.22, 0.16], bias: { smallmouth: 1.7, spotted: 1.5, bluegill: 0.7 } },
+          zone: [0.50, 0.62, 0.22, 0.16], bias: { smallmouth: 1.7, spotted: 1.5 } },
         { id: "drop", name: "The Drop-off", ico: "📉", desc: "Deeper edge — the big girls.",
-          zone: [0.50, 0.84, 0.26, 0.14], bias: { giant: 2.3, golden: 2.0, largemouth: 1.3, spotted: 1.2, bluegill: 0.3 } },
+          zone: [0.50, 0.84, 0.26, 0.14], bias: { giant: 2.3, golden: 2.0, largemouth: 1.3, spotted: 1.2 } },
       ],
     },
     {
@@ -122,8 +116,8 @@
       sky: ["#9fdcc0", "#d7f3e6"], water: ["#2fae8e", "#0c4438"],
       desc: "Clear rocky current — smallmouth and spotted bass country.",
       fish: [
-        { k: "smallmouth", weight: 38 }, { k: "spotted", weight: 26 }, { k: "largemouth", weight: 14 },
-        { k: "giant", weight: 3 }, { k: "catfish", weight: 7 }, { k: "rainbow", weight: 6 }, { k: "muskie", weight: 3 }, { k: "can", weight: 5 },
+        { k: "smallmouth", weight: 42 }, { k: "spotted", weight: 27 }, { k: "largemouth", weight: 15 },
+        { k: "giant", weight: 3 }, { k: "catfish", weight: 7 }, { k: "rainbow", weight: 4 }, { k: "muskie", weight: 2 },
       ],
       positions: [
         { id: "riffle", name: "Rocky Riffles", ico: "💨", desc: "Oxygen-rich — smallmouth feed.",
@@ -418,16 +412,46 @@
       <rect x="46" y="26" width="32" height="20" rx="2" fill="#d94f3a" stroke="none"/>
       <path d="M40,38 q44,8 44,0" fill="none" stroke="#8c969d" stroke-width="1.5"/></g>`;
   }
+  function fishInner(a) {
+    if (a.shape === "sturgeon") return sturgeonFish(a);
+    if (a.shape === "monster") return monsterFish(a);
+    if (a.shape === "boot") return bootArt();
+    if (a.shape === "can") return canArt();
+    return genericFish(a);
+  }
   function fishSVG(fishOrArt, size) {
     const a = (fishOrArt && fishOrArt.art) ? fishOrArt.art : fishOrArt;
-    let inner;
-    if (a.shape === "sturgeon") inner = sturgeonFish(a);
-    else if (a.shape === "monster") inner = monsterFish(a);
-    else if (a.shape === "boot") inner = bootArt();
-    else if (a.shape === "can") inner = canArt();
-    else inner = genericFish(a);
     const w = size || 120, h = Math.round((size || 120) * 0.6);
-    return `<svg viewBox="0 0 124 72" width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">${inner}</svg>`;
+    return `<svg viewBox="0 0 124 72" width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">${fishInner(a)}</svg>`;
+  }
+  // Trophy "hero" shot: the angler hoisting the caught bass (original art).
+  function heroSVG(fish, size) {
+    const a = fish.art, w = size || 200, h = size || 200;
+    const tilt = -8;
+    return `<svg viewBox="0 0 200 200" width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
+      <!-- angler torso (fishing vest) -->
+      <path d="M58,196 L60,150 Q62,120 100,116 Q138,120 140,150 L142,196 Z" fill="#c7a96a"/>
+      <path d="M70,196 L72,150 Q74,128 100,126 Q126,128 128,150 L130,196 Z" fill="#b9974f"/>
+      <line x1="100" y1="128" x2="100" y2="196" stroke="rgba(90,68,36,0.6)" stroke-width="2"/>
+      <!-- neck + head -->
+      <rect x="93" y="92" width="14" height="14" fill="#caa56f"/>
+      <circle cx="100" cy="80" r="20" fill="#caa56f"/>
+      <!-- sunglasses -->
+      <rect x="86" y="74" width="28" height="8" rx="3" fill="#15161b"/>
+      <rect x="106" y="75" width="5" height="4" fill="rgba(150,200,230,0.5)"/>
+      <!-- ball cap -->
+      <path d="M80,72 A20,20 0 0 1 120,72 Z" fill="#c8482e"/>
+      <rect x="100" y="68" width="34" height="8" rx="3" fill="#c8482e"/>
+      <path d="M80,72 A20,18 0 0 1 100,56 L100,72 Z" fill="#a83a23"/>
+      <!-- arms reaching down to grip the fish -->
+      <path d="M64,150 Q44,150 44,128" stroke="#caa56f" stroke-width="11" fill="none" stroke-linecap="round"/>
+      <path d="M136,150 Q156,150 156,128" stroke="#caa56f" stroke-width="11" fill="none" stroke-linecap="round"/>
+      <!-- the trophy bass, held up across the chest -->
+      <g transform="translate(38,150) rotate(${tilt}) scale(1.05)">${fishInner(a)}</g>
+      <!-- gripping hands -->
+      <ellipse cx="152" cy="126" rx="9" ry="7" fill="#caa56f"/>
+      <ellipse cx="46" cy="126" rx="8" ry="6" fill="#caa56f"/>
+    </svg>`;
   }
 
   // ===========================================================================
@@ -899,7 +923,7 @@
     el.catchRarity.style.color = (lunk || f.rarity === "legendary") ? "#5a3a00" : "#06222c";
     el.catchRarity.classList.toggle("lunker", lunk);
     if (lunk) vibrate([30, 50, 30, 50, 60]);
-    el.catchArt.innerHTML = fishSVG(f, 170);
+    el.catchArt.innerHTML = heroSVG(f, 168);
     el.catchName.textContent = f.name;
     el.catchWeight.textContent = f.weight;
     el.catchReward.textContent = f.value;
@@ -1434,20 +1458,51 @@
   // ===========================================================================
   // Surface view — read the structure & fish shadows, aim, and cast
   // ===========================================================================
+  // ---- Time-of-day lighting ----
+  function hx(c) { let h = c.replace("#", ""); if (h.length === 3) h = h.split("").map(x => x + x).join(""); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; }
+  function mix(a, b, t) { const A = hx(a), B = hx(b); return "rgb(" + A.map((v, i) => Math.round(v + (B[i] - v) * t)).join(",") + ")"; }
+  const SKY_KEYS = [
+    { h: 0, top: "#0a1230", bot: "#172048", night: 1, amb: "rgba(10,16,40,0.45)" },
+    { h: 5, top: "#3a3560", bot: "#6a5a82", night: 1, amb: "rgba(34,32,72,0.34)" },
+    { h: 6.6, top: "#f0a464", bot: "#ffd9a8", night: 0, amb: "rgba(255,180,110,0.14)" },
+    { h: 9, top: "#7fc8e6", bot: "#cdeef7", night: 0, amb: "rgba(255,255,255,0)" },
+    { h: 13, top: "#69b6e6", bot: "#cfeefb", night: 0, amb: "rgba(255,255,255,0)" },
+    { h: 17, top: "#86c5e0", bot: "#ffe6c0", night: 0, amb: "rgba(255,210,150,0.08)" },
+    { h: 18.7, top: "#e8794a", bot: "#ffcf9a", night: 0, amb: "rgba(255,150,90,0.16)" },
+    { h: 20, top: "#22305f", bot: "#34406f", night: 1, amb: "rgba(20,30,70,0.34)" },
+    { h: 24, top: "#0a1230", bot: "#172048", night: 1, amb: "rgba(10,16,40,0.45)" },
+  ];
+  function dayColors(sp) {
+    if (sp.id === "deep") return { top: sp.sky[0], bot: sp.sky[1], night: true, moon: true, sunX: 0.78, elev: 0.25, sunColor: "#e9edff", amb: "rgba(12,18,44,0.30)", daylight: 0.14 };
+    const hour = ((S.cond.timeMin / 60) % 24 + 24) % 24;
+    let i = 0; while (i < SKY_KEYS.length - 1 && hour > SKY_KEYS[i + 1].h) i++;
+    const a = SKY_KEYS[i], b = SKY_KEYS[Math.min(i + 1, SKY_KEYS.length - 1)];
+    const t = (b.h === a.h) ? 0 : clamp((hour - a.h) / (b.h - a.h), 0, 1);
+    const night = (a.night * (1 - t) + b.night * t) > 0.5;
+    const prog = clamp((hour - 6) / 12, 0, 1), elev = Math.sin(prog * Math.PI);
+    return {
+      top: mix(a.top, b.top, t), bot: mix(a.bot, b.bot, t), night, moon: night,
+      sunX: 0.12 + prog * 0.76, elev,
+      sunColor: night ? "#e9edff" : mix("#ffb070", "#fff2b8", clamp(elev, 0, 1)),
+      amb: t < 0.5 ? a.amb : b.amb,
+      daylight: night ? 0.14 : clamp(0.4 + elev * 0.6, 0.4, 1),
+    };
+  }
+
   function renderSurface(now) {
     const sp = spot(), wl = waterLine();
-    const w = S.cond.weather, night = w === "night" || sp.id === "deep";
+    const w = S.cond.weather, dc = dayColors(sp), night = dc.night;
     const sky = ctx.createLinearGradient(0, 0, 0, wl);
-    sky.addColorStop(0, sp.sky[0]); sky.addColorStop(1, sp.sky[1]);
+    sky.addColorStop(0, dc.top); sky.addColorStop(1, dc.bot);
     ctx.fillStyle = sky; ctx.fillRect(0, 0, W, wl);
-    const sunX = W * 0.78, sunY = wl * 0.42, showSun = (w === "sun" || night);
-    if (showSun) {
-      const gl = ctx.createRadialGradient(sunX, sunY, 6, sunX, sunY, 130);
+    const sunX = dc.sunX * W, sunY = wl * (0.72 - 0.5 * dc.elev);
+    {
+      const gl = ctx.createRadialGradient(sunX, sunY, 6, sunX, sunY, 140);
       gl.addColorStop(0, night ? "rgba(210,220,255,0.40)" : "rgba(255,240,180,0.55)");
       gl.addColorStop(1, "rgba(255,240,180,0)");
       ctx.fillStyle = gl; ctx.fillRect(0, 0, W, wl);
-      ctx.beginPath(); ctx.arc(sunX, sunY, 30, 0, 6.29);
-      ctx.fillStyle = night ? "rgba(236,240,255,.96)" : "rgba(255,243,184,.98)"; ctx.fill();
+      ctx.beginPath(); ctx.arc(sunX, sunY, night ? 26 : 30, 0, 6.29);
+      ctx.fillStyle = dc.sunColor; ctx.fill();
     }
     // drifting clouds
     ctx.fillStyle = night ? "rgba(180,190,220,0.12)" : (w === "fog" ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.72)");
@@ -1470,11 +1525,13 @@
       ctx.stroke();
     }
     // sun glint shimmering on the water under the sun
-    if (showSun) {
+    {
       ctx.save(); ctx.fillStyle = night ? "rgba(210,220,255,0.10)" : "rgba(255,240,180,0.13)";
       for (let yy = wl + 8; yy < H; yy += 9) { const ww = 26 + (yy - wl) * 0.55, wob = Math.sin(yy * 0.18 + now / 320) * 9; ctx.fillRect(sunX - ww / 2 + wob, yy, ww, 3); }
       ctx.restore();
     }
+    // ambient time-of-day tint over the whole scene
+    if (dc.amb && dc.amb !== "rgba(255,255,255,0)") { ctx.fillStyle = dc.amb; ctx.fillRect(0, 0, W, H); }
 
     drawShoreline(now, sp, wl);
 
@@ -1595,19 +1652,19 @@
   function depthY(d) { return UW_TOP + d * (H - 34 - UW_TOP); }
 
   function renderUnder(now) {
-    const sp = spot();
+    const sp = spot(), dc = dayColors(sp), dl = dc.daylight;
     const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, shade(sp.water[0], 30)); g.addColorStop(0.18, sp.water[0]); g.addColorStop(1, sp.water[1]);
+    g.addColorStop(0, shade(sp.water[0], 30 * dl)); g.addColorStop(0.18, sp.water[0]); g.addColorStop(1, sp.water[1]);
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
 
     // underside of the surface with moving light
-    ctx.fillStyle = "rgba(255,255,255,0.10)"; ctx.fillRect(0, 0, W, UW_TOP);
-    ctx.strokeStyle = "rgba(255,255,255,0.16)"; ctx.lineWidth = 2;
+    ctx.fillStyle = "rgba(255,255,255," + (0.10 * dl) + ")"; ctx.fillRect(0, 0, W, UW_TOP);
+    ctx.strokeStyle = "rgba(255,255,255," + (0.16 * dl) + ")"; ctx.lineWidth = 2;
     ctx.beginPath();
     for (let x = 0; x <= W; x += 16) { const yy = UW_TOP + Math.sin(x * 0.05 + now / 380) * 3; x === 0 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy); }
     ctx.stroke();
-    // god rays
-    ctx.save(); ctx.globalAlpha = 0.10;
+    // god rays (fade out at night)
+    ctx.save(); ctx.globalAlpha = 0.04 + 0.08 * dl;
     for (let i = 0; i < 4; i++) {
       const rx = W * (0.2 + i * 0.22) + Math.sin(now / 3000 + i) * 20;
       ctx.fillStyle = "#dff6ff"; ctx.beginPath();
@@ -1615,7 +1672,7 @@
     }
     ctx.restore();
     // caustic light dapples just under the surface
-    ctx.save(); ctx.globalAlpha = 0.12; ctx.fillStyle = "#eafaff";
+    ctx.save(); ctx.globalAlpha = 0.05 + 0.09 * dl; ctx.fillStyle = "#eafaff";
     for (let x = 0; x < W; x += 34) { const cw = 14 + Math.sin(x * 0.2 + now / 500) * 6; ctx.beginPath(); ctx.ellipse(x + (now / 40 % 34), UW_TOP + 10, cw, 4, 0, 0, 6.29); ctx.fill(); }
     ctx.restore();
     // drifting particulate
@@ -1702,11 +1759,19 @@
       if (S.ft.state === "jump") fy = UW_TOP - 6 - Math.abs(Math.sin(now / 80)) * 46;
       else fy = depthY(clamp(0.45 + Math.sin(now / 240) * 0.12 + (S.ft.state === "run" ? 0.18 : 0), 0.1, 0.9));
       S.bobberDepth = clamp((fy - UW_TOP) / (H - 34 - UW_TOP), 0, 1);
-      // line
       const taut = S.ft.tension;
-      ctx.strokeStyle = taut > 0.7 ? "rgba(255,120,120,0.8)" : "rgba(255,255,255,0.5)"; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(rodEntry.x, rodEntry.y);
-      const sag = 22 - taut * 26; ctx.quadraticCurveTo((rodEntry.x + fx) / 2, (rodEntry.y + fy) / 2 + sag, fx, fy); ctx.stroke();
+      // flexing rod tip dipping into the water — loads up with tension & pull
+      const wob = Math.sin(now / 55) * (1 + taut * 5) + (S.ft.state === "jump" ? Math.sin(now / 40) * 5 : 0);
+      const bend = 10 + taut * 34 + S.ft.pull * 8 + wob;          // how hard the rod bows toward the fish
+      const baseX = rodEntry.x - 30, baseY = -16, tipX = rodEntry.x, tipY = rodEntry.y + 6;
+      const cx = (baseX + tipX) / 2 + bend * 0.7, cy = (baseY + tipY) / 2 + bend;
+      ctx.lineCap = "round";
+      ctx.strokeStyle = "#5a3f22"; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(baseX, baseY); ctx.quadraticCurveTo(cx, cy, tipX, tipY); ctx.stroke();
+      ctx.strokeStyle = "#8a6a3a"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(baseX, baseY); ctx.quadraticCurveTo(cx, cy, tipX, tipY); ctx.stroke();
+      // line from the bent rod tip down to the fish
+      ctx.strokeStyle = taut > 0.7 ? "rgba(255,120,120,0.85)" : "rgba(255,255,255,0.55)"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(tipX, tipY);
+      const sag = 22 - taut * 28; ctx.quadraticCurveTo((tipX + fx) / 2, (tipY + fy) / 2 + sag, fx, fy); ctx.stroke();
       const dir = S.ft.state === "run" ? 1 : -1;
       const len = 46 + 46 * S.ft.size;
       drawBass(fx, fy, len, f && f.art, dir, 1);
@@ -1716,6 +1781,7 @@
     }
 
     drawRipplesSplashes();
+    if (dc.amb && dc.amb !== "rgba(255,255,255,0)") { ctx.fillStyle = dc.amb; ctx.fillRect(0, 0, W, H); }
     drawVignette();
   }
 
@@ -1900,11 +1966,14 @@
     ctx.beginPath(); ctx.arc(ax, ay - 52, 8.5, Math.PI, 0); ctx.fill();
     ctx.fillRect(ax, ay - 53, 15, 3.5);
     ctx.fillStyle = "#a83a23"; ctx.beginPath(); ctx.arc(ax, ay - 52, 8.5, Math.PI * 1.15, Math.PI * 1.6); ctx.fill();
-    // ---- rod from the front hand out to the rod tip, with a reel ----
+    // ---- rod from the front hand out to the rod tip (flexes on the cast) ----
     ctx.strokeStyle = "#1b2730"; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(ax + 17, ay - 22, 4, 0, 6.29); ctx.stroke();
+    const hxr = ax + 15, hyr = ay - 24, tx = tip.x, ty = tip.y - bob;
+    const castBend = S.mode === "casting" ? Math.sin(clamp(S.bobber.flyT, 0, 1) * Math.PI) * 18 : 5;
+    const rcx = (hxr + tx) / 2, rcy = (hyr + ty) / 2 - castBend;   // bow the rod upward
     ctx.strokeStyle = "#5a3f22"; ctx.lineWidth = 3; ctx.lineCap = "round";
-    ctx.beginPath(); ctx.moveTo(ax + 15, ay - 24); ctx.lineTo(tip.x, tip.y - bob); ctx.stroke();
-    ctx.strokeStyle = "rgba(210,180,120,0.6)"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(ax + 15, ay - 24); ctx.lineTo(tip.x, tip.y - bob); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(hxr, hyr); ctx.quadraticCurveTo(rcx, rcy, tx, ty); ctx.stroke();
+    ctx.strokeStyle = "rgba(210,180,120,0.6)"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(hxr, hyr); ctx.quadraticCurveTo(rcx, rcy, tx, ty); ctx.stroke();
     ctx.restore();
   }
 
