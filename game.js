@@ -447,7 +447,7 @@
     ft: { stamina: 1, tension: 0, dist: 1, state: "tire", stateT: 0, pull: 0, jumpY: 0 },
     holding: false,
     pressT: 0, pressIsHold: false,
-    fishes: [], ripples: [], splashes: [], bubbles: [], pursuers: [], clouds: [], motes: [],
+    fishes: [], ripples: [], splashes: [], bubbles: [], pursuers: [], clouds: [], motes: [], spray: [], trail: [],
     aim: null,
     view: "surface", viewT: 1,   // surface <-> underwater camera (viewT = transition 0..1)
     cond: { timeMin: 6.5 * 60, weather: "sun", temp: 64, band: 0.3 },
@@ -864,7 +864,10 @@
     T.state = "run"; T.stateT = rnd(500, 1100); T.pull = 0.8; T.jumpY = 0;
     T.maxStam = 1; T.size = d;
     S.holding = false;
-    vibrate(30);
+    vibrate([20, 30, 40]);
+    // splashy hook-set spray right where the fish smashed the lure
+    const fx = lerp(W * 0.66, W * 0.34, 1 - S.rv.dist), fy = depthY(S.rv.depth);
+    sprayBurst(fx, fy, 16, 1.3);
     el.ftHint.textContent = "Wear it down — reel when it tires!";
   }
 
@@ -935,6 +938,14 @@
   function advanceTime(min) { S.cond.timeMin += min; if (S.cond.timeMin >= 24 * 60) S.cond.timeMin -= 24 * 60; recomputeCond(); renderConditions(); }
   function ripple(x, y) { S.ripples.push({ x, y, r: 4, a: 0.7 }); }
   function splash(x, y) { S.splashes.push({ x, y, r: 3, a: 0.9 }); }
+  function sprayBurst(x, y, n, power) {
+    S.splashes.push({ x, y, r: 4, a: 0.9 });
+    power = power || 1;
+    for (let i = 0; i < n; i++) {
+      const a = -Math.PI / 2 + rnd(-1.1, 1.1), sp = rnd(0.06, 0.2) * power;
+      S.spray.push({ x, y, vx: Math.cos(a) * sp * rnd(0.6, 1.6), vy: Math.sin(a) * sp - 0.03, life: rnd(280, 620), r: rnd(1.4, 3.4) });
+    }
+  }
 
   // ===========================================================================
   // Tournament mode
@@ -1171,6 +1182,11 @@
     // drifting clouds (surface) + particulate motes (underwater)
     for (const c of S.clouds) { c.x += c.spd * dt; if (c.x - 60 > W) c.x = -60; }
     for (const m of S.motes) { m.ph += m.spd * dt; m.y -= m.spd * dt * 6; m.x += Math.sin(m.ph) * 0.2; if (m.y < UW_TOP) { m.y = H; m.x = Math.random() * W; } }
+    // water-spray droplets (gravity) + lure wake trail
+    for (const s of S.spray) { s.vy += dt * 0.0007; s.x += s.vx * dt; s.y += s.vy * dt; s.life -= dt; }
+    S.spray = S.spray.filter(s => s.life > 0);
+    for (const t of S.trail) { t.r += dt * 0.03; t.a -= dt * 0.0018; }
+    S.trail = S.trail.filter(t => t.a > 0);
 
     // camera crossfade + underwater bubbles
     if (S.viewT < 1) S.viewT = Math.min(1, S.viewT + dt / 420);
@@ -1460,6 +1476,8 @@
       ctx.restore();
     }
 
+    drawShoreline(now, sp, wl);
+
     const hz = hotZone();
     drawStructure(now, hz, sp);
 
@@ -1650,6 +1668,15 @@
       const jig = Math.sin(now / per) * amp;       // the lure works up & down as you retrieve
       const lureX = lerp(W * 0.66, W * 0.34, 1 - S.rv.dist) + Math.sin(now / 130) * (S.mode === "strike" ? 1 : 3);
       const lureY = depthY(S.rv.depth) + jig + (S.rv.bob || 0);
+      // wake trailing behind the lure as it swims
+      if (now - (S._trailT || 0) > 60) { S._trailT = now; S.trail.push({ x: lureX + 11, y: lureY, r: 2.5, a: 0.45 }); }
+      for (const t of S.trail) { ctx.strokeStyle = "rgba(210,235,245," + t.a + ")"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(t.x, t.y, t.r, 0, 6.29); ctx.stroke(); }
+      // topwater V-wake at the surface
+      if (lu2.style === "top") {
+        ctx.strokeStyle = "rgba(255,255,255,0.28)"; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(lureX, UW_TOP + 2); ctx.lineTo(lureX + 20, UW_TOP + 13);
+        ctx.moveTo(lureX, UW_TOP + 2); ctx.lineTo(lureX - 20, UW_TOP + 13); ctx.stroke();
+      }
       // pursuers closing in as interest builds
       drawPursuers(now, lureX, lureY);
       // line + lure
@@ -1685,7 +1712,7 @@
       drawBass(fx, fy, len, f && f.art, dir, 1);
       // the lure in its mouth
       drawLure(fx + dir * len * 0.52, fy + len * 0.05, G.lure.id, COLORS[G.lure.color].hex, now / 120, 0.55, dir);
-      if (S.ft.state === "jump") splashAt(fx, UW_TOP, now);
+      if (S.ft.state === "jump" && Math.random() < 0.2) sprayBurst(fx + rnd(-8, 8), UW_TOP + 2, 7, 1);
     }
 
     drawRipplesSplashes();
@@ -1730,6 +1757,11 @@
       ctx.strokeStyle = "rgba(255,255,255," + Math.max(0, s.a) + ")"; ctx.lineWidth = 2.5;
       ctx.beginPath(); ctx.arc(s.x, s.y, s.r, Math.PI * 1.08, Math.PI * 1.92); ctx.stroke();
     }
+    for (const s of S.spray) {
+      const a = clamp(s.life / 550, 0, 1);
+      ctx.fillStyle = "rgba(245,252,255," + (0.85 * a) + ")";
+      ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 6.29); ctx.fill();
+    }
   }
   function splashAt(x, y, now) { if (Math.random() < 0.2) S.splashes.push({ x: x + rnd(-10, 10), y, r: 3, a: 0.8 }); }
 
@@ -1760,38 +1792,119 @@
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   }
 
-  // Angler in a low bass boat, casting.
+  // ---- Per-lake shoreline scenery -------------------------------------------
+  function leafyTree(x, baseY, s) {
+    ctx.fillStyle = "rgba(70,44,26,0.92)"; ctx.fillRect(x - 2 * s, baseY - 16 * s, 4 * s, 18 * s);
+    ctx.fillStyle = "#367033";
+    for (const [dx, dy, r] of [[-8 * s, -20 * s, 11 * s], [8 * s, -20 * s, 11 * s], [0, -28 * s, 13 * s], [0, -15 * s, 12 * s]]) { ctx.beginPath(); ctx.arc(x + dx, baseY + dy, r, 0, 6.29); ctx.fill(); }
+    ctx.fillStyle = "#4f9a47";
+    for (const [dx, dy, r] of [[-5 * s, -24 * s, 6 * s], [6 * s, -21 * s, 5 * s]]) { ctx.beginPath(); ctx.arc(x + dx, baseY + dy, r, 0, 6.29); ctx.fill(); }
+  }
+  function pineTree(x, baseY, s) {
+    ctx.fillStyle = "rgba(60,40,24,0.9)"; ctx.fillRect(x - 2 * s, baseY - 10 * s, 4 * s, 12 * s);
+    ctx.fillStyle = "#2f6b46";
+    for (let i = 0; i < 3; i++) { const ty = baseY - 8 * s - i * 9 * s, wdt = (14 - i * 3.5) * s; ctx.beginPath(); ctx.moveTo(x - wdt, ty); ctx.lineTo(x, ty - 15 * s); ctx.lineTo(x + wdt, ty); ctx.closePath(); ctx.fill(); }
+  }
+  function boulder(x, y, r) {
+    ctx.fillStyle = "rgba(0,0,0,0.16)"; ctx.beginPath(); ctx.ellipse(x, y + 1, r, r * 0.32, 0, 0, 6.29); ctx.fill();
+    ctx.fillStyle = "#6b6f73"; ctx.beginPath(); ctx.arc(x, y, r, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = "#878c90"; ctx.beginPath(); ctx.arc(x - r * 0.3, y - r * 0.15, r * 0.6, Math.PI, 0); ctx.fill();
+  }
+  function cattailClump(x, y, n, col, now) {
+    for (let i = 0; i < n; i++) {
+      const bx = x + i * 7, h = 18 + (i % 3) * 8, sway = Math.sin(now / 700 + i) * 2;
+      ctx.strokeStyle = col || "#5e7d3a"; ctx.lineWidth = 2.5; ctx.lineCap = "round";
+      ctx.beginPath(); ctx.moveTo(bx, y); ctx.lineTo(bx + sway, y - h); ctx.stroke();
+      ctx.fillStyle = col ? "#26303a" : "#6e4a22"; ctx.beginPath(); ctx.ellipse(bx + sway, y - h, 2.2, 6, 0, 0, 6.29); ctx.fill();
+    }
+  }
+  function deadTimber(x, wl, h, now) {
+    ctx.strokeStyle = "#241d14"; ctx.lineWidth = 4; ctx.lineCap = "round";
+    const tx = x + Math.sin(x) * 2;
+    ctx.beginPath(); ctx.moveTo(x, wl + 8); ctx.lineTo(tx, wl - h); ctx.stroke();
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(x, wl - h * 0.6); ctx.lineTo(x - 9, wl - h * 0.6 - 7); ctx.moveTo(x, wl - h * 0.42); ctx.lineTo(x + 10, wl - h * 0.42 - 6); ctx.stroke();
+    ctx.save(); ctx.globalAlpha = 0.18; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(x, wl + 8); ctx.lineTo(x, wl + 8 + h * 0.28); ctx.stroke(); ctx.restore();
+  }
+  function drawShoreline(now, sp, wl) {
+    ctx.save();
+    if (sp.id === "cove") {
+      leafyTree(W * 0.10, wl - 4, 1.1); leafyTree(W * 0.21, wl, 0.8); leafyTree(W * 0.93, wl - 2, 1.0);
+      cattailClump(6, wl + 3, 7, null, now); cattailClump(W - 52, wl + 3, 6, null, now);
+      // small dock jutting from the right shore
+      ctx.fillStyle = "rgba(86,58,33,0.95)"; ctx.fillRect(W * 0.8, wl + 4, W * 0.2, 7);
+      for (let px = W * 0.82; px < W; px += 22) { ctx.fillStyle = "rgba(44,30,17,0.9)"; ctx.fillRect(px, wl + 11, 5, 13); }
+    } else if (sp.id === "river") {
+      pineTree(W * 0.08, wl - 2, 1.1); pineTree(W * 0.18, wl + 2, 0.8); pineTree(W * 0.9, wl, 1.05); pineTree(W * 0.81, wl + 3, 0.7);
+      for (const [bx, br] of [[W * 0.05, 16], [W * 0.15, 11], [W * 0.87, 15], [W * 0.96, 11], [W * 0.5, 8]]) boulder(bx, wl + 5, br);
+    } else { // deep — night
+      ctx.fillStyle = "rgba(190,200,225,0.09)"; ctx.fillRect(0, wl - 8, W, 28);
+      for (const [tx, th] of [[W * 0.13, 72], [W * 0.25, 52], [W * 0.8, 66], [W * 0.9, 44], [W * 0.5, 38]]) deadTimber(tx, wl, th, now);
+      cattailClump(6, wl + 3, 6, "#1c2a3a", now); cattailClump(W - 44, wl + 3, 5, "#1c2a3a", now);
+    }
+    ctx.restore();
+  }
+
+  // ---- A realistic angler casting from a bass boat (original art) ------------
   function drawAngler() {
     const b = anglerBase(), x = b.x, y = b.y, bob = Math.sin(performance.now() / 900) * 2;
-    ctx.save(); ctx.translate(0, bob);
-    // water shadow under the boat
-    ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.beginPath(); ctx.ellipse(x - 6, y + 50, 96, 12, 0, 0, 6.29); ctx.fill();
-    // boat hull (sleek bass boat)
-    const hull = ctx.createLinearGradient(0, y + 26, 0, y + 56); hull.addColorStop(0, "#2b3a45"); hull.addColorStop(1, "#16222b");
+    const tip = rodTip();
+    ctx.save(); ctx.translate(0, bob); ctx.lineJoin = "round";
+    // water shadow + wake
+    ctx.fillStyle = "rgba(0,0,0,0.20)"; ctx.beginPath(); ctx.ellipse(x - 4, y + 52, 108, 13, 0, 0, 6.29); ctx.fill();
+    // hull
+    const hull = ctx.createLinearGradient(0, y + 22, 0, y + 58); hull.addColorStop(0, "#43617a"); hull.addColorStop(0.5, "#27414f"); hull.addColorStop(1, "#14222c");
     ctx.fillStyle = hull;
     ctx.beginPath();
-    ctx.moveTo(x - 96, y + 34); ctx.quadraticCurveTo(x - 104, y + 52, x - 78, y + 56);
-    ctx.lineTo(x + 70, y + 56); ctx.quadraticCurveTo(x + 104, y + 52, x + 96, y + 34);
-    ctx.quadraticCurveTo(x, y + 24, x - 96, y + 34); ctx.closePath(); ctx.fill();
-    // gunwale highlight + deck
-    ctx.strokeStyle = "rgba(120,150,170,0.5)"; ctx.lineWidth = 2; ctx.stroke();
-    ctx.fillStyle = "#3a4c58"; ctx.beginPath(); ctx.ellipse(x - 6, y + 34, 80, 9, 0, 0, 6.29); ctx.fill();
-    // seat pedestal
-    ctx.fillStyle = "#22303a"; ctx.fillRect(x - 34, y + 16, 7, 20);
-    // angler — torso, head, cap, arm to the rod
-    ctx.fillStyle = "#243743";
-    ctx.beginPath(); ctx.moveTo(x - 46, y + 18); ctx.quadraticCurveTo(x - 30, y - 8, x - 16, y + 18); ctx.closePath(); ctx.fill(); // torso (vest)
-    ctx.fillStyle = "#caa56f"; ctx.beginPath(); ctx.arc(x - 31, y - 14, 9, 0, 6.29); ctx.fill(); // head
-    ctx.fillStyle = "#2f6f4a"; // cap
-    ctx.beginPath(); ctx.ellipse(x - 31, y - 20, 11, 4, 0, 0, 6.29); ctx.fill();
-    ctx.beginPath(); ctx.arc(x - 31, y - 22, 9, Math.PI, 0); ctx.fill();
-    ctx.fillRect(x - 31, y - 24, 14, 4); // brim
-    // arm + rod
-    ctx.strokeStyle = "#243743"; ctx.lineWidth = 5; ctx.lineCap = "round";
-    ctx.beginPath(); ctx.moveTo(x - 26, y - 2); ctx.lineTo(x - 8, y + 2); ctx.stroke();
-    ctx.strokeStyle = "#6a4a28"; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(x - 10, y + 4); ctx.lineTo(x + 64, y - 40); ctx.stroke();
-    ctx.fillStyle = "#1b2a33"; ctx.beginPath(); ctx.arc(x - 9, y + 6, 4, 0, 6.29); ctx.fill(); // reel
+    ctx.moveTo(x - 104, y + 30); ctx.quadraticCurveTo(x - 116, y + 54, x - 84, y + 58);
+    ctx.lineTo(x + 88, y + 58); ctx.quadraticCurveTo(x + 120, y + 50, x + 106, y + 30);
+    ctx.quadraticCurveTo(x, y + 19, x - 104, y + 30); ctx.closePath(); ctx.fill();
+    // metallic sparkle + accent stripe
+    ctx.strokeStyle = "rgba(150,190,210,0.55)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - 100, y + 31); ctx.quadraticCurveTo(x, y + 22, x + 102, y + 31); ctx.stroke();
+    ctx.strokeStyle = "rgba(206,62,48,0.85)"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x - 96, y + 38); ctx.quadraticCurveTo(x, y + 30, x + 100, y + 38); ctx.stroke();
+    // deck
+    ctx.fillStyle = "#3c5160"; ctx.beginPath(); ctx.ellipse(x - 2, y + 30, 92, 9, 0, 0, 6.29); ctx.fill();
+    // raised front casting deck (right)
+    ctx.fillStyle = "#4a6575"; ctx.beginPath(); ctx.ellipse(x + 60, y + 23, 44, 8, 0, 0, 6.29); ctx.fill();
+    // console + windshield (mid-left)
+    ctx.fillStyle = "#243640"; ctx.fillRect(x - 50, y + 6, 22, 20);
+    ctx.fillStyle = "rgba(160,205,225,0.55)"; ctx.beginPath(); ctx.moveTo(x - 50, y + 6); ctx.lineTo(x - 34, y - 2); ctx.lineTo(x - 28, y + 6); ctx.closePath(); ctx.fill();
+    // outboard motor (stern, left)
+    ctx.fillStyle = "#161f27"; ctx.fillRect(x - 116, y + 16, 14, 20); ctx.fillRect(x - 111, y + 34, 4, 12);
+    // trolling motor (bow)
+    ctx.strokeStyle = "#161f27"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x + 100, y + 24); ctx.lineTo(x + 108, y + 48); ctx.stroke();
+
+    // ---- angler on the front deck (facing the water, to the right) ----
+    const ax = x + 50, ay = y + 22;
+    // legs
+    ctx.strokeStyle = "#37452f"; ctx.lineWidth = 7; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(ax - 5, ay); ctx.lineTo(ax - 7, ay - 20); ctx.moveTo(ax + 6, ay); ctx.lineTo(ax + 4, ay - 20); ctx.stroke();
+    // torso — fishing vest
+    const vest = ctx.createLinearGradient(0, ay - 40, 0, ay - 14); vest.addColorStop(0, "#d8bb7e"); vest.addColorStop(1, "#b9974f");
+    ctx.fillStyle = vest; ctx.beginPath();
+    ctx.moveTo(ax - 11, ay - 14); ctx.lineTo(ax - 9, ay - 36); ctx.quadraticCurveTo(ax, ay - 44, ax + 9, ay - 36); ctx.lineTo(ax + 11, ay - 14); ctx.quadraticCurveTo(ax, ay - 10, ax - 11, ay - 14); ctx.closePath(); ctx.fill();
+    // vest detailing
+    ctx.strokeStyle = "rgba(90,68,36,0.7)"; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(ax, ay - 38); ctx.lineTo(ax, ay - 16); ctx.moveTo(ax - 7, ay - 24); ctx.lineTo(ax + 7, ay - 24); ctx.stroke();
+    // back arm (to reel) and front arm (extended along the rod)
+    ctx.strokeStyle = "#caa56f"; ctx.lineWidth = 5; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(ax - 3, ay - 33); ctx.lineTo(ax - 13, ay - 22); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ax + 3, ay - 33); ctx.lineTo(ax + 17, ay - 26); ctx.stroke();
+    // neck + head
+    ctx.fillStyle = "#caa56f"; ctx.fillRect(ax - 2.5, ay - 44, 5, 5);
+    ctx.beginPath(); ctx.arc(ax, ay - 48, 8, 0, 6.29); ctx.fill();
+    // sunglasses
+    ctx.fillStyle = "#15161b"; ctx.fillRect(ax + 1, ay - 50, 8, 4); ctx.fillStyle = "rgba(150,200,230,0.5)"; ctx.fillRect(ax + 6, ay - 50, 2, 2);
+    // ball cap (brim to the right)
+    ctx.fillStyle = "#c8482e";
+    ctx.beginPath(); ctx.arc(ax, ay - 52, 8.5, Math.PI, 0); ctx.fill();
+    ctx.fillRect(ax, ay - 53, 15, 3.5);
+    ctx.fillStyle = "#a83a23"; ctx.beginPath(); ctx.arc(ax, ay - 52, 8.5, Math.PI * 1.15, Math.PI * 1.6); ctx.fill();
+    // ---- rod from the front hand out to the rod tip, with a reel ----
+    ctx.strokeStyle = "#1b2730"; ctx.lineWidth = 5; ctx.beginPath(); ctx.arc(ax + 17, ay - 22, 4, 0, 6.29); ctx.stroke();
+    ctx.strokeStyle = "#5a3f22"; ctx.lineWidth = 3; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(ax + 15, ay - 24); ctx.lineTo(tip.x, tip.y - bob); ctx.stroke();
+    ctx.strokeStyle = "rgba(210,180,120,0.6)"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(ax + 15, ay - 24); ctx.lineTo(tip.x, tip.y - bob); ctx.stroke();
     ctx.restore();
   }
 
