@@ -60,17 +60,31 @@ function bassTextures(art) {
     }
   }
 
-  // species markings along the flanks (two mirrored bands: v≈0.30 and v≈0.70)
+  // mottled olive blotching over the back/upper flank (both top bands)
   const pc = css(new THREE.Color(art.patColor || "#2a3618"));
+  g.fillStyle = pc;
+  for (const vy0 of [0.12, 0.88]) {
+    g.globalAlpha = 0.16;
+    for (let k = 0; k < 60; k++) {
+      const x = Math.random() * W, y = (vy0 + (Math.random() - 0.5) * 0.16) * H, r = 5 + Math.random() * 12;
+      g.beginPath(); g.ellipse(x, y, r, r * 0.6, 0, 0, 6.28); g.fill();
+    }
+  }
+  g.globalAlpha = 1;
+
+  // species markings along the flanks (two mirrored bands: v≈0.30 and v≈0.70)
   for (const vy of [0.30, 0.70]) {
     const y = vy * H;
-    if (art.pat === "lateral") {                       // largemouth: ragged dark lateral blotch line
-      for (let x = W * 0.10; x < W * 0.86; x += 16) {
-        const hb = 7 + Math.abs(Math.sin(x * 0.05) * 6 + Math.sin(x * 0.13) * 4);
-        g.fillStyle = pc; g.globalAlpha = 0.5;
-        g.beginPath(); g.ellipse(x, y, 12, hb, 0, 0, 6.28); g.fill();
-      }
-    } else if (art.pat === "bars") {                   // smallmouth: vertical bars
+    if (art.pat === "lateral") {                       // largemouth: bold, broken, jagged lateral stripe
+      g.fillStyle = pc; g.globalAlpha = 0.6;
+      g.beginPath(); g.moveTo(W * 0.08, y);
+      for (let x = W * 0.08; x <= W * 0.88; x += 12) g.lineTo(x, y - (6 + Math.abs(Math.sin(x * 0.06) * 7 + Math.sin(x * 0.17) * 5)));
+      for (let x = W * 0.88; x >= W * 0.08; x -= 12) g.lineTo(x, y + (6 + Math.abs(Math.cos(x * 0.05) * 7 + Math.sin(x * 0.21) * 4)));
+      g.closePath(); g.fill();
+      // dark diamond blotches strung along the stripe
+      g.globalAlpha = 0.5;
+      for (let x = W * 0.12; x < W * 0.85; x += W * 0.10) { g.beginPath(); g.ellipse(x, y, 9, 13 + Math.sin(x) * 3, 0, 0, 6.28); g.fill(); }
+    } else if (art.pat === "bars") {                   // smallmouth: vertical bronze bars
       g.fillStyle = pc; g.globalAlpha = 0.42;
       for (let x = W * 0.16; x < W * 0.82; x += W * 0.085) {
         const bw = 10 + Math.sin(x) * 3; g.fillRect(x - bw / 2, vy < 0.5 ? y - 40 : y, bw, 64);
@@ -194,6 +208,8 @@ function makeBass(art) {
     const pu = new THREE.Mesh(new THREE.SphereGeometry(0.026, 12, 12), pupilMat); pu.position.set(ex + 0.06, ed * 0.5, zc * 1.05); group.add(pu);
     const hi = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 8), hiMat); hi.position.set(ex + 0.07, ed * 0.56, zc * 1.06); group.add(hi);
   }
+  // tracked mouth point at the front of the head, so a hooked line attaches here
+  group.mouth = new THREE.Object3D(); group.mouth.position.set(LEN * 0.52, -depth(0.95) * 0.1, 0); group.add(group.mouth);
   return group;
 }
 
@@ -551,14 +567,18 @@ const Scene3D = (() => {
 
     if (st.view === "surface") { renderSurface(st, t, dt || 16); return; }
 
-    // bite zone
-    const yTop = yOf(Math.max(0, st.band - st.win)), yBot = yOf(Math.min(1, st.band + st.win));
-    const cy = (yTop + yBot) / 2, hgt = Math.max(0.15, yTop - yBot);
-    biteSlab.position.y = cy; biteSlab.scale.y = hgt / 0.1;
-    const zc = st.inZone ? 0x5be37a : 0xffd35c, ze = st.inZone ? 0x78f096 : 0xffe08a;
-    biteSlab.material.color.setHex(zc); biteSlab.material.opacity = st.inZone ? 0.16 : 0.10;
-    biteEdgeTop.position.y = yTop; biteEdgeBot.position.y = yBot;
-    biteEdgeTop.material.color.setHex(ze); biteEdgeBot.material.color.setHex(ze);
+    // bite zone — only while you're working the lure; gone once a fish is on
+    const showZone = st.mode === "retrieve" || st.mode === "strike";
+    biteSlab.visible = biteEdgeTop.visible = biteEdgeBot.visible = showZone;
+    if (showZone) {
+      const yTop = yOf(Math.max(0, st.band - st.win)), yBot = yOf(Math.min(1, st.band + st.win));
+      const cy = (yTop + yBot) / 2, hgt = Math.max(0.15, yTop - yBot);
+      biteSlab.position.y = cy; biteSlab.scale.y = hgt / 0.1;
+      const zc = st.inZone ? 0x5be37a : 0xffd35c, ze = st.inZone ? 0x78f096 : 0xffe08a;
+      biteSlab.material.color.setHex(zc); biteSlab.material.opacity = st.inZone ? 0.16 : 0.10;
+      biteEdgeTop.position.y = yTop; biteEdgeBot.position.y = yBot;
+      biteEdgeTop.material.color.setHex(ze); biteEdgeBot.material.color.setHex(ze);
+    }
 
     motes.rotation.y = t * 0.01;
     surf.material.opacity = 0.22 + 0.14 * (st.daylight != null ? st.daylight : 1);
@@ -613,16 +633,18 @@ const Scene3D = (() => {
       const sc = 0.5 + f.size * 0.9;
       fightFish.scale.setScalar(sc);
       fightFish.position.set(fx, fy, 0);
-      const facing = f.state === "run" ? 1 : -1;        // run = away from boat (+x), else toward
-      fightFish.rotation.y = facing < 0 ? 0 : Math.PI;
-      fightFish.rotation.z = (f.state === "jump") ? -0.5 * facing : Math.sin(t * 2) * 0.08;
+      // the rod is up-left, so the hooked fish's head points that way (toward the
+      // boat); it only quarters away a little when it runs, head still leading.
+      fightFish.rotation.y = Math.PI - (f.state === "run" ? 0.5 : 0);
+      fightFish.rotation.z = (f.state === "jump") ? 0.5 : Math.sin(t * 2) * 0.08;
       undulate(fightFish, t, 0.16 + f.pull * 0.06);
       if (fightFish.tail) fightFish.tail.rotation.y = Math.sin(t * (8 + f.pull * 4)) * 0.5;
-      // taut line bows red under tension
-      const tip = ROD.clone();
-      lineMesh.geometry.setFromPoints([tip, new THREE.Vector3(fx + facing * sc * 0.9, fy, 0)]);
+      // line runs from the rod tip to the fish's actual mouth, bowing red when taut
+      fightFish.updateMatrixWorld(true);
+      const mouth = fightFish.mouth.getWorldPosition(new THREE.Vector3());
+      lineMesh.geometry.setFromPoints([ROD.clone(), mouth]);
       lineMesh.material.color.setHex(f.tension > 0.7 ? 0xff6a6a : 0xffffff);
-      lineMesh.material.opacity = 0.55;
+      lineMesh.material.opacity = 0.6;
     } else if (fightFish) {
       fightFish.visible = false;
     }
