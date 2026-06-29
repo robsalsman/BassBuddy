@@ -1178,19 +1178,21 @@
       try { S3.init(document.getElementById("c3d")); } catch (e) {}
     }
     if (!S3.isReady()) return;
-    const under = S.view === "under";
-    S3.setVisible(under);
-    if (!under) return;
-    const sp = spot(), lu = lure();
+    S3.setVisible(true);   // 3D now drives both surface & underwater; 2D stays as fallback beneath
+    const sp = spot(), lu = lure(), dc = dayColors(sp);
     if (_3dVenue !== sp.id) { _3dVenue = sp.id; S3.setVenue(sp.water[0], sp.water[1]); }
     const band = S.cond.band, win = S.cond.window || 0.085;
     const lureDepth = S.mode === "fight" ? (S.bobberDepth != null ? S.bobberDepth : band) : S.rv.depth;
     const st = {
-      mode: S.mode, band, win,
+      view: S.view, mode: S.mode, band, win,
       lureDepth, lureDist: S.rv.dist, lureHex: COLORS[G.lure.color].hex, lureStyle: lu.style,
       inZone: Math.abs(lureDepth - band) < win,
       interest: S.rv.interest,
-      daylight: dayColors(sp).daylight,
+      daylight: dc.daylight, night: dc.night, sunX: dc.sunX, elev: dc.elev,
+      skyTop: dc.top, skyBot: dc.bot, water0: sp.water[0],
+      castAim: S.castAim ? { x: S.castAim.x, y: S.castAim.y } : null,
+      castProgress: S.bobber.flyT || 0,
+      hotZone: (function () { const z = hotZone(); return { x: z.x, y: z.y }; })(),
       fight: S.mode === "fight" && S.hookedFish ? {
         dist: S.ft.dist, state: S.ft.state, tension: S.ft.tension,
         size: S.ft.size, pull: S.ft.pull, art: S.hookedFish.art,

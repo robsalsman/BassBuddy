@@ -204,6 +204,14 @@ const Scene3D = (() => {
   let pursuers = [], rays = [];
   const clock = { t: 0 };
 
+  // surface world (above the water — idle / aim / cast)
+  let scene2, camS, water, sunS, sunMesh, sunGlow, boat, aimRing, castLine, castLure;
+  let fishShadows = [], hills, structProps;
+  let skyKey = "";
+  const waterPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const ray = new THREE.Raycaster();
+  const ROD_S = new THREE.Vector3(0.45, 0.95, 3.6);   // rod tip in the surface scene
+
   // depth (0 surface .. 1 deep) -> world Y ; line-dist (0 boat .. 1 far) -> world X
   const yOf = d => 2.8 - d * 7.2;
   const xOf = dist => -3.0 + dist * 6.8;
@@ -276,9 +284,186 @@ const Scene3D = (() => {
     // pursuer shadow-bass pool
     for (let i = 0; i < 3; i++) { const p = buildShadowFish(); p.visible = false; scene.add(p); pursuers.push(p); }
 
+    buildSurface();
+
     addEventListener("resize", resize);
     ready = true;
     return true;
+  }
+
+  // ===========================================================================
+  // Surface world
+  // ===========================================================================
+  function skyTexture(top, bot) {
+    const cv = document.createElement("canvas"); cv.width = 8; cv.height = 256;
+    const g = cv.getContext("2d");
+    const grd = g.createLinearGradient(0, 0, 0, 256);
+    grd.addColorStop(0, top); grd.addColorStop(1, bot);
+    g.fillStyle = grd; g.fillRect(0, 0, 8, 256);
+    const tx = new THREE.CanvasTexture(cv); return tx;
+  }
+  function rippleBump() {
+    const N = 256, cv = document.createElement("canvas"); cv.width = N; cv.height = N;
+    const g = cv.getContext("2d");
+    g.fillStyle = "#808080"; g.fillRect(0, 0, N, N);
+    for (let i = 0; i < 90; i++) {
+      const x = Math.random() * N, y = Math.random() * N, r = 6 + Math.random() * 26;
+      const grd = g.createRadialGradient(x, y, 0, x, y, r);
+      grd.addColorStop(0, "rgba(255,255,255,0.5)"); grd.addColorStop(0.5, "rgba(128,128,128,0.0)"); grd.addColorStop(1, "rgba(0,0,0,0.4)");
+      g.fillStyle = grd; g.beginPath(); g.arc(x, y, r, 0, 6.28); g.fill();
+    }
+    const tx = new THREE.CanvasTexture(cv); tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.repeat.set(7, 7);
+    return tx;
+  }
+
+  function buildSurface() {
+    scene2 = new THREE.Scene();
+    scene2.background = new THREE.Color(0x8fd0e6);
+    scene2.fog = new THREE.Fog(0xbfe6f0, 14, 70);     // haze blends distant water into the sky
+
+    camS = new THREE.PerspectiveCamera(56, innerWidth / innerHeight, 0.1, 220);
+    camS.position.set(0, 3.0, 8.8); camS.lookAt(0, -0.5, -9);
+
+    scene2.add(new THREE.HemisphereLight(0xdff2ff, 0x2a6c5a, 1.0));
+    sunS = new THREE.DirectionalLight(0xfff2cf, 1.4); sunS.position.set(3, 8, -2); scene2.add(sunS);
+
+    // rippling water
+    water = new THREE.Mesh(
+      new THREE.PlaneGeometry(200, 200, 1, 1),
+      new THREE.MeshStandardMaterial({ color: 0x2c8fb4, roughness: 0.18, metalness: 0.55, bumpMap: rippleBump(), bumpScale: 0.32 })
+    );
+    water.rotation.x = -Math.PI / 2; water.position.y = 0; scene2.add(water);
+
+    // sun disc + glow
+    sunMesh = new THREE.Mesh(new THREE.CircleGeometry(1.1, 32), new THREE.MeshBasicMaterial({ color: 0xfff3c8 }));
+    sunGlow = new THREE.Mesh(new THREE.CircleGeometry(2.6, 32), new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0.35 }));
+    scene2.add(sunGlow); scene2.add(sunMesh);
+
+    // distant hills (dark silhouette band on the far shore)
+    hills = new THREE.Group();
+    for (let i = 0; i < 14; i++) {
+      const h = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 8), new THREE.MeshStandardMaterial({ color: 0x356b4e, roughness: 1 }));
+      h.position.set((i - 7) * 7 + (i % 2) * 3, -0.4, -42 - (i % 3) * 4);
+      h.scale.set(6 + (i % 3) * 2, 2.2 + (i % 4) * 0.6, 4); hills.add(h);
+    }
+    scene2.add(hills);
+
+    // fish shadows drifting just under the surface
+    const shadowMat = new THREE.MeshBasicMaterial({ color: 0x0a1d22, transparent: true, opacity: 0.32 });
+    for (let i = 0; i < 6; i++) {
+      const s = new THREE.Mesh(new THREE.CircleGeometry(0.5, 18), shadowMat.clone());
+      s.rotation.x = -Math.PI / 2; s.scale.set(1, 0.42, 1);
+      s.position.set((Math.random() - 0.5) * 12, 0.03, -3 - Math.random() * 12);
+      s.userData = { sp: 0.2 + Math.random() * 0.5, dir: Math.random() < 0.5 ? 1 : -1, ph: Math.random() * 6.28 };
+      scene2.add(s); fishShadows.push(s);
+    }
+
+    // structure props near where to cast (generic pads cluster)
+    structProps = new THREE.Group();
+    for (let i = 0; i < 7; i++) {
+      const pad = new THREE.Mesh(new THREE.CircleGeometry(0.45, 16), new THREE.MeshStandardMaterial({ color: 0x3f7d3a, roughness: 0.9, side: THREE.DoubleSide }));
+      pad.rotation.x = -Math.PI / 2;
+      pad.position.set(Math.cos(i * 0.9) * (1 + i * 0.25), 0.04, -6 - Math.sin(i * 0.9) * 1.4);
+      structProps.add(pad);
+    }
+    scene2.add(structProps);
+
+    // bass boat + angler in the foreground
+    boat = buildBoat(); boat.position.set(0, 0, 6.0); scene2.add(boat);
+
+    // cast aim marker, line and lure
+    aimRing = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.62, 28), new THREE.MeshBasicMaterial({ color: 0xffe7a6, transparent: true, opacity: 0.9, side: THREE.DoubleSide }));
+    aimRing.rotation.x = -Math.PI / 2; aimRing.visible = false; scene2.add(aimRing);
+    castLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([ROD_S.clone(), ROD_S.clone()]),
+      new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 }));
+    castLine.visible = false; scene2.add(castLine);
+    castLure = buildLure(); castLure.scale.setScalar(0.7); castLure.visible = false; scene2.add(castLure);
+  }
+
+  function buildBoat() {
+    const g = new THREE.Group();
+    const hullMat = new THREE.MeshStandardMaterial({ color: 0xb33b3b, roughness: 0.5, metalness: 0.2 });
+    const deckMat = new THREE.MeshStandardMaterial({ color: 0x2c2f36, roughness: 0.7 });
+    const hull = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 4.6, 20, 1, false, 0, Math.PI), hullMat);
+    hull.rotation.z = Math.PI / 2; hull.rotation.y = Math.PI; hull.scale.set(1, 1, 0.6); hull.position.y = 0.1; g.add(hull);
+    const deck = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.12, 1.4), deckMat); deck.position.y = 0.32; g.add(deck);
+    // angler — torso, head, cap (seated, viewed from behind)
+    const ang = new THREE.Group(); ang.position.set(-0.15, 0.35, 0.6);
+    const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 0.62, 12), new THREE.MeshStandardMaterial({ color: 0x3f7c54, roughness: 0.9 }));
+    torso.position.y = 0.3; ang.add(torso);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 16), new THREE.MeshStandardMaterial({ color: 0xe0b48a, roughness: 0.8 }));
+    head.position.y = 0.74; ang.add(head);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 12, 0, 6.28, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xc23a2a, roughness: 0.7 }));
+    cap.position.y = 0.78; ang.add(cap);
+    g.add(ang);
+    // fishing rod from the angler out over the bow
+    const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.035, 3.6, 8), new THREE.MeshStandardMaterial({ color: 0x4a3420 }));
+    rod.position.set(0.25, 0.85, -1.3); rod.rotation.x = -0.55; rod.rotation.z = 0.12; g.add(rod);
+    return g;
+  }
+
+  function screenToWater(px, py) {
+    const nx = (px / innerWidth) * 2 - 1, ny = -((py / innerHeight) * 2 - 1);
+    ray.setFromCamera({ x: nx, y: ny }, camS);
+    const hit = new THREE.Vector3();
+    return ray.ray.intersectPlane(waterPlane, hit) ? hit : null;
+  }
+
+  function renderSurface(st, t, dt) {
+    // sky / sun / light by time of day
+    const key = (st.skyTop || "") + (st.skyBot || "");
+    if (key !== skyKey) {
+      skyKey = key;
+      if (st.skyTop) scene2.background = skyTexture(st.skyTop, st.skyBot);
+      if (st.skyBot) scene2.fog.color.set(st.skyBot);
+    }
+    const dl = st.daylight != null ? st.daylight : 1;
+    sunS.intensity = 0.4 + dl * 1.1;
+    sunMesh.material.color.set(st.night ? 0xdfe6ff : 0xfff3c8);
+    sunGlow.material.opacity = st.night ? 0.18 : 0.35;
+    const sx = (st.sunX != null ? st.sunX : 0.5), elev = (st.elev != null ? st.elev : 0.6);
+    const sxw = (sx - 0.5) * 60, syw = 4 + elev * 22;
+    sunMesh.position.set(sxw, syw, -55); sunGlow.position.set(sxw, syw, -56);
+    sunS.position.set(sxw * 0.2, syw, -10);
+    if (st.water0) water.material.color.set(st.water0);
+
+    // animate water ripples + boat bob + fish shadows
+    water.material.bumpMap.offset.x = t * 0.015;
+    water.material.bumpMap.offset.y = t * 0.008;
+    boat.position.y = Math.sin(t * 0.8) * 0.05;
+    boat.rotation.z = Math.sin(t * 0.7) * 0.02;
+    for (const s of fishShadows) {
+      const u = s.userData; s.position.x += u.dir * u.sp * dt * 0.001;
+      if (s.position.x > 9) s.position.x = -9; if (s.position.x < -9) s.position.x = 9;
+      s.position.z += Math.sin(t * 0.5 + u.ph) * 0.002;
+      s.material.opacity = 0.22 + Math.sin(t + u.ph) * 0.08;
+    }
+
+    // structure cluster sits where the player should cast
+    const hz = st.hotZone ? screenToWater(st.hotZone.x, st.hotZone.y) : null;
+    if (hz) { structProps.position.set(hz.x, 0, Math.max(-16, hz.z)); structProps.visible = true; }
+    else structProps.visible = false;
+
+    // aim + cast
+    const land = st.castAim ? screenToWater(st.castAim.x, st.castAim.y) : null;
+    if (st.mode === "charging" && land) {
+      aimRing.visible = true; aimRing.position.set(land.x, 0.05, land.z);
+      const pulse = 0.5 + 0.12 * Math.sin(t * 6); aimRing.scale.setScalar(pulse / 0.5 * 0.9 + 0.4);
+      castLine.visible = true; castLine.geometry.setFromPoints([ROD_S.clone(), new THREE.Vector3(land.x, 0.05, land.z)]);
+      castLure.visible = false;
+    } else if (st.mode === "casting" && land) {
+      const p = Math.min(1, st.castProgress || 0);
+      const pos = ROD_S.clone().lerp(new THREE.Vector3(land.x, 0.05, land.z), p);
+      pos.y += Math.sin(p * Math.PI) * (1.6 + land.distanceTo(ROD_S) * 0.12);
+      castLure.visible = true; castLure.position.copy(pos);
+      castLure.body.material.color.set(st.lureHex || 0xff5a2a);
+      castLine.visible = true; castLine.geometry.setFromPoints([ROD_S.clone(), pos]);
+      aimRing.visible = false;
+    } else {
+      aimRing.visible = false; castLine.visible = false; castLure.visible = false;
+    }
+
+    renderer.render(scene2, camS);
   }
 
   function resize() {
@@ -286,6 +471,7 @@ const Scene3D = (() => {
     renderer.setSize(innerWidth, innerHeight, false);
     canvas.style.width = innerWidth + "px"; canvas.style.height = innerHeight + "px";
     if (camera) { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+    if (camS) { camS.aspect = innerWidth / innerHeight; camS.updateProjectionMatrix(); }
   }
 
   function setVisible(on) {
@@ -346,6 +532,8 @@ const Scene3D = (() => {
     if (!ready || !visible) return;
     clock.t += (dt || 16) / 1000;
     const t = clock.t;
+
+    if (st.view === "surface") { renderSurface(st, t, dt || 16); return; }
 
     // bite zone
     const yTop = yOf(Math.max(0, st.band - st.win)), yBot = yOf(Math.min(1, st.band + st.win));
