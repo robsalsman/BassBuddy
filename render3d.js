@@ -27,12 +27,32 @@ function textTexture(text) {
   const tx = new THREE.CanvasTexture(cv); return tx;
 }
 
+// turn a grayscale height canvas into a tangent-space normal map (Sobel)
+function heightToNormal(srcCanvas, strength) {
+  const w = srcCanvas.width, h = srcCanvas.height;
+  const src = srcCanvas.getContext("2d").getImageData(0, 0, w, h).data;
+  const out = document.createElement("canvas"); out.width = w; out.height = h;
+  const og = out.getContext("2d"), dst = og.createImageData(w, h), d = dst.data;
+  const H = (x, y) => { x = (x + w) % w; y = (y + h) % h; return src[(y * w + x) * 4] / 255; };
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const dx = (H(x - 1, y) - H(x + 1, y)) * strength;
+    const dy = (H(x, y - 1) - H(x, y + 1)) * strength;
+    let nx = dx, ny = dy, nz = 1; const l = Math.hypot(nx, ny, nz) || 1;
+    const i = (y * w + x) * 4;
+    d[i] = (nx / l * 0.5 + 0.5) * 255; d[i + 1] = (ny / l * 0.5 + 0.5) * 255; d[i + 2] = (nz / l * 0.5 + 0.5) * 255; d[i + 3] = 255;
+  }
+  og.putImageData(dst, 0, 0);
+  const tx = new THREE.CanvasTexture(out); tx.anisotropy = 8; return tx;
+}
+
 function bassTextures(art) {
-  const W = 1024, H = 384;
+  const W = 2048, H = 768;                                   // high-res skin
   const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
   const g = cv.getContext("2d");
-  const bv = document.createElement("canvas"); bv.width = W; bv.height = H;
+  const bv = document.createElement("canvas"); bv.width = W; bv.height = H;   // height (for normals)
   const b = bv.getContext("2d");
+  const rv = document.createElement("canvas"); rv.width = W; rv.height = H;   // roughness
+  const rg = rv.getContext("2d");
 
   const body = new THREE.Color(art.body || "#6f9e4e");
   const back = art.back ? new THREE.Color(art.back) : body.clone().multiplyScalar(0.45);
@@ -51,9 +71,13 @@ function bassTextures(art) {
   grad.addColorStop(1.00, css(back));
   g.fillStyle = grad; g.fillRect(0, 0, W, H);
   b.fillStyle = "#808080"; b.fillRect(0, 0, W, H);
+  // roughness: wet/glossy belly (dark = smooth), drier scaly back (lighter)
+  const rgrad = rg.createLinearGradient(0, 0, 0, H);
+  rgrad.addColorStop(0.0, "#9a9a9a"); rgrad.addColorStop(0.5, "#4c4c4c"); rgrad.addColorStop(1.0, "#9a9a9a");
+  rg.fillStyle = rgrad; rg.fillRect(0, 0, W, H);
 
   // overlapping scales across the flanks (skip the very belly + back ridge)
-  const sw = 26, sh = 18;
+  const sw = 50, sh = 34;
   for (let row = 1; row < H / sh - 1; row++) {
     const cy = row * sh, vy = cy / H;
     if (vy < 0.06 || vy > 0.94) continue;
@@ -61,12 +85,14 @@ function bassTextures(art) {
     for (let col = -1; col < W / sw + 1; col++) {
       const cx = col * sw + (row % 2 ? sw / 2 : 0);
       g.beginPath(); g.arc(cx, cy, sw * 0.62, Math.PI * 0.05, Math.PI * 0.95);
-      g.strokeStyle = `rgba(0,0,0,${0.10 + bellyFade * 0.05})`; g.lineWidth = 1.4; g.stroke();
-      g.beginPath(); g.arc(cx, cy - 1.5, sw * 0.6, Math.PI * 1.05, Math.PI * 1.95);
-      g.strokeStyle = `rgba(255,255,255,${0.06 + bellyFade * 0.05})`; g.lineWidth = 1.2; g.stroke();
-      // bump relief: bright top rim, dark bottom rim
-      b.beginPath(); b.arc(cx, cy - 1.5, sw * 0.6, Math.PI * 1.05, Math.PI * 1.95); b.strokeStyle = "rgba(255,255,255,0.5)"; b.lineWidth = 2; b.stroke();
-      b.beginPath(); b.arc(cx, cy, sw * 0.62, Math.PI * 0.05, Math.PI * 0.95); b.strokeStyle = "rgba(0,0,0,0.5)"; b.lineWidth = 2; b.stroke();
+      g.strokeStyle = `rgba(0,0,0,${0.10 + bellyFade * 0.05})`; g.lineWidth = 2.6; g.stroke();
+      g.beginPath(); g.arc(cx, cy - 3, sw * 0.6, Math.PI * 1.05, Math.PI * 1.95);
+      g.strokeStyle = `rgba(255,255,255,${0.06 + bellyFade * 0.05})`; g.lineWidth = 2.2; g.stroke();
+      // height relief: bright top rim, dark bottom rim -> normal map
+      b.beginPath(); b.arc(cx, cy - 3, sw * 0.6, Math.PI * 1.05, Math.PI * 1.95); b.strokeStyle = "rgba(255,255,255,0.55)"; b.lineWidth = 4; b.stroke();
+      b.beginPath(); b.arc(cx, cy, sw * 0.62, Math.PI * 0.05, Math.PI * 0.95); b.strokeStyle = "rgba(0,0,0,0.55)"; b.lineWidth = 4; b.stroke();
+      // each scale edge reads a touch rougher
+      rg.beginPath(); rg.arc(cx, cy, sw * 0.62, Math.PI * 0.05, Math.PI * 0.95); rg.strokeStyle = "rgba(200,200,200,0.25)"; rg.lineWidth = 3; rg.stroke();
     }
   }
 
@@ -121,15 +147,16 @@ function bassTextures(art) {
   g.fillStyle = "rgba(15,10,8,0.7)";
   g.beginPath(); g.ellipse(W * 0.96, H * 0.62, W * 0.05, H * 0.06, 0, 0, 6.28); g.fill();
 
-  const map = new THREE.CanvasTexture(cv);
-  const bump = new THREE.CanvasTexture(bv);
-  map.anisotropy = 4;
-  return { map, bump };
+  const map = new THREE.CanvasTexture(cv); map.anisotropy = 8;
+  if (THREE.SRGBColorSpace) map.colorSpace = THREE.SRGBColorSpace;
+  const normalMap = heightToNormal(bv, 2.4);
+  const roughnessMap = new THREE.CanvasTexture(rv); roughnessMap.anisotropy = 4;
+  return { map, normalMap, roughnessMap };
 }
 
 function makeBass(art) {
   art = art || {};
-  const LEN = 2.4, SEG = 80, RING = 28;
+  const LEN = 2.4, SEG = 140, RING = 48;     // high-poly for smooth, lifelike curves
   const group = new THREE.Group();
 
   const depth = t => {
@@ -159,12 +186,18 @@ function makeBass(art) {
   geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
   geo.setIndex(indices); geo.computeVertexNormals();
 
-  const { map, bump } = bassTextures(art);
-  const mat = new THREE.MeshStandardMaterial({ map, bumpMap: bump, bumpScale: 0.04, roughness: 0.42, metalness: 0.16 });
+  const { map, normalMap, roughnessMap } = bassTextures(art);
+  // physically-based, wet-looking skin: scale relief via normal map, varying
+  // gloss via roughness map, and a clearcoat "slime" layer that catches the light
+  const mat = new THREE.MeshPhysicalMaterial({
+    map, normalMap, roughnessMap, metalness: 0.0, roughness: 1.0,
+    normalScale: new THREE.Vector2(0.9, 0.9),
+    clearcoat: 0.7, clearcoatRoughness: 0.35, envMapIntensity: 1.1, sheen: 0.3,
+  });
   const mesh = new THREE.Mesh(geo, mat);
   group.add(mesh);
   group.geo = geo; group.basePos = Float32Array.from(positions); group.len = LEN;
-  group.disposables = [geo, mat, map, bump];
+  group.disposables = [geo, mat, map, normalMap, roughnessMap];
 
   // fins — translucent membrane with faint rays painted on
   const finCv = document.createElement("canvas"); finCv.width = 64; finCv.height = 64;
@@ -235,7 +268,7 @@ const Scene3D = (() => {
   let scene2, camS, water, sunS, sunMesh, sunGlow, boat, aimRing, castLine, castLure;
   let fishShadows = [], hills, structProps, world;
   let splashRings = [], surfFish = null, surfFishKey = "", boil, castSplashed = false;
-  let skyKey = "";
+  let skyKey = "", envMap = null;
   const waterPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   const ray = new THREE.Raycaster();
   const ROD_S = new THREE.Vector3(0.45, 0.95, 3.6);   // rod tip in the surface scene
@@ -247,16 +280,45 @@ const Scene3D = (() => {
   const xOf = dist => -1.7 + dist * 3.4;          // kept inside the portrait frame
   const ROD = new THREE.Vector3(-2.2, 2.4, 0.2);  // line enters from the top-left
 
+  // build a prefiltered environment map (sky gradient + sun) for realistic
+  // reflections on the wet fish skin and the water
+  function buildEnv(rnd) {
+    try {
+      const pmrem = new THREE.PMREMGenerator(rnd);
+      const es = new THREE.Scene();
+      const sky = new THREE.Mesh(
+        new THREE.SphereGeometry(50, 24, 16),
+        new THREE.MeshBasicMaterial({ side: THREE.BackSide, vertexColors: true })
+      );
+      const top = new THREE.Color(0x9fd8ef), bot = new THREE.Color(0x16384a);
+      const pos = sky.geometry.attributes.position, col = [];
+      for (let i = 0; i < pos.count; i++) {
+        const yN = (pos.getY(i) / 50) * 0.5 + 0.5;
+        const c = bot.clone().lerp(top, yN); col.push(c.r, c.g, c.b);
+      }
+      sky.geometry.setAttribute("color", new THREE.Float32BufferAttribute(col, 3));
+      es.add(sky);
+      const sun = new THREE.Mesh(new THREE.SphereGeometry(6, 16, 16), new THREE.MeshBasicMaterial({ color: 0xfff4d6 }));
+      sun.position.set(14, 26, -10); es.add(sun);
+      const tex = pmrem.fromScene(es, 0, 0.1, 100).texture;
+      sky.geometry.dispose(); sky.material.dispose(); sun.geometry.dispose(); sun.material.dispose(); pmrem.dispose();
+      return tex;
+    } catch (e) { return null; }
+  }
+
   function init(cv) {
     canvas = cv;
     try {
-      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+      renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "high-performance" });
     } catch (e) { return false; }
-    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 3));   // crisp on strong GPUs
+    if (THREE.ACESFilmicToneMapping !== undefined) { renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.08; }
     resize();
+    envMap = buildEnv(renderer);                    // image-based lighting for real reflections
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0a3a4a);   // opaque so it fully covers the 2D layer
     scene.fog = new THREE.FogExp2(0x0d3f55, 0.052);
+    scene.environment = envMap;
 
     camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 100);
     camera.position.set(0, -0.3, 9.4);
@@ -353,17 +415,19 @@ const Scene3D = (() => {
     g.fillStyle = grd; g.fillRect(0, 0, 8, 256);
     const tx = new THREE.CanvasTexture(cv); return tx;
   }
-  function rippleBump() {
-    const N = 256, cv = document.createElement("canvas"); cv.width = N; cv.height = N;
+  // a tiling ripple normal map for the water surface
+  function rippleNormal() {
+    const N = 512, cv = document.createElement("canvas"); cv.width = N; cv.height = N;
     const g = cv.getContext("2d");
     g.fillStyle = "#808080"; g.fillRect(0, 0, N, N);
-    for (let i = 0; i < 90; i++) {
-      const x = Math.random() * N, y = Math.random() * N, r = 6 + Math.random() * 26;
+    for (let i = 0; i < 160; i++) {
+      const x = Math.random() * N, y = Math.random() * N, r = 8 + Math.random() * 40;
       const grd = g.createRadialGradient(x, y, 0, x, y, r);
-      grd.addColorStop(0, "rgba(255,255,255,0.5)"); grd.addColorStop(0.5, "rgba(128,128,128,0.0)"); grd.addColorStop(1, "rgba(0,0,0,0.4)");
+      grd.addColorStop(0, "rgba(255,255,255,0.5)"); grd.addColorStop(0.5, "rgba(128,128,128,0.0)"); grd.addColorStop(1, "rgba(0,0,0,0.45)");
       g.fillStyle = grd; g.beginPath(); g.arc(x, y, r, 0, 6.28); g.fill();
     }
-    const tx = new THREE.CanvasTexture(cv); tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.repeat.set(7, 7);
+    const tx = heightToNormal(cv, 1.4);
+    tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.repeat.set(8, 8);
     return tx;
   }
 
@@ -371,6 +435,7 @@ const Scene3D = (() => {
     scene2 = new THREE.Scene();
     scene2.background = new THREE.Color(0x8fd0e6);
     scene2.fog = new THREE.Fog(0xbfe6f0, 14, 70);     // haze blends distant water into the sky
+    scene2.environment = envMap;
 
     camS = new THREE.PerspectiveCamera(56, innerWidth / innerHeight, 0.1, 220);
     camS.position.set(0, 3.0, 8.8); camS.lookAt(0, -0.5, -9);
@@ -381,7 +446,7 @@ const Scene3D = (() => {
     // rippling water (stays put — the world turns around the boat, not the water)
     water = new THREE.Mesh(
       new THREE.PlaneGeometry(200, 200, 1, 1),
-      new THREE.MeshStandardMaterial({ color: 0x2c8fb4, roughness: 0.18, metalness: 0.55, bumpMap: rippleBump(), bumpScale: 0.32 })
+      new THREE.MeshPhysicalMaterial({ color: 0x1f6f92, roughness: 0.12, metalness: 0.0, normalMap: rippleNormal(), normalScale: new THREE.Vector2(0.5, 0.5), envMapIntensity: 1.2, clearcoat: 0.5, clearcoatRoughness: 0.2 })
     );
     water.rotation.x = -Math.PI / 2; water.position.y = 0; scene2.add(water);
 
@@ -592,8 +657,8 @@ const Scene3D = (() => {
     world.rotation.y = heading;   // ▶ turns the boat right -> world slides left (and back)
 
     // animate water ripples + boat bob
-    water.material.bumpMap.offset.x = t * 0.015;
-    water.material.bumpMap.offset.y = t * 0.008;
+    water.material.normalMap.offset.x = t * 0.015;
+    water.material.normalMap.offset.y = t * 0.008;
     boat.position.y = Math.sin(t * 0.8) * 0.05;
     boat.rotation.z = Math.sin(t * 0.7) * 0.02;
     // trolling motor: prop spins; head steers toward the turn
@@ -1014,10 +1079,12 @@ const Scene3D = (() => {
 
   function initCatch(cv) {
     if (!cv) return false;
-    try { catchR = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true }); }
+    try { catchR = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true, powerPreference: "high-performance" }); }
     catch (e) { return false; }
-    catchR.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    catchR.setPixelRatio(Math.min(devicePixelRatio || 1, 3));
+    if (THREE.ACESFilmicToneMapping !== undefined) { catchR.toneMapping = THREE.ACESFilmicToneMapping; catchR.toneMappingExposure = 1.1; }
     catchScene = new THREE.Scene();
+    catchScene.environment = buildEnv(catchR);     // reflections on the trophy's wet skin
     catchCam = new THREE.PerspectiveCamera(42, 1.8, 0.1, 50);
     catchCam.position.set(0, 0, 6.4);
     catchScene.add(new THREE.HemisphereLight(0xffffff, 0x44525e, 1.2));
