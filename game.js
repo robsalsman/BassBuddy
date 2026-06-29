@@ -842,6 +842,8 @@
     el.retrievePanel.classList.remove("hidden");
     showBtn(true); setBtn("HOLD TO REEL", "reel");
     setStatus(S.castBonus ? "On the structure — work it!" : "Work the lure…");
+    // clear the big centre text so it doesn't cover the underwater action
+    setTimeout(() => { if (S.mode === "retrieve" || S.mode === "strike") setStatus(""); }, 1500);
   }
   function spawnPursuers() {
     S.pursuers = [];

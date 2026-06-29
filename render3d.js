@@ -230,9 +230,11 @@ const Scene3D = (() => {
   const ROD_S = new THREE.Vector3(0.45, 0.95, 3.6);   // rod tip in the surface scene
 
   // depth (0 surface .. 1 deep) -> world Y ; line-dist (0 boat .. 1 far) -> world X
-  const yOf = d => 2.8 - d * 7.2;
-  const xOf = dist => -3.0 + dist * 6.8;
-  const ROD = new THREE.Vector3(-3.7, 2.7, 0.2);
+  // mapped so the typical bite range (shallow..mid) sits centred in frame,
+  // not crammed against the surface up top.
+  const yOf = d => 1.7 - d * 5.6;
+  const xOf = dist => -1.7 + dist * 3.4;          // kept inside the portrait frame
+  const ROD = new THREE.Vector3(-2.2, 2.4, 0.2);  // line enters from the top-left
 
   function init(cv) {
     canvas = cv;
@@ -561,13 +563,13 @@ const Scene3D = (() => {
     } else if (fighting) {
       const f = st.fight, load = 0.4 + f.tension * 0.9 + f.pull * 0.25;
       const pump = f.reeling ? Math.sin(t * 7) * 0.13 : 0;          // reeling pumps the rod
-      rod.rotation.x = -1.15 - load * 0.22 + pump;                  // tipped down toward the fish
+      rod.rotation.x = -0.5 - load * 0.12 + pump;                   // held up high, dips with load
       rod.rotation.z = 0.12 + Math.sin(t * 5) * f.tension * 0.06;
-      bend = 0.3 + load * 0.8 + (f.state === "jump" ? 0.2 : 0) + Math.sin(t * 9) * 0.04;
+      bend = -(0.45 + load * 0.75) - Math.abs(Math.sin(t * 9)) * 0.05;  // tip bows forward toward the fish
     } else if (landing) {
       const e = landing.t;
-      rod.rotation.x = lerp(-1.25, -0.15, e); rod.rotation.z = 0.12;
-      bend = 0.7 * (1 - e) + 0.15;
+      rod.rotation.x = lerp(-0.6, 0.25, e); rod.rotation.z = 0.12;  // hoist up
+      bend = -(0.6 * (1 - e) + 0.12);
     } else {
       rod.rotation.x += (-0.95 + Math.sin(t * 1.3) * 0.04 - rod.rotation.x) * Math.min(1, dt * 0.01);
       rod.rotation.z += (0.12 - rod.rotation.z) * Math.min(1, dt * 0.01);
@@ -767,9 +769,10 @@ const Scene3D = (() => {
         const p = pursuers[i]; const on = i < want;
         p.visible = on; if (!on) continue;
         const lead = i === 0, side = i % 2 === 0 ? 1 : -1;
-        const reach = (1 - it) * (3.4 + i * 1.0) + (lead ? 0.7 : 1.3);
-        const tx = lx + side * reach + Math.cos(t * 0.8 + i) * 0.35;
-        const ty = yOf(st.band) + Math.sin(t * 0.9 + i * 1.7) * 0.45
+        const reach = (1 - it) * (1.4 + i * 0.5) + (lead ? 0.5 : 0.9);
+        let tx = lx + side * reach + Math.cos(t * 0.8 + i) * 0.25;
+        tx = Math.max(-2.0, Math.min(2.0, tx));                            // keep in frame
+        const ty = yOf(st.band) + Math.sin(t * 0.9 + i * 1.7) * 0.4
                  + (ly - yOf(st.band)) * (lead ? it : it * 0.4);          // lead rises to the lure's depth
         const tz = -0.5 - i * 0.7 + Math.sin(t * (1.2 + i * 0.3) + i) * 0.5;
         p.position.set(tx, ty, tz);
