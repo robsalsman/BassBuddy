@@ -985,15 +985,43 @@
     if (shown3d) { cv3d.style.display = "block"; svgHost.innerHTML = ""; }
     else { cv3d.style.display = "none"; svgHost.innerHTML = heroSVG(f, 168); }
     el.catchName.textContent = f.name;
-    el.catchWeight.textContent = f.weight;
-    const lenEl = document.getElementById("catchLength");
-    if (lenEl) lenEl.textContent = (f.lengthIn || Math.cbrt(f.weight * 1600)).toFixed(1);
+    const lenIn = f.lengthIn || +Math.cbrt(f.weight * 1600).toFixed(1);
+    animateMeasure(f.weight, lenIn);
     el.catchReward.textContent = f.value;
     el.catchRewardWrap.classList.remove("hidden");
     el.catchRecord.textContent = isRecord && prev > 0 ? "🏆 NEW PERSONAL BEST!" : isRecord ? "🏆 FIRST CATCH!" : "";
     el.catchTourney.classList.add("hidden");
     el.catchOk.textContent = "NICE! KEEP FISHING";
     el.catchModal.classList.remove("hidden");
+  }
+
+  // weigh & measure: the scale settles (numbers roll up) and the tape fills
+  let _measureRAF = 0;
+  function animateMeasure(weight, lengthIn) {
+    const wEl = el.catchWeight, lEl = document.getElementById("catchLength");
+    const fill = document.getElementById("catchRulerFill");
+    const wCell = wEl && wEl.parentElement, lCell = lEl && lEl.parentElement;
+    if (fill) fill.style.width = "0%";
+    cancelAnimationFrame(_measureRAF);
+    const dur = 1000, start = performance.now();
+    const RULER_MAX = 28;   // inches the tape spans
+    function step(now) {
+      let p = Math.min(1, (now - start) / dur);
+      const e = 1 - Math.pow(1 - p, 3);                         // ease-out settle
+      const wob = p < 1 ? (1 - p) * Math.sin(p * 40) * 0.04 : 0; // needle wobble as it settles
+      if (wEl) wEl.textContent = (weight * (e + wob)).toFixed(1);
+      if (lEl) lEl.textContent = (lengthIn * e).toFixed(1);
+      if (fill) fill.style.width = Math.min(100, lengthIn / RULER_MAX * 100 * e) + "%";
+      if (p < 1) { _measureRAF = requestAnimationFrame(step); }
+      else {
+        if (wEl) wEl.textContent = weight.toFixed(1);
+        if (lEl) lEl.textContent = lengthIn.toFixed(1);
+        if (wCell) { wCell.classList.remove("settle"); void wCell.offsetWidth; wCell.classList.add("settle"); }
+        if (lCell) { lCell.classList.remove("settle"); void lCell.offsetWidth; lCell.classList.add("settle"); }
+        vibrate(20);
+      }
+    }
+    _measureRAF = requestAnimationFrame(step);
   }
 
   function loseFish(msg) {

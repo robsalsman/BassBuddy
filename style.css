@@ -233,6 +233,15 @@ html, body {
 .cs-cell .cs-ico { font-size: 15px; }
 .cs-cell b { font-size: 22px; font-weight: 800; color: #ffd35c; }
 .cs-cell small { font-size: 11px; color: var(--muted, #9fc3d2); font-weight: 700; }
+.cs-cell.settle { animation: csPop .25s ease; }
+@keyframes csPop { 0% { transform: scale(1); } 50% { transform: scale(1.12); } 100% { transform: scale(1); } }
+/* measuring tape under the fish — fills to the measured length */
+.catch-ruler { position: relative; height: 14px; margin: 4px 18px 2px; border-radius: 7px; overflow: hidden;
+  background: repeating-linear-gradient(90deg, rgba(255,255,255,.18) 0 1px, transparent 1px 10px),
+              repeating-linear-gradient(90deg, rgba(255,255,255,.32) 0 2px, transparent 2px 50px) , rgba(255,255,255,.05);
+  border: 1px solid var(--ui-line); }
+.catch-ruler i { position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
+  background: linear-gradient(90deg, rgba(91,227,122,.5), rgba(46,199,199,.6)); transition: none; }
 .reel-fish svg { width: 38px; height: 24px; filter: drop-shadow(0 2px 2px rgba(0,0,0,.45)); }
 
 /* ---------- Lure tray ---------- */
