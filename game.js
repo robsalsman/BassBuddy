@@ -460,6 +460,7 @@
     fishes: [], ripples: [], splashes: [], bubbles: [], pursuers: [], clouds: [], motes: [], spray: [], trail: [],
     aim: null,
     view: "surface", viewT: 1,   // surface <-> underwater camera (viewT = transition 0..1)
+    heading: 0, headingTarget: 0, steer: 0, holdBearing: 0, castFacing: 1,
     cond: { timeMin: 6.5 * 60, weather: "sun", temp: 64, band: 0.3 },
     tournament: null,
   };
@@ -583,8 +584,13 @@
     else { const r = Math.random(); S.cond.weather = r < 0.5 ? "sun" : r < 0.78 ? "cloud" : "fog"; }
     S.cond.timeMin = (sp.id === "deep" ? 21 * 60 : 6 * 60) + Math.random() * 120;
     if (!S.cond.season) S.cond.season = SEASON_ORDER[Math.floor(Math.random() * 4)];
+    // the productive water sits at a random bearing — turn the trolling motor to find it
+    S.holdBearing = rnd(-1.0, 1.0);
+    S.heading = 0; S.headingTarget = 0;
     recomputeCond();
   }
+  // how directly the boat faces the holding water (1 = dead on, 0 = facing away)
+  function facingQuality() { return clamp(0.5 + 0.5 * Math.cos((S.heading || 0) - (S.holdBearing || 0)), 0, 1); }
   function recomputeCond() {
     const c = S.cond, hour = c.timeMin / 60, sp = spot(), pos = position(), wx = c.weather;
     const sea = SEASONS[c.season] || SEASONS.summer;
@@ -823,6 +829,7 @@
     S.castFt = Math.round(28 + S.bobber.dist * 66);   // how far this cast reached (ft)
     const hz = hotZone();
     S.castBonus = Math.hypot(px - hz.x, py - hz.y) < hz.r;
+    S.castFacing = facingQuality();   // how well the boat was aimed at the fish when you cast
     showBtn(false); setStatus("");
     S.aim = null;
   }
@@ -1169,7 +1176,69 @@
     update(dt, now);
     render(now);
     drive3D(dt, now);
+    updateBoatHud(now);
     requestAnimationFrame(frame);
+  }
+
+  // ---- Trolling motor + fish finder (surface view) ----
+  (function setupBoatHud() {
+    const L = document.getElementById("trollL"), R = document.getElementById("trollR");
+    const press = dir => e => { e.preventDefault(); S.steer = dir; vibrate(8); };
+    const release = e => { S.steer = 0; };
+    for (const [btn, dir] of [[L, -1], [R, 1]]) {
+      btn.addEventListener("pointerdown", press(dir));
+      btn.addEventListener("pointerup", release);
+      btn.addEventListener("pointerleave", release);
+      btn.addEventListener("pointercancel", release);
+    }
+  })();
+
+  function updateBoatHud(now) {
+    const hud = document.getElementById("boatHud");
+    const show = S.view === "surface" && S.viewT >= 1 && !anyModalOpen() &&
+                 (S.mode === "idle" || S.mode === "charging");
+    hud.classList.toggle("hidden", !show);
+    if (show) drawSonar(now);
+    else if (S.steer) S.steer = 0;
+  }
+
+  function drawSonar(now) {
+    const cv = document.getElementById("sonar"), g = cv.getContext("2d");
+    const W2 = cv.width, H2 = cv.height;
+    const lu = lure(), sc = lureScore(lu).score, face = facingQuality();
+    const quality = clamp(sc * (0.4 + 0.6 * face), 0, 1);     // right lure + facing the fish
+    document.getElementById("sonarQ").textContent =
+      (quality > 0.66 ? "● STACKED" : quality > 0.33 ? "● MARKS" : "○ SCATTERED");
+    document.getElementById("sonarQ").style.color = quality > 0.66 ? "#5be37a" : quality > 0.33 ? "#ffd35c" : "#9fb6c2";
+    // water column
+    const grd = g.createLinearGradient(0, 0, 0, H2);
+    grd.addColorStop(0, "#0d4a63"); grd.addColorStop(1, "#03161f");
+    g.fillStyle = grd; g.fillRect(0, 0, W2, H2);
+    // surface line + bottom
+    g.fillStyle = "rgba(180,230,245,.5)"; g.fillRect(0, 2, W2, 2);
+    g.fillStyle = "#6b4a2a"; g.beginPath(); g.moveTo(0, H2);
+    for (let x = 0; x <= W2; x += 12) g.lineTo(x, H2 - 10 - Math.sin(x * 0.2 + now / 600) * 4);
+    g.lineTo(W2, H2); g.closePath(); g.fill();
+    // bite-zone band
+    const band = S.cond.band, win = S.cond.window || 0.085;
+    const yTop = (band - win) * H2, yBot = (band + win) * H2;
+    g.fillStyle = quality > 0.5 ? "rgba(91,227,122,.22)" : "rgba(255,211,92,.16)";
+    g.fillRect(0, yTop, W2, yBot - yTop);
+    g.strokeStyle = quality > 0.5 ? "rgba(120,240,150,.7)" : "rgba(255,211,92,.5)"; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(0, yTop); g.lineTo(W2, yTop); g.moveTo(0, yBot); g.lineTo(W2, yBot); g.stroke();
+    // fish arches at the holding depth — count & brightness scale with quality
+    const n = Math.round(2 + quality * 10);
+    for (let i = 0; i < n; i++) {
+      const ph = i * 1.7 + now / 700;
+      const fx = ((i * 53 + now * 0.02) % (W2 + 20)) - 10;
+      const fy = band * H2 + Math.sin(ph) * (win * H2 * 0.8);
+      const a = 0.35 + quality * 0.55;
+      g.strokeStyle = quality > 0.5 ? `rgba(120,240,150,${a})` : `rgba(255,225,150,${a})`;
+      g.lineWidth = 1.6; g.beginPath(); g.arc(fx, fy, 4, Math.PI * 1.15, Math.PI * 1.85); g.stroke();
+    }
+    // depth ticks
+    g.fillStyle = "rgba(200,225,235,.6)"; g.font = "8px system-ui"; g.textAlign = "right";
+    for (let d = 0; d <= 1.001; d += 0.5) g.fillText(Math.round(d * 24) + "ft", W2 - 3, clamp(d * H2, 8, H2 - 3));
   }
 
   // ---- 3D underwater layer (Three.js). The 2D scene above keeps rendering as
@@ -1197,6 +1266,7 @@
       skyTop: dc.top, skyBot: dc.bot, water0: sp.water[0],
       castAim: S.castAim ? { x: S.castAim.x, y: S.castAim.y } : null,
       castProgress: S.bobber.flyT || 0,
+      heading: S.heading, holdBearing: S.holdBearing, facing: facingQuality(), steer: S.steer,
       hotZone: (function () { const z = hotZone(); return { x: z.x, y: z.y }; })(),
       fight: S.mode === "fight" && S.hookedFish ? {
         dist: S.ft.dist, state: S.ft.state, tension: S.ft.tension,
@@ -1209,6 +1279,10 @@
   function update(dt, now) {
     if (S.tournament && !S.tournament.ended) updateTourClock(dt);
     pollHold(now);
+
+    // trolling-motor steering: hold a turn button to swing the boat
+    if (S.steer) S.headingTarget = clamp(S.headingTarget + S.steer * dt * 0.0016, -Math.PI, Math.PI);
+    S.heading += (S.headingTarget - S.heading) * Math.min(1, dt * 0.008);
 
     if (S.mode === "charging") {
       S.castPower += S.castDir * dt * 0.0017;
@@ -1302,7 +1376,8 @@
     const sc = lureScore(lu).score;
     const depthNow = clamp(1 - Math.abs(R.depth - S.cond.band) / ((S.cond.window || 0.09) * 3), 0, 1);
     const struct = S.castBonus ? 1.2 : 1;
-    const build = (R.action > 0.55 ? 1 : 0.3) * (0.25 + sc) * depthNow * struct;
+    const aimed = 0.55 + 0.45 * (S.castFacing != null ? S.castFacing : 1);   // faced the fish when you cast?
+    const build = (R.action > 0.55 ? 1 : 0.3) * (0.25 + sc) * depthNow * struct * aimed;
     R.interest = clamp(R.interest + (build * 0.012 - 0.0016) * step, 0, 1);
     R.follower = R.interest;
     if (R.interest >= 1) { strike(); return; }

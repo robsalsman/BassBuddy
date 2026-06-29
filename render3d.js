@@ -222,7 +222,7 @@ const Scene3D = (() => {
 
   // surface world (above the water — idle / aim / cast)
   let scene2, camS, water, sunS, sunMesh, sunGlow, boat, aimRing, castLine, castLure;
-  let fishShadows = [], hills, structProps;
+  let fishShadows = [], hills, structProps, world;
   let skyKey = "";
   const waterPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   const ray = new THREE.Raycaster();
@@ -344,7 +344,7 @@ const Scene3D = (() => {
     scene2.add(new THREE.HemisphereLight(0xdff2ff, 0x2a6c5a, 1.0));
     sunS = new THREE.DirectionalLight(0xfff2cf, 1.4); sunS.position.set(3, 8, -2); scene2.add(sunS);
 
-    // rippling water
+    // rippling water (stays put — the world turns around the boat, not the water)
     water = new THREE.Mesh(
       new THREE.PlaneGeometry(200, 200, 1, 1),
       new THREE.MeshStandardMaterial({ color: 0x2c8fb4, roughness: 0.18, metalness: 0.55, bumpMap: rippleBump(), bumpScale: 0.32 })
@@ -356,37 +356,40 @@ const Scene3D = (() => {
     sunGlow = new THREE.Mesh(new THREE.CircleGeometry(2.6, 32), new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0.35 }));
     scene2.add(sunGlow); scene2.add(sunMesh);
 
-    // distant hills (dark silhouette band on the far shore)
-    hills = new THREE.Group();
-    for (let i = 0; i < 14; i++) {
-      const h = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 8), new THREE.MeshStandardMaterial({ color: 0x356b4e, roughness: 1 }));
-      h.position.set((i - 7) * 7 + (i % 2) * 3, -0.4, -42 - (i % 3) * 4);
-      h.scale.set(6 + (i % 3) * 2, 2.2 + (i % 4) * 0.6, 4); hills.add(h);
-    }
-    scene2.add(hills);
+    // everything that rotates when you steer the trolling motor goes in `world`
+    world = new THREE.Group(); scene2.add(world);
 
-    // fish shadows drifting just under the surface
+    // distant hills (shoreline ring) — so turning reveals new shore
+    hills = new THREE.Group();
+    for (let i = 0; i < 28; i++) {
+      const a = i / 28 * Math.PI * 2, R = 46 + (i % 4) * 4;
+      const h = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 8), new THREE.MeshStandardMaterial({ color: 0x356b4e, roughness: 1 }));
+      h.position.set(Math.sin(a) * R, -0.6, -Math.cos(a) * R);
+      h.scale.set(7 + (i % 3) * 2, 2.4 + (i % 4) * 0.7, 5); hills.add(h);
+    }
+    world.add(hills);
+
+    // fish shadows drifting just under the surface (clustered near the structure)
     const shadowMat = new THREE.MeshBasicMaterial({ color: 0x0a1d22, transparent: true, opacity: 0.32 });
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 7; i++) {
       const s = new THREE.Mesh(new THREE.CircleGeometry(0.5, 18), shadowMat.clone());
       s.rotation.x = -Math.PI / 2; s.scale.set(1, 0.42, 1);
-      s.position.set((Math.random() - 0.5) * 12, 0.03, -3 - Math.random() * 12);
-      s.userData = { sp: 0.2 + Math.random() * 0.5, dir: Math.random() < 0.5 ? 1 : -1, ph: Math.random() * 6.28 };
-      scene2.add(s); fishShadows.push(s);
+      s.userData = { sp: 0.2 + Math.random() * 0.5, dir: Math.random() < 0.5 ? 1 : -1, ph: Math.random() * 6.28, off: (Math.random() - 0.5) * 4 };
+      world.add(s); fishShadows.push(s);
     }
 
-    // structure props near where to cast (generic pads cluster)
+    // structure props (lily-pad cluster) — placed at the productive bearing
     structProps = new THREE.Group();
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < 9; i++) {
       const pad = new THREE.Mesh(new THREE.CircleGeometry(0.45, 16), new THREE.MeshStandardMaterial({ color: 0x3f7d3a, roughness: 0.9, side: THREE.DoubleSide }));
       pad.rotation.x = -Math.PI / 2;
-      pad.position.set(Math.cos(i * 0.9) * (1 + i * 0.25), 0.04, -6 - Math.sin(i * 0.9) * 1.4);
+      pad.position.set(Math.cos(i * 0.9) * (0.6 + i * 0.22), 0.04, Math.sin(i * 0.9) * (0.6 + i * 0.22));
       structProps.add(pad);
     }
-    scene2.add(structProps);
+    world.add(structProps);
 
-    // bass boat + angler in the foreground
-    boat = buildBoat(); boat.position.set(0, 0, 6.0); scene2.add(boat);
+    // bass boat + angler in the foreground (fixed — camera rides the boat)
+    boat = buildBoat(); boat.position.set(0, 0, 5.4); scene2.add(boat);
 
     // cast aim marker, line and lure
     aimRing = new THREE.Mesh(new THREE.RingGeometry(0.5, 0.62, 28), new THREE.MeshBasicMaterial({ color: 0xffe7a6, transparent: true, opacity: 0.9, side: THREE.DoubleSide }));
@@ -399,25 +402,55 @@ const Scene3D = (() => {
 
   function buildBoat() {
     const g = new THREE.Group();
-    const hullMat = new THREE.MeshStandardMaterial({ color: 0xb33b3b, roughness: 0.5, metalness: 0.2 });
-    const deckMat = new THREE.MeshStandardMaterial({ color: 0x2c2f36, roughness: 0.7 });
-    const hull = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 4.6, 20, 1, false, 0, Math.PI), hullMat);
-    hull.rotation.z = Math.PI / 2; hull.rotation.y = Math.PI; hull.scale.set(1, 1, 0.6); hull.position.y = 0.1; g.add(hull);
-    const deck = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.12, 1.4), deckMat); deck.position.y = 0.32; g.add(deck);
+    const flake = new THREE.MeshStandardMaterial({ color: 0x9a1f2a, roughness: 0.25, metalness: 0.6 });   // metal-flake hull
+    const deckMat = new THREE.MeshStandardMaterial({ color: 0x20242b, roughness: 0.6, metalness: 0.3 });
+    const trimMat = new THREE.MeshStandardMaterial({ color: 0xdfe3e8, roughness: 0.4, metalness: 0.5 });
+
+    // sleek hull: a tapered deck that narrows to a pointed bow up front (-z)
+    const hullShape = new THREE.Shape();
+    hullShape.moveTo(-1.05, -1.9);                       // stern, port
+    hullShape.lineTo(1.05, -1.9);                        // stern, starboard
+    hullShape.lineTo(1.12, -0.2);
+    hullShape.lineTo(0.66, 1.55);
+    hullShape.quadraticCurveTo(0, 2.5, -0.66, 1.55);     // pointed bow
+    hullShape.lineTo(-1.12, -0.2);
+    hullShape.closePath();
+    const hull = new THREE.Mesh(new THREE.ExtrudeGeometry(hullShape, { depth: 0.6, bevelEnabled: true, bevelThickness: 0.12, bevelSize: 0.12, bevelSegments: 2 }), flake);
+    hull.rotation.x = -Math.PI / 2; hull.position.y = -0.18; g.add(hull);
+    // inset casting deck (where the angler stands) sits on top, flush
+    const deck = new THREE.Mesh(new THREE.ExtrudeGeometry(hullShape, { depth: 0.06, bevelEnabled: false }), deckMat);
+    deck.rotation.x = -Math.PI / 2; deck.scale.set(0.9, 0.9, 1); deck.position.y = 0.42; g.add(deck);
+    // white rub-rail stripe around the sheer
+    const rail = new THREE.Mesh(new THREE.ExtrudeGeometry(hullShape, { depth: 0.08, bevelEnabled: false }), trimMat);
+    rail.rotation.x = -Math.PI / 2; rail.scale.set(1.02, 1.02, 1); rail.position.y = 0.4; g.add(rail);
+
+    // bow casting platform + the trolling motor mounted at the very tip
+    const motor = new THREE.Group(); motor.position.set(0, 0.42, -2.35); g.add(motor); g.troll = motor;
+    const mount = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.1, 0.5), deckMat); motor.add(mount);
+    const shaftM = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.5, 10), trimMat); shaftM.position.set(0, -0.7, 0.1); motor.add(shaftM);
+    const head = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 0.5, 12), new THREE.MeshStandardMaterial({ color: 0x14171c, roughness: 0.5, metalness: 0.4 }));
+    head.rotation.z = Math.PI / 2; head.position.set(0, -1.5, 0.1); motor.add(head);
+    const prop = new THREE.Group(); prop.position.set(0, -1.5, -0.18); motor.add(prop); g.prop = prop;
+    for (let i = 0; i < 3; i++) { const bl = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.22, 0.02), trimMat); bl.rotation.z = i * 2.09; prop.add(bl); }
+
+    // console with a glowing fish-finder screen, set ahead of the angler
+    const console = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.34, 0.3), deckMat); console.position.set(0.55, 0.66, 0.6); g.add(console);
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.26), new THREE.MeshBasicMaterial({ color: 0x0a2230 }));
+    screen.position.set(0.55, 0.7, 0.45); g.add(screen); g.finderScreen = screen;
+
     // angler — torso, head, cap (seated, viewed from behind)
-    const ang = new THREE.Group(); ang.position.set(-0.15, 0.35, 0.6);
+    const ang = new THREE.Group(); ang.position.set(-0.15, 0.42, 0.7);
     const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 0.62, 12), new THREE.MeshStandardMaterial({ color: 0x3f7c54, roughness: 0.9 }));
     torso.position.y = 0.3; ang.add(torso);
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 16), new THREE.MeshStandardMaterial({ color: 0xe0b48a, roughness: 0.8 }));
-    head.position.y = 0.74; ang.add(head);
+    const ahead = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 16), new THREE.MeshStandardMaterial({ color: 0xe0b48a, roughness: 0.8 }));
+    ahead.position.y = 0.74; ang.add(ahead);
     const cap = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 12, 0, 6.28, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xc23a2a, roughness: 0.7 }));
     cap.position.y = 0.78; ang.add(cap);
     g.add(ang);
-    // fishing rod from the angler out over the bow. Pivot at the grip so the
-    // whole rod swings; a tracked tip marker feeds the line its start point.
-    const rod = new THREE.Group(); rod.position.set(0.25, 0.7, -0.4);
+    // fishing rod (pivots at the grip; a tracked tip feeds the line its origin)
+    const rod = new THREE.Group(); rod.position.set(0.25, 0.78, -0.4);
     const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.04, 3.6, 8), new THREE.MeshStandardMaterial({ color: 0x4a3420 }));
-    shaft.position.y = 1.8; rod.add(shaft);                 // grow upward from the pivot
+    shaft.position.y = 1.8; rod.add(shaft);
     const tip = new THREE.Object3D(); tip.position.y = 3.6; rod.add(tip);
     rod.rotation.x = -0.95; rod.rotation.z = 0.12;
     g.add(rod); g.rod = rod; g.rodTip = tip;
@@ -449,22 +482,36 @@ const Scene3D = (() => {
     sunS.position.set(sxw * 0.2, syw, -10);
     if (st.water0) water.material.color.set(st.water0);
 
-    // animate water ripples + boat bob + fish shadows
+    // steer: the whole world rotates around the boat as you run the trolling motor
+    const heading = st.heading || 0, hold = st.holdBearing || 0, facing = st.facing != null ? st.facing : 1;
+    world.rotation.y = -heading;
+
+    // animate water ripples + boat bob
     water.material.bumpMap.offset.x = t * 0.015;
     water.material.bumpMap.offset.y = t * 0.008;
     boat.position.y = Math.sin(t * 0.8) * 0.05;
     boat.rotation.z = Math.sin(t * 0.7) * 0.02;
-    for (const s of fishShadows) {
-      const u = s.userData; s.position.x += u.dir * u.sp * dt * 0.001;
-      if (s.position.x > 9) s.position.x = -9; if (s.position.x < -9) s.position.x = 9;
-      s.position.z += Math.sin(t * 0.5 + u.ph) * 0.002;
-      s.material.opacity = 0.22 + Math.sin(t + u.ph) * 0.08;
-    }
+    // trolling motor: prop spins; head steers toward the turn
+    if (boat.prop) boat.prop.rotation.z = t * 12;
+    if (boat.troll) boat.troll.rotation.y += ((st.steer || 0) * 0.5 - boat.troll.rotation.y) * 0.1;
 
-    // structure cluster sits where the player should cast
-    const hz = st.hotZone ? screenToWater(st.hotZone.x, st.hotZone.y) : null;
-    if (hz) { structProps.position.set(hz.x, 0, Math.max(-16, hz.z)); structProps.visible = true; }
-    else structProps.visible = false;
+    // structure holds at the productive bearing (in world space, so it swings
+    // into view as you turn to face it)
+    const D = 11;
+    structProps.position.set(Math.sin(hold) * D, 0, -Math.cos(hold) * D);
+    structProps.visible = true;
+
+    // fish shadows cluster around the structure; they're easier to see (more of
+    // them, darker) the more directly you're facing the holding water
+    for (let i = 0; i < fishShadows.length; i++) {
+      const s = fishShadows[i], u = s.userData;
+      const ang = hold + (i - fishShadows.length / 2) * 0.12 + Math.sin(t * 0.3 + u.ph) * 0.05;
+      const dist = D + u.off + Math.sin(t * 0.5 + u.ph) * 0.6;
+      s.position.set(Math.sin(ang) * dist, 0.03, -Math.cos(ang) * dist);
+      const vis = i < 2 + Math.round(facing * 5);
+      s.visible = vis;
+      s.material.opacity = (0.12 + facing * 0.3) + Math.sin(t + u.ph) * 0.05;
+    }
 
     // animate the rod: cocked back while aiming, whips forward on the cast,
     // gentle sway otherwise.

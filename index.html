@@ -44,6 +44,19 @@
     <button id="tourQuit" class="tour-quit">End</button>
   </div>
 
+  <!-- Boat HUD: fish-finder sonar + trolling-motor steering (surface view) -->
+  <div id="boatHud" class="boat-hud hidden">
+    <div class="sonar-wrap">
+      <div class="sonar-head"><span>📡 FISH FINDER</span><b id="sonarQ">—</b></div>
+      <canvas id="sonar" class="sonar" width="150" height="150"></canvas>
+    </div>
+    <div class="troll">
+      <button id="trollL" class="troll-btn">◀</button>
+      <div class="troll-mid"><span>⚙️</span><small>TROLL</small></div>
+      <button id="trollR" class="troll-btn">▶</button>
+    </div>
+  </div>
+
   <!-- Center status text -->
   <div id="status" class="status"></div>
 
