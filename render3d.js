@@ -17,6 +17,16 @@ import * as THREE from "./vendor/three.module.min.js";
 // =============================================================================
 function hexNum(c) { return (typeof c === "string") ? new THREE.Color(c).getHex() : c; }
 
+// crisp text on a transparent canvas, for in-scene labels (sprites)
+function textTexture(text) {
+  const cv = document.createElement("canvas"); cv.width = 256; cv.height = 64;
+  const g = cv.getContext("2d");
+  g.font = "bold 30px system-ui, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
+  g.lineWidth = 5; g.strokeStyle = "rgba(0,0,0,0.55)"; g.strokeText(text, 128, 34);
+  g.fillStyle = "#eafff0"; g.fillText(text, 128, 34);
+  const tx = new THREE.CanvasTexture(cv); return tx;
+}
+
 function bassTextures(art) {
   const W = 1024, H = 384;
   const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
@@ -215,7 +225,7 @@ function makeBass(art) {
 
 const Scene3D = (() => {
   let renderer, scene, camera, canvas, ready = false, visible = false;
-  let surf, bottom, motes, biteSlab, biteEdgeTop, biteEdgeBot;
+  let surf, bottom, motes, biteSlab, biteEdgeTop, biteEdgeBot, biteLabel, zoneRing, arrowUp, arrowDn;
   let lureGroup, lineMesh, fightFish, fightArtKey = "";
   let pursuers = [], rays = [];
   const clock = { t: 0 };
@@ -288,9 +298,18 @@ const Scene3D = (() => {
     );
     scene.add(biteSlab);
     const edgeMat = () => new THREE.MeshBasicMaterial({ color: 0x78f096, transparent: true, opacity: 0.6, depthWrite: false });
-    biteEdgeTop = new THREE.Mesh(new THREE.BoxGeometry(13, 0.02, 7), edgeMat());
-    biteEdgeBot = new THREE.Mesh(new THREE.BoxGeometry(13, 0.02, 7), edgeMat());
+    biteEdgeTop = new THREE.Mesh(new THREE.BoxGeometry(13, 0.04, 7), edgeMat());
+    biteEdgeBot = new THREE.Mesh(new THREE.BoxGeometry(13, 0.04, 7), edgeMat());
     scene.add(biteEdgeTop); scene.add(biteEdgeBot);
+    // "BITE ZONE" label sprite (always faces the camera)
+    biteLabel = new THREE.Sprite(new THREE.SpriteMaterial({ map: textTexture("🎯 BITE ZONE"), transparent: true, depthWrite: false, depthTest: false }));
+    biteLabel.scale.set(2.2, 0.55, 1); scene.add(biteLabel);
+    // in-zone ring (pulses around the lure when it's in the zone) + up/down coaching arrows
+    zoneRing = new THREE.Mesh(new THREE.RingGeometry(0.34, 0.46, 28), new THREE.MeshBasicMaterial({ color: 0x78f096, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false, depthTest: false }));
+    zoneRing.visible = false; scene.add(zoneRing);
+    const arrowMat = () => new THREE.MeshBasicMaterial({ color: 0xffe7a6, transparent: true, depthTest: false });
+    arrowUp = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.4, 4), arrowMat()); arrowUp.visible = false; scene.add(arrowUp);
+    arrowDn = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.4, 4), arrowMat()); arrowDn.rotation.z = Math.PI; arrowDn.visible = false; scene.add(arrowDn);
 
     // the lure + its line
     lureGroup = buildLure(); scene.add(lureGroup);
@@ -732,15 +751,19 @@ const Scene3D = (() => {
 
     // bite zone — only while you're working the lure; gone once a fish is on
     const showZone = st.mode === "retrieve" || st.mode === "strike";
-    biteSlab.visible = biteEdgeTop.visible = biteEdgeBot.visible = showZone;
+    biteSlab.visible = biteEdgeTop.visible = biteEdgeBot.visible = biteLabel.visible = showZone;
     if (showZone) {
       const yTop = yOf(Math.max(0, st.band - st.win)), yBot = yOf(Math.min(1, st.band + st.win));
-      const cy = (yTop + yBot) / 2, hgt = Math.max(0.15, yTop - yBot);
-      biteSlab.position.y = cy; biteSlab.scale.y = hgt / 0.1;
-      const zc = st.inZone ? 0x5be37a : 0xffd35c, ze = st.inZone ? 0x78f096 : 0xffe08a;
-      biteSlab.material.color.setHex(zc); biteSlab.material.opacity = st.inZone ? 0.16 : 0.10;
+      const cy = (yTop + yBot) / 2, hgt = Math.max(0.2, yTop - yBot);
+      biteSlab.position.set(0, cy, 0); biteSlab.scale.y = hgt / 0.1;
+      const zc = st.inZone ? 0x5be37a : 0xffd35c, ze = st.inZone ? 0x9dffbb : 0xffe08a;
+      const pulse = 0.5 + 0.5 * Math.sin(t * 4);
+      biteSlab.material.color.setHex(zc); biteSlab.material.opacity = (st.inZone ? 0.26 : 0.14) + pulse * 0.05;
       biteEdgeTop.position.y = yTop; biteEdgeBot.position.y = yBot;
       biteEdgeTop.material.color.setHex(ze); biteEdgeBot.material.color.setHex(ze);
+      biteEdgeTop.material.opacity = biteEdgeBot.material.opacity = 0.55 + pulse * 0.35;
+      // label rides just above the band, facing the camera
+      biteLabel.position.set(-0.35, yTop + 0.34, 0.5);
     }
 
     motes.rotation.y = t * 0.01;
@@ -761,6 +784,21 @@ const Scene3D = (() => {
       lureGroup.body.material.color.set(st.lureHex || 0xff5a2a);
       lineMesh.geometry.setFromPoints([ROD.clone(), new THREE.Vector3(lx, ly, 0)]);
       lineMesh.material.opacity = 0.5; lineMesh.material.color.setHex(0xffffff);
+
+      // coaching: a pulsing ring when the lure is in the zone, else an arrow
+      // showing which way to move it (down = let it sink, up = reel up)
+      const bandY = yOf(st.band);
+      if (st.inZone) {
+        zoneRing.visible = true; zoneRing.position.set(lx, ly, 0.4);
+        zoneRing.scale.setScalar(1 + 0.18 * Math.sin(t * 6));
+        arrowUp.visible = arrowDn.visible = false;
+      } else {
+        zoneRing.visible = false;
+        const tooShallow = ly > bandY;                 // lure above the zone -> sink
+        const ar = tooShallow ? arrowDn : arrowUp, other = tooShallow ? arrowUp : arrowDn;
+        other.visible = false; ar.visible = true;
+        ar.position.set(lx + 0.5, ly + (tooShallow ? -0.1 : 0.1) - 0.15 * Math.sin(t * 5) * (tooShallow ? 1 : -1), 0.4);
+      }
 
       // detailed bass swim in and close on the lure as interest builds
       const it = st.interest || 0;
@@ -783,6 +821,7 @@ const Scene3D = (() => {
       }
     } else {
       for (const p of pursuers) p.visible = false;
+      zoneRing.visible = arrowUp.visible = arrowDn.visible = false;
     }
 
     // the fight — full procedural bass
