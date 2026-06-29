@@ -1340,6 +1340,8 @@
     const st = {
       view: S.view, mode: S.mode, band, win,
       lureDepth, lureDist: S.rv.dist, lureHex: COLORS[G.lure.color].hex, lureStyle: lu.style,
+      lureId: lu.id, lurePhys: S.rv.phys || (lu.style === "top" ? "float" : lu.id === "crank" ? "dive" : "sink"),
+      lureAction: S.rv.action || 0,
       inZone: Math.abs(lureDepth - band) < win,
       interest: S.rv.interest,
       daylight: dc.daylight, night: dc.night, sunX: dc.sunX, elev: dc.elev,

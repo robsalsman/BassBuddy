@@ -503,7 +503,25 @@ const Scene3D = (() => {
     ahead.position.y = 0.74; ang.add(ahead);
     const cap = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 12, 0, 6.28, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xc23a2a, roughness: 0.7 }));
     cap.position.y = 0.78; ang.add(cap);
+    // arms — shoulder-pivoted so they can hold the rod, crank the reel, and
+    // reach out to lip/swing a landed fish
+    const skin = new THREE.MeshStandardMaterial({ color: 0xe0b48a, roughness: 0.8 });
+    const sleeve = new THREE.MeshStandardMaterial({ color: 0x3f7c54, roughness: 0.9 });
+    function makeArm(side) {
+      const arm = new THREE.Group(); arm.position.set(side * 0.2, 0.52, 0.02);
+      const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.4, 8), sleeve);
+      upper.position.set(0, -0.16, -0.02); arm.add(upper);
+      const fore = new THREE.Group(); fore.position.set(0, -0.34, 0); arm.add(fore); arm.fore = fore;
+      const foreMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.05, 0.36, 8), skin);
+      foreMesh.position.set(0, -0.05, -0.12); foreMesh.rotation.x = -0.9; fore.add(foreMesh);
+      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 10), skin); hand.position.set(0, -0.1, -0.26); fore.add(hand); arm.hand = hand;
+      arm.rotation.x = -0.5;            // resting reach toward the rod
+      return arm;
+    }
+    const armL = makeArm(1), armR = makeArm(-1);
+    ang.add(armL); ang.add(armR);
     g.add(ang);
+    g.angler = ang; g.armL = armL; g.armR = armR;
     // fishing rod — a chain of segments so it bends in a smooth continuous
     // curve under load (not a single hinge point).
     const rodMat = new THREE.MeshStandardMaterial({ color: 0x241a12, roughness: 0.4, metalness: 0.3 });
@@ -538,6 +556,20 @@ const Scene3D = (() => {
   }
 
   function renderSurface(st, t, dt) {
+    // cinematic camera: swing to a 3/4 side view to watch the fish get boated
+    if (!camS.userData.look) camS.userData.look = new THREE.Vector3(0, -0.5, -9);
+    const onLanding = st.mode === "landing" && st.landing;
+    const camPos = onLanding ? { x: 3.5, y: 2.0, z: 8.7 } : { x: 0, y: 3.0, z: 8.8 };
+    const camLook = onLanding ? { x: 0.0, y: 0.6, z: 5.0 } : { x: 0, y: -0.5, z: -9 };
+    const k = Math.min(1, dt * 0.005);
+    camS.position.x += (camPos.x - camS.position.x) * k;
+    camS.position.y += (camPos.y - camS.position.y) * k;
+    camS.position.z += (camPos.z - camS.position.z) * k;
+    camS.userData.look.x += (camLook.x - camS.userData.look.x) * k;
+    camS.userData.look.y += (camLook.y - camS.userData.look.y) * k;
+    camS.userData.look.z += (camLook.z - camS.userData.look.z) * k;
+    camS.lookAt(camS.userData.look);
+
     // sky / sun / light by time of day
     const key = (st.skyTop || "") + (st.skyBot || "");
     if (key !== skyKey) {
@@ -622,6 +654,28 @@ const Scene3D = (() => {
     }
     // reel the handle while fighting + reeling, or during the landing hoist
     if (boat.reelHandle) boat.reelHandle.rotation.z -= ((fighting && st.fight.reeling) || landing ? dt * 0.025 : 0);
+
+    // angler's arms: hold the rod, crank the reel, reach out to land the fish
+    const armL = boat.armL, armR = boat.armR;
+    if (armL && armR) {
+      if (fighting) {
+        armL.rotation.x += (-0.62 - armL.rotation.x) * 0.15; armL.rotation.z *= 0.85;
+        if (st.fight.reeling) { armR.rotation.x = -0.45 + Math.sin(t * 7) * 0.2; armR.rotation.z = Math.cos(t * 7) * 0.24; }  // cranking
+        else { armR.rotation.x += (-0.42 - armR.rotation.x) * 0.12; armR.rotation.z *= 0.85; }
+        if (boat.angler) boat.angler.rotation.x *= 0.9;
+      } else if (landing) {
+        const e = landing.t, reach = Math.sin(Math.min(1, e / 0.5) * Math.PI / 2), lift = Math.max(0, (e - 0.5) / 0.5);
+        const ax = -0.5 - reach * 1.0 + lift * 1.5;                 // reach down/out, then raise
+        armL.rotation.x = ax; armR.rotation.x = ax;
+        armL.rotation.z = 0.25 * reach; armR.rotation.z = -0.25 * reach;
+        if (boat.angler) boat.angler.rotation.x = reach * 0.5 - lift * 0.3;   // lean to reach, sit back to lift
+      } else {
+        armL.rotation.x += (-0.5 + Math.sin(t * 1.2) * 0.03 - armL.rotation.x) * 0.08;
+        armR.rotation.x += (-0.5 + Math.sin(t * 1.2 + 1) * 0.03 - armR.rotation.x) * 0.08;
+        armL.rotation.z *= 0.9; armR.rotation.z *= 0.9;
+        if (boat.angler) boat.angler.rotation.x *= 0.9;
+      }
+    }
     boat.updateMatrixWorld(true);
     const tip = boat.rodTip.getWorldPosition(new THREE.Vector3());
 
@@ -677,8 +731,17 @@ const Scene3D = (() => {
       const e = landing.t, fish = ensureSurfFish(landing.art), sc = 0.6 + (landing.size || 0.5) * 0.9;
       fish.visible = true; fish.scale.setScalar(sc);
       let pos;
-      if (landing.big) pos = new THREE.Vector3(Math.sin(t * 2) * 0.1, lerp(-0.4, 1.0, e), lerp(-2.4, 1.1, e));
-      else { const a = Math.sin(e * Math.PI * 0.5); pos = new THREE.Vector3(0, lerp(-0.3, 1.1, a), lerp(-3.0, 1.4, e)); }
+      if (landing.big) {
+        // lip: draw the fish up to the bow beside the angler, then lift it aboard
+        const inN = Math.min(1, e / 0.6);
+        const z = lerp(-2.6, 4.7, inN);                            // comes to the boat
+        const y = e < 0.6 ? lerp(-0.4, 0.2, inN) : lerp(0.2, 1.25, (e - 0.6) / 0.4);  // to the surface, then hoisted
+        pos = new THREE.Vector3(0.1 + Math.sin(t * 2) * 0.12, y, z);
+      } else {
+        // swing: skip the fish up and back over the gunwale fast
+        const a = Math.sin(e * Math.PI * 0.5);
+        pos = new THREE.Vector3(0, lerp(-0.3, 1.3, a), lerp(-3.0, 5.4, e));
+      }
       fish.position.copy(pos);
       fish.rotation.set(0.2 * Math.sin(t * 7), -Math.PI / 2, 0.3 + Math.sin(t * 9) * 0.25 * (1 - e));
       if (fish.tail) fish.tail.rotation.y = Math.sin(t * 12) * 0.5 * (1 - e * 0.5);
@@ -846,13 +909,29 @@ const Scene3D = (() => {
     lineMesh.visible = showLure || st.mode === "fight";
 
     if (showLure) {
-      // the lure visibly works: jigs up/down and wiggles, faster for fast lures
-      const fast = st.lureStyle === "top" ? 11 : 7;
-      const jig = Math.sin(t * fast) * 0.20 + Math.sin(t * fast * 2.3) * 0.06;
-      const wig = Math.sin(t * (fast * 0.6)) * 0.14;
+      // each lure works with its own real action
+      const act = 0.45 + (st.lureAction || 0) * 0.55;   // cleaner action = livelier
+      let jig = 0, wig = 0, roll = 0, yaw = 0, pitch = 0;
+      switch (st.lureId) {
+        case "crank": {                                   // tight, fast side-to-side wobble
+          const f = 22; yaw = Math.sin(t * f) * 0.5 * act; roll = Math.sin(t * f) * 0.18; jig = Math.sin(t * f) * 0.05; break;
+        }
+        case "spoon": {                                   // wide flutter — rocks and tumbles
+          roll = Math.sin(t * 7) * 0.9; pitch = Math.sin(t * 5.5) * 0.5; jig = Math.sin(t * 5.5) * 0.16; wig = Math.sin(t * 3.5) * 0.12; break;
+        }
+        case "worm": case "furry": {                      // slow bottom hops (the twitch bob)
+          jig = Math.max(0, Math.sin(t * 2.4)) * 0.22 * act; pitch = Math.sin(t * 2.2) * 0.25; wig = Math.sin(t * 1.6) * 0.06; break;
+        }
+        case "jitterbug": case "torpedo": {               // surface — waddle hard side to side
+          yaw = Math.sin(t * 13) * 0.6 * act; roll = Math.sin(t * 13) * 0.3; jig = Math.abs(Math.sin(t * 13)) * 0.07; wig = Math.sin(t * 9) * 0.16; break;
+        }
+        default: {                                        // pencil / frog — walk-the-dog sweep
+          yaw = Math.sin(t * 6) * 0.7 * act; wig = Math.sin(t * 6) * 0.2; jig = Math.abs(Math.sin(t * 6)) * 0.05; break;
+        }
+      }
       const lx = xOf(st.lureDist) + wig, ly = yOf(st.lureDepth) + jig;
       lureGroup.position.set(lx, ly, 0);
-      lureGroup.rotation.z = Math.sin(t * fast) * 0.3;
+      lureGroup.rotation.set(pitch, yaw, roll);
       lureGroup.body.material.color.set(st.lureHex || 0xff5a2a);
       lineMesh.geometry.setFromPoints([ROD.clone(), new THREE.Vector3(lx, ly, 0)]);
       lineMesh.material.opacity = 0.5; lineMesh.material.color.setHex(0xffffff);
