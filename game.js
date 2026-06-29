@@ -1195,8 +1195,9 @@
 
   function updateBoatHud(now) {
     const hud = document.getElementById("boatHud");
-    const show = S.view === "surface" && S.viewT >= 1 && !anyModalOpen() &&
-                 (S.mode === "idle" || S.mode === "charging");
+    // only in the idle surface view — cleared the moment you aim/cast so the
+    // overlay never covers the angler or the casting motion
+    const show = S.view === "surface" && S.viewT >= 1 && !anyModalOpen() && S.mode === "idle";
     hud.classList.toggle("hidden", !show);
     if (show) drawSonar(now);
     else if (S.steer) S.steer = 0;

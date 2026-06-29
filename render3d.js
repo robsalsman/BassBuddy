@@ -513,12 +513,22 @@ const Scene3D = (() => {
       s.material.opacity = (0.12 + facing * 0.3) + Math.sin(t + u.ph) * 0.05;
     }
 
-    // animate the rod: cocked back while aiming, whips forward on the cast,
-    // gentle sway otherwise.
+    // realistic cast: load the rod back over the shoulder while aiming, then
+    // whip it forward fast on release so the lure launches off the tip.
     const rod = boat.rod;
-    if (st.mode === "charging") rod.rotation.x = -0.45 + Math.sin(t * 22) * 0.015;   // reared back, twitchy
-    else if (st.mode === "casting") rod.rotation.x = -0.45 - Math.min(1, st.castProgress || 0) * 0.9;  // whip down/forward
-    else rod.rotation.x = -0.95 + Math.sin(t * 1.3) * 0.04;
+    if (st.mode === "casting") {
+      const p = Math.min(1, st.castProgress || 0);
+      const whip = Math.min(1, p / 0.26);                  // the forward snap happens early
+      const e = 1 - Math.pow(1 - whip, 3);                 // ease-out flick
+      rod.rotation.x = 0.6 + e * (-2.0);                   // loaded (+0.6) -> hard forward (-1.4)
+      if (p > 0.26) rod.rotation.x += (p - 0.26) * 0.5;    // recoil/settle back up a touch
+      rod.rotation.z = 0.12 + Math.sin(t * 30) * (1 - whip) * 0.05;
+    } else {
+      const target = st.mode === "charging" ? 0.6 : -0.95; // cocked back to load, else relaxed forward
+      rod.rotation.x += (target - rod.rotation.x) * Math.min(1, dt * 0.011);
+      rod.rotation.x += (st.mode === "charging" ? Math.sin(t * 18) * 0.012 : Math.sin(t * 1.3) * 0.04);
+      rod.rotation.z = 0.12;
+    }
     boat.updateMatrixWorld(true);
     const tip = boat.rodTip.getWorldPosition(new THREE.Vector3());
 
