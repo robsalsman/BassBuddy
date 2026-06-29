@@ -333,7 +333,7 @@ function makeBass(art) {
 const Scene3D = (() => {
   let renderer, scene, camera, canvas, ready = false, visible = false;
   let surf, bottom, motes, biteSlab, biteEdgeTop, biteEdgeBot, biteLabel, zoneRing, arrowUp, arrowDn;
-  let terrainSets = {};
+  let terrainSets = {}, uwHemi, uwSun;
   let lureGroup, lineMesh, fightFish, fightArtKey = "";
   let pursuers = [], rays = [];
   const clock = { t: 0 };
@@ -399,9 +399,9 @@ const Scene3D = (() => {
     camera.position.set(0, -0.3, 9.4);
     camera.lookAt(0.2, -0.7, 0);
 
-    scene.add(new THREE.HemisphereLight(0xcdeeff, 0x09232f, 1.15));
-    const sun = new THREE.DirectionalLight(0xfff2cf, 1.45);
-    sun.position.set(2, 9, 5); scene.add(sun);
+    uwHemi = new THREE.HemisphereLight(0xcdeeff, 0x09232f, 1.15); scene.add(uwHemi);
+    uwSun = new THREE.DirectionalLight(0xfff2cf, 1.45);
+    uwSun.position.set(2, 9, 5); scene.add(uwSun);
 
     // underside of the water surface
     surf = new THREE.Mesh(
@@ -442,13 +442,13 @@ const Scene3D = (() => {
 
     // bite-zone slab + dashed-look edges
     biteSlab = new THREE.Mesh(
-      new THREE.BoxGeometry(13, 0.1, 7),
+      new THREE.BoxGeometry(6.5, 0.1, 3.2),
       new THREE.MeshBasicMaterial({ color: 0x5be37a, transparent: true, opacity: 0.14, depthWrite: false })
     );
     scene.add(biteSlab);
     const edgeMat = () => new THREE.MeshBasicMaterial({ color: 0x78f096, transparent: true, opacity: 0.6, depthWrite: false });
-    biteEdgeTop = new THREE.Mesh(new THREE.BoxGeometry(13, 0.04, 7), edgeMat());
-    biteEdgeBot = new THREE.Mesh(new THREE.BoxGeometry(13, 0.04, 7), edgeMat());
+    biteEdgeTop = new THREE.Mesh(new THREE.BoxGeometry(6.5, 0.04, 3.2), edgeMat());
+    biteEdgeBot = new THREE.Mesh(new THREE.BoxGeometry(6.5, 0.04, 3.2), edgeMat());
     scene.add(biteEdgeTop); scene.add(biteEdgeBot);
     // "BITE ZONE" label sprite (always faces the camera)
     biteLabel = new THREE.Sprite(new THREE.SpriteMaterial({ map: textTexture("🎯 BITE ZONE"), transparent: true, depthWrite: false, depthTest: false }));
@@ -956,11 +956,15 @@ const Scene3D = (() => {
       place(b, -2.2 + i * 0.85 + Math.random() * 0.3, -3.1 + Math.random() * 0.4, -0.8 - Math.random() * 2);
       b.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3); rock.add(b);
     }
-    // DEEP — a drop-off ledge with a couple of boulders on the lip
+    // DEEP — a rocky drop-off: a low rubble shelf of clustered boulders along
+    // the edge (the contoured bottom already provides the actual break)
     const deep = new THREE.Group();
-    const ledge = new THREE.Mesh(new THREE.BoxGeometry(9, 1.2, 3.4), new THREE.MeshStandardMaterial({ color: 0x123040, roughness: 1, flatShading: true }));
-    ledge.rotation.x = -0.28; place(ledge, 0, -2.9, -1.8); deep.add(ledge);
-    for (let i = 0; i < 3; i++) { const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.4, 0), rockMat); place(b, -1.8 + i * 1.8, -2.2, -1.0); deep.add(b); }
+    const deepRock = new THREE.MeshStandardMaterial({ color: 0x3a4148, roughness: 1, flatShading: true });
+    for (let i = 0; i < 12; i++) {
+      const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.32 + Math.random() * 0.6, 0), deepRock);
+      place(b, -3.2 + i * 0.6 + Math.random() * 0.3, -3.05 + Math.random() * 0.45, -1.2 - Math.random() * 1.8);
+      b.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3); b.scale.y = 0.6 + Math.random() * 0.4; deep.add(b);
+    }
     // OPEN — bare; nothing to add
     const open = new THREE.Group();
 
@@ -1026,16 +1030,19 @@ const Scene3D = (() => {
       biteSlab.position.set(0, cy, 0); biteSlab.scale.y = hgt / 0.1;
       const zc = st.inZone ? 0x5be37a : 0xffd35c, ze = st.inZone ? 0x9dffbb : 0xffe08a;
       const pulse = 0.5 + 0.5 * Math.sin(t * 4);
-      biteSlab.material.color.setHex(zc); biteSlab.material.opacity = (st.inZone ? 0.26 : 0.14) + pulse * 0.05;
+      biteSlab.material.color.setHex(zc); biteSlab.material.opacity = (st.inZone ? 0.20 : 0.10) + pulse * 0.04;
       biteEdgeTop.position.y = yTop; biteEdgeBot.position.y = yBot;
       biteEdgeTop.material.color.setHex(ze); biteEdgeBot.material.color.setHex(ze);
-      biteEdgeTop.material.opacity = biteEdgeBot.material.opacity = 0.55 + pulse * 0.35;
-      // label rides just above the band, facing the camera
-      biteLabel.position.set(-0.35, yTop + 0.34, 0.5);
+      biteEdgeTop.material.opacity = biteEdgeBot.material.opacity = 0.42 + pulse * 0.28;
+      // label rides just above the band (kept high enough to clear the HUD)
+      biteLabel.position.set(-0.35, Math.max(yTop + 0.34, -0.6), 0.5);
     }
 
     motes.rotation.y = t * 0.01;
-    surf.material.opacity = 0.22 + 0.14 * (st.daylight != null ? st.daylight : 1);
+    const dl = st.daylight != null ? st.daylight : 1;
+    surf.material.opacity = 0.22 + 0.14 * dl;
+    if (uwSun) uwSun.intensity = 0.25 + dl * 1.25;        // dim & moonlit at night
+    if (uwHemi) uwHemi.intensity = 0.30 + dl * 0.95;
 
     // show the structure that matches this spot; sway the weeds
     const struct = st.structure || "open";
