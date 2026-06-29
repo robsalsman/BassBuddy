@@ -226,6 +226,7 @@ function makeBass(art) {
 const Scene3D = (() => {
   let renderer, scene, camera, canvas, ready = false, visible = false;
   let surf, bottom, motes, biteSlab, biteEdgeTop, biteEdgeBot, biteLabel, zoneRing, arrowUp, arrowDn;
+  let terrainSets = {};
   let lureGroup, lineMesh, fightFish, fightArtKey = "";
   let pursuers = [], rays = [];
   const clock = { t: 0 };
@@ -280,9 +281,20 @@ const Scene3D = (() => {
       scene.add(cone); rays.push(cone);
     }
 
-    // murky bottom
-    bottom = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: 0x0a3247, roughness: 1 }));
-    bottom.rotation.x = -Math.PI / 2; bottom.position.y = -4.5; scene.add(bottom);
+    // contoured bottom with a drop-off ledge + lumps (worked structure)
+    const bgeo = new THREE.PlaneGeometry(44, 30, 32, 18);
+    { const bp = bgeo.attributes.position;
+      for (let i = 0; i < bp.count; i++) {
+        const x = bp.getX(i), y = bp.getY(i);          // y: + = near boat, - = far
+        let h = -Math.tanh((y + 2) * 0.45) * 0.9;       // a break/drop-off across the middle
+        h += Math.sin(x * 0.55) * 0.22 + Math.cos(y * 0.7 + x * 0.3) * 0.18 + (Math.random() - 0.5) * 0.06;
+        bp.setZ(i, h);
+      }
+      bgeo.computeVertexNormals();
+    }
+    bottom = new THREE.Mesh(bgeo, new THREE.MeshStandardMaterial({ color: 0x0a3247, roughness: 1, flatShading: true }));
+    bottom.rotation.x = -Math.PI / 2; bottom.position.y = -3.5; scene.add(bottom);
+    buildTerrain();
 
     // drifting particulate
     const pc = 220, pg = new THREE.BufferGeometry(), pa = new Float32Array(pc * 3);
@@ -545,7 +557,7 @@ const Scene3D = (() => {
 
     // steer: the whole world rotates around the boat as you run the trolling motor
     const heading = st.heading || 0, hold = st.holdBearing || 0, facing = st.facing != null ? st.facing : 1;
-    world.rotation.y = -heading;
+    world.rotation.y = heading;   // ▶ turns the boat right -> world slides left (and back)
 
     // animate water ripples + boat bob
     water.material.bumpMap.offset.x = t * 0.015;
@@ -716,6 +728,43 @@ const Scene3D = (() => {
     scene.background.set(water1);
   }
 
+  // ---- underwater structure sets, shown by the spot's structure group ----
+  function buildTerrain() {
+    const place = (m, x, y, z) => { m.position.set(x, y, z); return m; };
+    // VEG — weed beds / lily stalks rising off the bottom
+    const veg = new THREE.Group();
+    const weedMat = new THREE.MeshStandardMaterial({ color: 0x2f6b35, roughness: 1, side: THREE.DoubleSide });
+    for (let i = 0; i < 14; i++) {
+      const blade = new THREE.Mesh(new THREE.ConeGeometry(0.13, 1.3 + Math.random() * 0.8, 5), weedMat);
+      place(blade, -2.6 + Math.random() * 5.2, -3.0 + Math.random() * 0.5, -0.6 - Math.random() * 2.4);
+      blade.userData.sway = Math.random() * 6.28; veg.add(blade);
+    }
+    // WOOD — a fallen laydown log with a branch
+    const wood = new THREE.Group();
+    const log = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.34, 4.2, 9), new THREE.MeshStandardMaterial({ color: 0x4a341f, roughness: 0.95 }));
+    log.rotation.z = Math.PI / 2; log.rotation.y = 0.3; place(log, -0.3, -2.9, -1.6); wood.add(log);
+    const branch = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 2.0, 7), new THREE.MeshStandardMaterial({ color: 0x523a23, roughness: 0.95 }));
+    branch.rotation.z = 0.7; place(branch, 0.9, -2.4, -1.7); wood.add(branch);
+    // ROCK — boulder pile
+    const rock = new THREE.Group();
+    const rockMat = new THREE.MeshStandardMaterial({ color: 0x5a6066, roughness: 1, flatShading: true });
+    for (let i = 0; i < 6; i++) {
+      const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.35 + Math.random() * 0.5, 0), rockMat);
+      place(b, -2.2 + i * 0.85 + Math.random() * 0.3, -3.1 + Math.random() * 0.4, -0.8 - Math.random() * 2);
+      b.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3); rock.add(b);
+    }
+    // DEEP — a drop-off ledge with a couple of boulders on the lip
+    const deep = new THREE.Group();
+    const ledge = new THREE.Mesh(new THREE.BoxGeometry(9, 1.2, 3.4), new THREE.MeshStandardMaterial({ color: 0x123040, roughness: 1, flatShading: true }));
+    ledge.rotation.x = -0.28; place(ledge, 0, -2.9, -1.8); deep.add(ledge);
+    for (let i = 0; i < 3; i++) { const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.4, 0), rockMat); place(b, -1.8 + i * 1.8, -2.2, -1.0); deep.add(b); }
+    // OPEN — bare; nothing to add
+    const open = new THREE.Group();
+
+    terrainSets = { veg, wood, rock, deep, open };
+    for (const k in terrainSets) { terrainSets[k].visible = false; scene.add(terrainSets[k]); }
+  }
+
   // ---- small tinted lure ----
   function buildLure() {
     const g = new THREE.Group();
@@ -784,6 +833,13 @@ const Scene3D = (() => {
 
     motes.rotation.y = t * 0.01;
     surf.material.opacity = 0.22 + 0.14 * (st.daylight != null ? st.daylight : 1);
+
+    // show the structure that matches this spot; sway the weeds
+    const struct = st.structure || "open";
+    for (const k in terrainSets) terrainSets[k].visible = (k === struct);
+    if (struct === "veg" && terrainSets.veg) {
+      for (const blade of terrainSets.veg.children) blade.rotation.z = Math.sin(t * 1.3 + (blade.userData.sway || 0)) * 0.18;
+    }
 
     const showLure = st.mode === "retrieve" || st.mode === "strike";
     lureGroup.visible = showLure;

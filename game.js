@@ -1347,6 +1347,7 @@
       castAim: S.castAim ? { x: S.castAim.x, y: S.castAim.y } : null,
       castProgress: S.bobber.flyT || 0,
       heading: S.heading, holdBearing: S.holdBearing, facing: facingQuality(), steer: S.steer,
+      structure: STRUCT_GROUP[position().id] || "open",
       hotZone: (function () { const z = hotZone(); return { x: z.x, y: z.y }; })(),
       fight: S.mode === "fight" && S.hookedFish ? {
         dist: S.ft.dist, state: S.ft.state, tension: S.ft.tension,
@@ -1453,13 +1454,21 @@
     if (S.holding && lu.cadence === "med") q = Math.max(q, 0.72);   // steady swim
     R.action += (q - R.action) * 0.10;
 
+    // ---- lure physics in the water ----
+    //  float (topwater): rides the surface, only moves horizontally
+    //  dive  (crankbait): digs DOWN to its running depth as you wind, floats up on a pause
+    //  sink  (worm/spoon/jig): sinks/flutters DOWN on a pause, lifts on the reel
+    const phys = lu.style === "top" ? "float" : lu.id === "crank" ? "dive" : "sink";
     if (S.holding) {
       R.dist = clamp(R.dist - 0.0020 * step * (1 + rod().power * 0.10), 0, 1);
-      if (lu.style === "sink") R.depth = clamp(R.depth - 0.004 * step, 0, 1);
+      if (phys === "dive") R.depth = clamp(R.depth + 0.0052 * step, 0, lu.band);
+      else if (phys === "sink") R.depth = clamp(R.depth - 0.0040 * step, 0, 1);
     } else {
-      if (lu.style === "sink") R.depth = clamp(R.depth + 0.0026 * step, 0, lu.band + 0.05);
-      else R.depth = lu.band;
+      if (phys === "sink") R.depth = clamp(R.depth + 0.0030 * step, 0, Math.min(1, lu.band + 0.12));
+      else if (phys === "dive") R.depth = clamp(R.depth - 0.0040 * step, 0, lu.band);
+      else R.depth = lu.band;   // topwater rides the surface
     }
+    S.rv.phys = phys;
 
     // strategic suitability (the bite rating) × live skill (working it at the right depth)
     const sc = lureScore(lu).score;
