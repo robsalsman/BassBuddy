@@ -492,13 +492,21 @@ const Scene3D = (() => {
     const cap = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 12, 0, 6.28, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xc23a2a, roughness: 0.7 }));
     cap.position.y = 0.78; ang.add(cap);
     g.add(ang);
-    // fishing rod — pivots at the grip; a hinged upper section bends under load.
+    // fishing rod — a chain of segments so it bends in a smooth continuous
+    // curve under load (not a single hinge point).
     const rodMat = new THREE.MeshStandardMaterial({ color: 0x241a12, roughness: 0.4, metalness: 0.3 });
     const rod = new THREE.Group(); rod.position.set(0.25, 0.78, -0.4);
-    const lower = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.05, 2.4, 8), rodMat); lower.position.y = 1.2; rod.add(lower);
-    const tipSec = new THREE.Group(); tipSec.position.y = 2.4; rod.add(tipSec); g.rodTipSec = tipSec;
-    const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.028, 1.3, 8), rodMat); upper.position.y = 0.65; tipSec.add(upper);
-    const tip = new THREE.Object3D(); tip.position.y = 1.3; tipSec.add(tip);
+    const NSEG = 6, segLen = 0.62, segs = [];
+    let parent = rod;
+    for (let i = 0; i < NSEG; i++) {
+      const seg = new THREE.Group(); if (i > 0) seg.position.y = segLen;
+      const r0 = 0.05 - i * 0.0065, r1 = 0.05 - (i + 1) * 0.0065;
+      const cyl = new THREE.Mesh(new THREE.CylinderGeometry(Math.max(0.01, r1), Math.max(0.012, r0), segLen, 8), rodMat);
+      cyl.position.y = segLen / 2; seg.add(cyl);
+      parent.add(seg); parent = seg; segs.push(seg);
+    }
+    const tip = new THREE.Object3D(); tip.position.y = segLen; parent.add(tip);
+    g.rodSegs = segs;
     // spinning reel with a crank handle
     const reel = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.06, 14), trimMat);
     reel.rotation.x = Math.PI / 2; reel.position.set(0, 0.5, 0.12); rod.add(reel);
@@ -593,7 +601,13 @@ const Scene3D = (() => {
       rod.rotation.x += (-0.95 + Math.sin(t * 1.3) * 0.04 - rod.rotation.x) * Math.min(1, dt * 0.01);
       rod.rotation.z += (0.12 - rod.rotation.z) * Math.min(1, dt * 0.01);
     }
-    if (tipSec) tipSec.rotation.x += (bend - tipSec.rotation.x) * Math.min(1, dt * 0.02);
+    // ease the total bend, then spread it over the segments (more curve toward
+    // the tip) so the rod bows in a smooth, continuous arc
+    boat._bend = (boat._bend || 0) + (bend - (boat._bend || 0)) * Math.min(1, dt * 0.02);
+    if (boat.rodSegs) {
+      const n = boat.rodSegs.length, sum = n * (n + 1) / 2;
+      for (let i = 0; i < n; i++) boat.rodSegs[i].rotation.x = boat._bend * (i + 1) / sum;
+    }
     // reel the handle while fighting + reeling, or during the landing hoist
     if (boat.reelHandle) boat.reelHandle.rotation.z -= ((fighting && st.fight.reeling) || landing ? dt * 0.025 : 0);
     boat.updateMatrixWorld(true);
@@ -627,7 +641,9 @@ const Scene3D = (() => {
     // ---- fight: the hooked bass out in front, boiling / jumping, drawing closer ----
     if (fighting) {
       const f = st.fight, fish = ensureSurfFish(f.art);
-      const dist3d = 2.3 + f.dist * 13, fxw = Math.sin(t * 0.6) * 0.7 * (0.35 + f.dist);
+      const dist3d = 2.3 + f.dist * 13;
+      // side-to-side running, scaled so it stays in frame as it nears the boat
+      const fxw = (f.lat || 0) * (1.2 + f.dist * 2.2) + Math.sin(t * 0.6) * 0.4 * (0.35 + f.dist);
       let fy;
       if (f.state === "jump") fy = 0.35 + Math.abs(Math.sin(t * 5)) * 1.7;
       else fy = f.dist < 0.22 ? -0.12 : -0.55;
@@ -807,7 +823,8 @@ const Scene3D = (() => {
         const p = pursuers[i]; const on = i < want;
         p.visible = on; if (!on) continue;
         const lead = i === 0, side = i % 2 === 0 ? 1 : -1;
-        const reach = (1 - it) * (1.4 + i * 0.5) + (lead ? 0.5 : 0.9);
+        // the committing bass darts in fast as interest climbs
+        const reach = lead ? (1 - Math.pow(it, 0.55)) * 1.7 + 0.3 : (1 - it) * (1.6 + i * 0.5) + 0.9;
         let tx = lx + side * reach + Math.cos(t * 0.8 + i) * 0.25;
         tx = Math.max(-2.0, Math.min(2.0, tx));                            // keep in frame
         const ty = yOf(st.band) + Math.sin(t * 0.9 + i * 1.7) * 0.4

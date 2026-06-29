@@ -1278,6 +1278,7 @@
       fight: S.mode === "fight" && S.hookedFish ? {
         dist: S.ft.dist, state: S.ft.state, tension: S.ft.tension,
         size: S.ft.size, pull: S.ft.pull, art: S.hookedFish.art, reeling: !!S.holding,
+        lat: S.ft.lat || 0,
       } : null,
       landing: S.mode === "landing" && S.hookedFish ? {
         t: clamp((S.landT || 0) / (S.landBig ? 1500 : 1000), 0, 1),
@@ -1421,9 +1422,14 @@
       const tired = T.stamina < 0.33, r = Math.random();
       if (T.state === "tire") {
         if (!tired && r < 0.3) { T.state = "jump"; T.stateT = rnd(450, 800); }
-        else { T.state = "run"; T.stateT = rnd(650, 1500) * (0.6 + T.size * 0.8); }
-      } else { T.state = "tire"; T.stateT = rnd(700, 1400) * (1.2 - T.size * 0.5); }
+        else { T.state = "run"; T.stateT = rnd(650, 1500) * (0.6 + T.size * 0.8); T.latTarget = rnd(-1, 1) * (0.5 + T.size * 0.5); }
+      } else { T.state = "tire"; T.stateT = rnd(700, 1400) * (1.2 - T.size * 0.5); T.latTarget = (T.latTarget || 0) * 0.3; }
     }
+    // a hooked bass bolts side to side, not just straight out
+    if (T.lat == null) { T.lat = 0; T.latTarget = 0; }
+    const latSpeed = T.state === "run" ? 0.006 : T.state === "jump" ? 0.004 : 0.0022;
+    T.lat += ((T.latTarget || 0) - T.lat) * Math.min(1, dt * latSpeed) + (T.state === "run" ? Math.sin(now / 230) * 0.0009 * dt : 0);
+    T.lat = clamp(T.lat, -1, 1);
     const sFactor = 0.35 + 0.65 * T.stamina;
     let pull = T.state === "jump" ? 1.5 : T.state === "run" ? 1.0 : 0.2;
     pull *= sFactor * (0.7 + T.size * 0.7);
