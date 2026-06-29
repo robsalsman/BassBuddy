@@ -94,19 +94,23 @@ function bassTextures(art) {
   const rg = rv.getContext("2d");
 
   const body = new THREE.Color(art.body || "#6f9e4e");
-  const back = art.back ? new THREE.Color(art.back) : body.clone().multiplyScalar(0.45);
-  const belly = new THREE.Color(art.belly || "#eef1d6");
-  const flank = body.clone().lerp(new THREE.Color("#ffffff"), 0.12);
+  const back = art.back ? new THREE.Color(art.back) : body.clone().multiplyScalar(0.42);
+  const belly = new THREE.Color(art.belly || "#eef1d6").lerp(new THREE.Color("#ffffff"), 0.45);  // near-white belly
+  const gold = body.clone().lerp(new THREE.Color("#d9d27a"), 0.45);     // gold-green upper flank
+  const flank = body.clone().lerp(new THREE.Color("#f2f4e6"), 0.4);     // pale lower flank
   const css = c => `rgb(${(c.r*255)|0},${(c.g*255)|0},${(c.b*255)|0})`;
 
-  // base flank gradient (v: 0=back .. 0.5=belly .. 1=back), mirrored
+  // base flank gradient (v: 0=back .. 0.5=belly .. 1=back), mirrored:
+  // dark olive back -> gold-green upper flank -> pale flank -> white belly
   const grad = g.createLinearGradient(0, 0, 0, H);
   grad.addColorStop(0.00, css(back));
-  grad.addColorStop(0.18, css(body));
-  grad.addColorStop(0.40, css(flank));
+  grad.addColorStop(0.14, css(body));
+  grad.addColorStop(0.28, css(gold));
+  grad.addColorStop(0.42, css(flank));
   grad.addColorStop(0.50, css(belly));
-  grad.addColorStop(0.60, css(flank));
-  grad.addColorStop(0.82, css(body));
+  grad.addColorStop(0.58, css(flank));
+  grad.addColorStop(0.72, css(gold));
+  grad.addColorStop(0.86, css(body));
   grad.addColorStop(1.00, css(back));
   g.fillStyle = grad; g.fillRect(0, 0, W, H);
   b.fillStyle = "#808080"; b.fillRect(0, 0, W, H);
@@ -150,15 +154,18 @@ function bassTextures(art) {
   // species markings along the flanks (two mirrored bands: v≈0.30 and v≈0.70)
   for (const vy of [0.30, 0.70]) {
     const y = vy * H;
-    if (art.pat === "lateral") {                       // largemouth: bold, broken, jagged lateral stripe
-      g.fillStyle = pc; g.globalAlpha = 0.6;
-      g.beginPath(); g.moveTo(W * 0.08, y);
-      for (let x = W * 0.08; x <= W * 0.88; x += 12) g.lineTo(x, y - (6 + Math.abs(Math.sin(x * 0.06) * 7 + Math.sin(x * 0.17) * 5)));
-      for (let x = W * 0.88; x >= W * 0.08; x -= 12) g.lineTo(x, y + (6 + Math.abs(Math.cos(x * 0.05) * 7 + Math.sin(x * 0.21) * 4)));
-      g.closePath(); g.fill();
-      // dark diamond blotches strung along the stripe
-      g.globalAlpha = 0.5;
-      for (let x = W * 0.12; x < W * 0.85; x += W * 0.10) { g.beginPath(); g.ellipse(x, y, 9, 13 + Math.sin(x) * 3, 0, 0, 6.28); g.fill(); }
+    if (art.pat === "lateral") {                       // largemouth: broken blotch stripe -> dark caudal blotch
+      g.fillStyle = pc;
+      for (let bx = 0.10; bx < 0.80; bx += 0.052) {
+        const midw = Math.sin(Math.min(1, (bx - 0.06) / 0.74) * Math.PI);   // strongest mid-body
+        g.globalAlpha = 0.30 + midw * 0.42;
+        const bw = 9 + midw * 24, bh = 9 + midw * 15 + Math.sin(bx * 40) * 4;
+        g.beginPath(); g.ellipse(W * bx + Math.sin(bx * 30) * 6, y + Math.sin(bx * 22) * 4, bw, bh, 0, 0, 6.28); g.fill();
+      }
+      // solid dark blotch where the stripe converges on the caudal peduncle
+      g.globalAlpha = 0.72;
+      g.beginPath(); g.ellipse(W * 0.085, y, W * 0.05, 30, 0, 0, 6.28); g.fill();
+      g.globalAlpha = 1;
     } else if (art.pat === "bars") {                   // smallmouth: vertical bronze bars
       g.fillStyle = pc; g.globalAlpha = 0.42;
       for (let x = W * 0.16; x < W * 0.82; x += W * 0.085) {
@@ -203,24 +210,31 @@ function bassTextures(art) {
 
 function makeBass(art) {
   art = art || {};
-  const LEN = 2.4, SEG = 140, RING = 48;     // high-poly for smooth, lifelike curves
+  const LEN = 2.7, SEG = 140, RING = 48;     // high-poly for smooth, lifelike curves
   const group = new THREE.Group();
 
+  // deep-bodied profile from the reference: dorsal hump behind the head,
+  // deepest through the middle, a big full head, and a narrow caudal peduncle.
   const depth = t => {
-    const bd = Math.sin(Math.pow(Math.min(t, 1), 1.2) * Math.PI);
-    let d = 0.05 + bd * 0.50;
-    if (t > 0.84) d = Math.max(d, 0.34) * (1 - (t - 0.84) / 0.16 * 0.62);
-    if (t < 0.10) d *= t / 0.10;
+    const bd = Math.sin(Math.pow(Math.min(t, 1), 1.15) * Math.PI);
+    let d = 0.055 + bd * 0.46;
+    if (t > 0.82) d = Math.max(d, 0.36) * (1 - (t - 0.82) / 0.18 * 0.5);   // full head, gentle snout
+    if (t < 0.09) d *= t / 0.09;                                           // pinch the tail base
     return d;
   };
-  const widthFac = t => 0.34 + Math.sin(Math.min(t, 1) * Math.PI) * 0.12;
+  // laterally compressed body, but a rounder (fuller) head
+  const widthFac = t => 0.30 + Math.sin(Math.min(t, 1) * Math.PI) * 0.10 + (t > 0.7 ? (t - 0.7) * 0.5 : 0);
 
   const positions = [], uvs = [], indices = [];
   for (let i = 0; i <= SEG; i++) {
     const t = i / SEG, x = (t - 0.5) * LEN, d = depth(t), w = widthFac(t);
+    const hump = Math.max(0, Math.sin((t - 0.12) / 0.88 * Math.PI));       // 0 at ends, peak mid-body
     for (let j = 0; j <= RING; j++) {
-      const a = j / RING * Math.PI * 2;
-      positions.push(x, Math.cos(a) * d, Math.sin(a) * d * w);
+      const a = j / RING * Math.PI * 2, ca = Math.cos(a);
+      let y = ca * d;
+      if (ca > 0) y *= 1 + hump * 0.17;        // the back arches up (dorsal hump)
+      else y *= 1 + hump * 0.05;               // the belly rounds gently
+      positions.push(x, y, Math.sin(a) * d * w);
       uvs.push(t, j / RING);
     }
   }
@@ -246,43 +260,56 @@ function makeBass(art) {
   group.geo = geo; group.basePos = Float32Array.from(positions); group.len = LEN;
   group.disposables = [geo, mat, map, normalMap, roughnessMap];
 
-  // fins — translucent membrane with faint rays painted on
-  const finCv = document.createElement("canvas"); finCv.width = 64; finCv.height = 64;
+  // back/belly surface heights (account for the dorsal hump) so fins seat right
+  const humpAt = t => Math.max(0, Math.sin((t - 0.12) / 0.88 * Math.PI));
+  const topY = t => depth(t) * (1 + humpAt(t) * 0.17);
+  const botY = t => -depth(t) * (1 + humpAt(t) * 0.05);
+
+  // fins — translucent amber/cream membranes (with subtle ray streaks), like the
+  // reference. PhysicalMaterial + transmission gives that wet, see-through look.
+  const finCv = document.createElement("canvas"); finCv.width = 96; finCv.height = 96;
   const fg = finCv.getContext("2d");
-  const finCol = new THREE.Color(art.back || (new THREE.Color(art.body || "#6f9e4e")).multiplyScalar(0.5));
-  fg.fillStyle = `rgba(${(finCol.r*255)|0},${(finCol.g*255)|0},${(finCol.b*255)|0},0.92)`; fg.fillRect(0, 0, 64, 64);
-  fg.strokeStyle = "rgba(0,0,0,0.22)"; fg.lineWidth = 1.5;
-  for (let i = 4; i < 64; i += 7) { fg.beginPath(); fg.moveTo(i, 0); fg.lineTo(i - 6, 64); fg.stroke(); }
+  fg.clearRect(0, 0, 96, 96);
+  const fgrad = fg.createLinearGradient(0, 96, 0, 0);
+  fgrad.addColorStop(0, "rgba(208,196,150,0.95)"); fgrad.addColorStop(1, "rgba(225,220,196,0.45)");
+  fg.fillStyle = fgrad; fg.fillRect(0, 0, 96, 96);
+  fg.strokeStyle = "rgba(90,72,40,0.32)"; fg.lineWidth = 1.3;          // fin rays fanning from the base
+  for (let k = 0; k <= 14; k++) { const tx = k / 14 * 96; fg.beginPath(); fg.moveTo(48, 96); fg.lineTo(tx, 4); fg.stroke(); }
   const finTex = new THREE.CanvasTexture(finCv);
-  const finMat = new THREE.MeshStandardMaterial({ map: finTex, roughness: 0.8, side: THREE.DoubleSide, transparent: true, opacity: 0.92 });
+  const finMat = new THREE.MeshPhysicalMaterial({ map: finTex, color: 0xddca97, roughness: 0.55, metalness: 0,
+    side: THREE.DoubleSide, transparent: true, opacity: 0.9, envMapIntensity: 0.7, clearcoat: 0.3 });
   group.disposables.push(finTex, finMat);
 
+  // broad, slightly-forked tail
   const tail = new THREE.Shape();
-  tail.moveTo(0, 0); tail.lineTo(-0.78, 0.66); tail.lineTo(-0.62, 0.30); tail.lineTo(-0.5, 0);
-  tail.lineTo(-0.62, -0.30); tail.lineTo(-0.78, -0.66); tail.closePath();
+  tail.moveTo(0, 0);
+  tail.quadraticCurveTo(-0.5, 0.55, -0.92, 0.7); tail.quadraticCurveTo(-0.78, 0.32, -0.72, 0);
+  tail.quadraticCurveTo(-0.78, -0.32, -0.92, -0.7); tail.quadraticCurveTo(-0.5, -0.55, 0, 0);
   const tailMesh = new THREE.Mesh(new THREE.ShapeGeometry(tail), finMat);
-  tailMesh.position.x = -LEN / 2 + 0.04; group.add(tailMesh); group.tail = tailMesh;
+  tailMesh.position.x = -LEN / 2 + 0.04; tailMesh.scale.setScalar(1.05); group.add(tailMesh); group.tail = tailMesh;
 
-  // split dorsal: spiny front + soft rear
+  // split dorsal: tall spiny sail in front, soft dorsal behind a notch
   const spiny = new THREE.Shape();
-  spiny.moveTo(-0.1, 0); spiny.lineTo(0.05, 0.40); spiny.lineTo(0.25, 0.30); spiny.lineTo(0.45, 0.42); spiny.lineTo(0.6, 0.30); spiny.lineTo(0.7, 0); spiny.closePath();
+  spiny.moveTo(-0.12, 0); spiny.lineTo(0.0, 0.46); spiny.lineTo(0.22, 0.34); spiny.lineTo(0.44, 0.48); spiny.lineTo(0.64, 0.34); spiny.lineTo(0.78, 0); spiny.closePath();
   const sd = new THREE.Mesh(new THREE.ShapeGeometry(spiny), finMat);
-  sd.rotation.y = Math.PI / 2; sd.position.set(LEN * 0.06, depth(0.55) * 0.98, 0); group.add(sd);
+  sd.rotation.y = Math.PI / 2; sd.position.set(LEN * 0.10, topY(0.58) - 0.02, 0); group.add(sd);
   const soft = new THREE.Shape();
   soft.moveTo(-0.7, 0); soft.quadraticCurveTo(-0.45, 0.42, -0.1, 0.30); soft.lineTo(-0.05, 0); soft.closePath();
   const softD = new THREE.Mesh(new THREE.ShapeGeometry(soft), finMat);
-  softD.rotation.y = Math.PI / 2; softD.position.set(-LEN * 0.18, depth(0.4) * 0.98, 0); group.add(softD);
-  // anal fin (underside)
+  softD.rotation.y = Math.PI / 2; softD.position.set(-LEN * 0.16, topY(0.4) - 0.02, 0); group.add(softD);
+  // anal fin (underside, rear)
   const af = new THREE.Mesh(new THREE.ShapeGeometry(soft), finMat);
-  af.rotation.y = Math.PI / 2; af.scale.set(0.6, -0.6, 0.6); af.position.set(-LEN * 0.22, -depth(0.34) * 0.95, 0); group.add(af);
-  // pectoral + pelvic fins
+  af.rotation.y = Math.PI / 2; af.scale.set(0.6, -0.6, 0.6); af.position.set(-LEN * 0.22, botY(0.34) + 0.02, 0); group.add(af);
+  // pectoral (fan, just behind the gill) + pelvic fins
+  const pec = new THREE.Shape();
+  pec.moveTo(0, 0); pec.quadraticCurveTo(-0.2, 0.5, -0.62, 0.5); pec.quadraticCurveTo(-0.42, 0.14, -0.5, 0); pec.closePath();
   for (const s of [1, -1]) {
-    const pf = new THREE.Mesh(new THREE.ShapeGeometry(soft), finMat);
-    pf.scale.set(0.42, 0.42, 0.42); pf.rotation.x = s * 0.9; pf.rotation.z = -0.4;
-    pf.position.set(LEN * 0.20, -depth(0.7) * 0.25, s * depth(0.7) * widthFac(0.7) * 0.95); group.add(pf);
+    const pf = new THREE.Mesh(new THREE.ShapeGeometry(pec), finMat);
+    pf.scale.set(0.7, 0.7, 0.7); pf.rotation.x = s * 1.0; pf.rotation.z = -0.5;
+    pf.position.set(LEN * 0.24, -depth(0.74) * 0.1, s * depth(0.74) * widthFac(0.74) * 0.95); group.add(pf);
     const pv = new THREE.Mesh(new THREE.ShapeGeometry(soft), finMat);
-    pv.scale.set(0.28, 0.28, 0.28); pv.rotation.x = s * 1.1;
-    pv.position.set(LEN * 0.06, -depth(0.55) * 0.85, s * depth(0.55) * widthFac(0.55) * 0.6); group.add(pv);
+    pv.scale.set(0.3, 0.3, 0.3); pv.rotation.x = s * 1.15;
+    pv.position.set(LEN * 0.1, botY(0.56) + 0.04, s * depth(0.56) * widthFac(0.56) * 0.6); group.add(pv);
   }
 
   // eyes — glossy: white sclera, coloured iris, black pupil, specular dot
