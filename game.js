@@ -772,7 +772,7 @@
     if (anyModalOpen()) return;
     pressActive = true; holdCandidate = false; swiped = false;
     S.pressT = performance.now(); downX = x; downY = y;
-    if (S.mode === "idle") startCharge(x, y);
+    if (S.mode === "idle") startCast(x, y);
     else if (S.mode === "strike") hookSet();
     else if (S.mode === "fight") S.holding = true;
     else if (S.mode === "retrieve") holdCandidate = true;
@@ -785,8 +785,7 @@
     if (!pressActive) return;
     pressActive = false;
     const dur = performance.now() - S.pressT;
-    if (S.mode === "charging") releaseCast();
-    else if (S.mode === "retrieve") { if (!holdCandidate || dur < HOLD_MS) twitch(); S.holding = false; holdCandidate = false; }
+    if (S.mode === "retrieve") { if (!holdCandidate || dur < HOLD_MS) twitch(); S.holding = false; holdCandidate = false; }
     else if (S.mode === "fight") S.holding = false;
   }
   canvas.addEventListener("pointerdown", (e) => { const p = ptr(e); onDown(p.x, p.y); });
@@ -806,27 +805,21 @@
   // ===========================================================================
   // Flow
   // ===========================================================================
-  function startCharge(x, y) {
-    S.mode = "charging";
-    S.castPower = 0; S.castDir = 1;
-    S.castAim = { x, y };
-    el.castMeter.classList.remove("hidden");
-    showBtn(false);
-    setStatus("");
-  }
-  function releaseCast() {
-    el.castMeter.classList.add("hidden");
+  // Point-and-click: tap the water and the lure is cast right there (capped by
+  // the rod's range). The windup/whip motion plays out during the flight.
+  function startCast(x, y) {
     const tip = rodTip(), wl = waterLine();
     const maxR = clamp(H * (0.40 + rod().power * 0.17), 200, H * 0.95);
-    let dx = S.castAim.x - tip.x, dy = S.castAim.y - tip.y, d = Math.hypot(dx, dy) || 1;
-    const reach = maxR * (0.32 + 0.68 * S.castPower);
+    let dx = x - tip.x, dy = y - tip.y, d = Math.hypot(dx, dy) || 1;
+    const reach = clamp(d, maxR * 0.3, maxR);          // land where tapped, within reach
     let px = tip.x + dx / d * reach, py = tip.y + dy / d * reach;
     py = clamp(py, wl + 18, H - 150); px = clamp(px, 26, W - 26);
+    S.castAim = { x: px, y: py };
     S.mode = "casting";
     S.bobber.sx = tip.x; S.bobber.sy = tip.y; S.bobber.x = tip.x; S.bobber.y = tip.y;
     S.bobber.targetX = px; S.bobber.targetY = py;
     S.bobber.flyT = 0; S.bobber.dist = reach / maxR;
-    S.castFt = Math.round(28 + S.bobber.dist * 66);   // how far this cast reached (ft)
+    S.castFt = Math.round(28 + S.bobber.dist * 66);    // how far this cast reached (ft)
     const hz = hotZone();
     S.castBonus = Math.hypot(px - hz.x, py - hz.y) < hz.r;
     S.castFacing = facingQuality();   // how well the boat was aimed at the fish when you cast
@@ -1285,18 +1278,14 @@
     if (S.steer) S.headingTarget = clamp(S.headingTarget + S.steer * dt * 0.0016, -Math.PI, Math.PI);
     S.heading += (S.headingTarget - S.heading) * Math.min(1, dt * 0.008);
 
-    if (S.mode === "charging") {
-      S.castPower += S.castDir * dt * 0.0017;
-      if (S.castPower >= 1) { S.castPower = 1; S.castDir = -1; }
-      if (S.castPower <= 0) { S.castPower = 0; S.castDir = 1; }
-      el.cmFill.style.width = (S.castPower * 100) + "%";
-    }
     if (S.mode === "casting") {
-      S.bobber.flyT += dt / 520;
+      S.bobber.flyT += dt / 760;                       // windup+whip+flight all play out here
       const p = clamp(S.bobber.flyT, 0, 1);
-      S.bobber.x = S.bobber.sx + (S.bobber.targetX - S.bobber.sx) * p;
-      const arc = Math.sin(p * Math.PI) * (60 + S.bobber.dist * 130);
-      S.bobber.y = S.bobber.sy + (S.bobber.targetY - S.bobber.sy) * p - arc;
+      // lure leaves the rod tip after the whip (~45%), then arcs to the target
+      const fp = clamp((p - 0.45) / 0.55, 0, 1);
+      S.bobber.x = S.bobber.sx + (S.bobber.targetX - S.bobber.sx) * fp;
+      const arc = Math.sin(fp * Math.PI) * (60 + S.bobber.dist * 130);
+      S.bobber.y = S.bobber.sy + (S.bobber.targetY - S.bobber.sy) * fp - arc;
       if (p >= 1) { S.bobber.y = S.bobber.targetY; startRetrieve(); }
     }
     if (S.mode === "retrieve") {

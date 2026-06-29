@@ -513,40 +513,44 @@ const Scene3D = (() => {
       s.material.opacity = (0.12 + facing * 0.3) + Math.sin(t + u.ph) * 0.05;
     }
 
-    // realistic cast: load the rod back over the shoulder while aiming, then
-    // whip it forward fast on release so the lure launches off the tip.
+    // point-and-click cast: a single tap plays the whole motion — the rod
+    // sweeps back over the shoulder to load, whips forward, and the lure
+    // launches off the tip and arcs out to the tapped spot.
+    const lerp = (a, b, k) => a + (b - a) * k;
     const rod = boat.rod;
-    if (st.mode === "casting") {
-      const p = Math.min(1, st.castProgress || 0);
-      const whip = Math.min(1, p / 0.26);                  // the forward snap happens early
-      const e = 1 - Math.pow(1 - whip, 3);                 // ease-out flick
-      rod.rotation.x = 0.6 + e * (-2.0);                   // loaded (+0.6) -> hard forward (-1.4)
-      if (p > 0.26) rod.rotation.x += (p - 0.26) * 0.5;    // recoil/settle back up a touch
-      rod.rotation.z = 0.12 + Math.sin(t * 30) * (1 - whip) * 0.05;
+    const casting = st.mode === "casting";
+    const p = casting ? Math.min(1, st.castProgress || 0) : 0;
+    if (casting) {
+      let rx, rz;
+      if (p < 0.32) {                                      // load back over the shoulder
+        const u = 1 - Math.pow(1 - p / 0.32, 2);
+        rx = lerp(-0.95, 1.15, u); rz = lerp(0.12, 0.6, u);
+      } else if (p < 0.5) {                                // whip forward (fast flick)
+        const u = (p - 0.32) / 0.18, e = 1 - Math.pow(1 - u, 3);
+        rx = lerp(1.15, -1.5, e); rz = lerp(0.6, 0.12, e);
+      } else {                                             // follow through / settle
+        rx = lerp(-1.5, -1.05, (p - 0.5) / 0.5); rz = 0.12;
+      }
+      rod.rotation.x = rx; rod.rotation.z = rz;
     } else {
-      const target = st.mode === "charging" ? 0.6 : -0.95; // cocked back to load, else relaxed forward
-      rod.rotation.x += (target - rod.rotation.x) * Math.min(1, dt * 0.011);
-      rod.rotation.x += (st.mode === "charging" ? Math.sin(t * 18) * 0.012 : Math.sin(t * 1.3) * 0.04);
-      rod.rotation.z = 0.12;
+      rod.rotation.x += (-0.95 + Math.sin(t * 1.3) * 0.04 - rod.rotation.x) * Math.min(1, dt * 0.01);
+      rod.rotation.z += (0.12 - rod.rotation.z) * Math.min(1, dt * 0.01);
     }
     boat.updateMatrixWorld(true);
     const tip = boat.rodTip.getWorldPosition(new THREE.Vector3());
 
-    // aim + cast
+    // the lure: rides the rod tip through the windup/whip, then flies out
     const land = st.castAim ? screenToWater(st.castAim.x, st.castAim.y) : null;
-    if (st.mode === "charging" && land) {
-      aimRing.visible = true; aimRing.position.set(land.x, 0.05, land.z);
-      aimRing.scale.setScalar(0.9 + 0.12 * Math.sin(t * 6));
-      castLine.visible = true; castLine.geometry.setFromPoints([tip, new THREE.Vector3(land.x, 0.05, land.z)]);
-      castLure.visible = false;
-    } else if (st.mode === "casting" && land) {
-      const p = Math.min(1, st.castProgress || 0);
-      const pos = tip.clone().lerp(new THREE.Vector3(land.x, 0.05, land.z), p);
-      pos.y += Math.sin(p * Math.PI) * (1.6 + land.distanceTo(tip) * 0.12);
+    if (casting && land) {
+      const landV = new THREE.Vector3(land.x, 0.05, land.z);
+      let pos;
+      if (p < 0.45) { pos = tip.clone(); }                 // still on the tip (loading/whipping)
+      else { const fp = (p - 0.45) / 0.55; pos = tip.clone().lerp(landV, fp); pos.y += Math.sin(fp * Math.PI) * (2.4 + tip.distanceTo(landV) * 0.14); }
       castLure.visible = true; castLure.position.copy(pos);
       castLure.body.material.color.set(st.lureHex || 0xff5a2a);
       castLine.visible = true; castLine.geometry.setFromPoints([tip, pos]);
-      aimRing.visible = false;
+      // a target marker on the water where it's headed
+      aimRing.visible = true; aimRing.position.copy(landV); aimRing.scale.setScalar(0.8 + 0.12 * Math.sin(t * 6));
     } else {
       aimRing.visible = false; castLine.visible = false; castLure.visible = false;
     }
