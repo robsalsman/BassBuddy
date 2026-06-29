@@ -272,6 +272,15 @@ html, body {
 .color-dot.sel { border-color: #fff; transform: scale(1.08); }
 .color-dot small { position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%); font-size: 9px; color: #a9cdd9; white-space: nowrap; }
 
+/* ---------- Scent / flavor ---------- */
+.scent-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.scent-opt { display: flex; align-items: center; gap: 6px; padding: 7px 11px; border-radius: 999px;
+  background: rgba(255,255,255,.05); border: 1px solid var(--ui-line); cursor: pointer; font-size: 12px; }
+.scent-opt .scent-ico { font-size: 15px; }
+.scent-opt b { font-weight: 700; }
+.scent-opt i { font-style: normal; font-weight: 800; margin-left: 2px; }
+.scent-opt.sel { border-color: #5be37a; background: rgba(91,227,122,.14); }
+
 /* ---------- Map / positions ---------- */
 .map-venues { display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; }
 .venue {

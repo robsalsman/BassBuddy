@@ -61,6 +61,19 @@
       style: "sink", band: 0.82, cadence: "slow", motion: "Slow bottom drag" },
   ];
 
+  // Fish-attractant scents/flavors. A scent gives a small all-round bump, plus
+  // a combo bonus when it suits the lure style and the water conditions — so the
+  // best results come from matching TYPE + COLOR + FLAVOR to the day.
+  //   fav: which lure family it pairs with · warm/cold: temperature it shines in
+  const ATTRACTANTS = {
+    none:  { name: "No Scent",     ico: "⚪", base: 0.45, fav: null,     note: "Plain — let the lure do the work" },
+    garlic:{ name: "Garlic",       ico: "🧄", base: 0.62, fav: null,     note: "All-round masking scent — small boost anywhere" },
+    shad:  { name: "Shad Oil",     ico: "🐟", base: 0.55, fav: "moving", warm: true, note: "Baitfish scent — pairs with moving baits in warm water" },
+    craw:  { name: "Crawfish",     ico: "🦞", base: 0.55, fav: "bottom", cold: true, note: "Craw scent — pairs with bottom baits in cool water" },
+    night: { name: "Nightcrawler", ico: "🪱", base: 0.55, fav: "slow",   note: "Worm scent — pairs with slow finesse baits" },
+    anise: { name: "Anise",        ico: "🌿", base: 0.58, fav: null,     cold: true, note: "Sweet cover scent — steady producer in cold water" },
+  };
+
   // Fish. `art` drives the SVG. `bass:true` = black bass (counts in tournaments);
   // `lm:true` marks a largemouth specifically.
   // Black bass only — this is a bass fishing game.
@@ -153,7 +166,7 @@
     return {
       coins: 0,
       rod: "twig", ownedRods: ["twig"],
-      lure: { id: "worm", color: "green" }, ownedLures: ["worm"],
+      lure: { id: "worm", color: "green" }, ownedLures: ["worm"], attractant: "none",
       spot: "cove", ownedSpots: ["cove"],
       positions: { cove: "pads", river: "riffle", deep: "weed" },
       records: {}, caught: {},
@@ -174,6 +187,7 @@
         const valid = new Set(LURES.map(l => l.id));
         m.ownedLures = Array.from(new Set(["worm", ...(m.ownedLures || []).filter(id => valid.has(id))]));
         if (!valid.has(m.lure.id)) m.lure.id = "worm";
+        if (!ATTRACTANTS[m.attractant]) m.attractant = "none";
         const lu = LURES.find(l => l.id === m.lure.id);
         if (lu && !lu.colors.includes(m.lure.color)) m.lure.color = lu.colors[0];
         return m;
@@ -587,6 +601,9 @@
     // the productive water sits at a random bearing — turn the trolling motor to find it
     S.holdBearing = rnd(-1.0, 1.0);
     S.heading = 0; S.headingTarget = 0;
+    // a hidden "pattern of the day": the bass are keyed on one lure, so even an
+    // off-the-chart choice can crush it if it matches — discover it by fishing
+    S.cond.hotLure = LURES[Math.floor(Math.random() * LURES.length)].id;
     recomputeCond();
   }
   // how directly the boat faces the holding water (1 = dead on, 0 = facing away)
@@ -689,11 +706,14 @@
     const grp = STRUCT_GROUP[pos.id] || "open";
     const structS = (STRUCT_PREF[lu.id] && STRUCT_PREF[lu.id][grp]) != null ? STRUCT_PREF[lu.id][grp] : 0.6;
 
-    const score = depth * 0.30 + color * 0.15 + time * 0.15 + tempS * 0.12 + weath * 0.12 + structS * 0.16;
+    // 7) fish-attractant scent/flavor — pairs with lure style + temperature
+    const scent = scentScore(lu, temp);
+
+    const score = depth * 0.27 + color * 0.14 + time * 0.13 + tempS * 0.11 + weath * 0.11 + structS * 0.14 + scent * 0.10;
 
     // educational tip — call out the limiting factor (or the strength)
     const factors = [
-      ["depth", depth], ["color", color], ["time", time], ["temp", tempS], ["weather", weath], ["struct", structS],
+      ["depth", depth], ["color", color], ["time", time], ["temp", tempS], ["weather", weath], ["struct", structS], ["scent", scent],
     ].sort((a, b) => a[1] - b[1]);
     const weak = factors[0];
     let tip;
@@ -703,9 +723,26 @@
     else if (weak[0] === "time") tip = "Topwater fades in midday sun — save it for low light";
     else if (weak[0] === "temp") tip = temp < 55 ? "Cold water — fish want a slow bait" : "Warm & active — a faster bait shines";
     else if (weak[0] === "weather") tip = moving ? "Calm & clear — finesse beats flash" : "Active, overcast day — try a moving bait";
+    else if (weak[0] === "scent") tip = "Add a matching scent for an edge";
     else tip = "Not the cover this lure loves";
 
     return { score, pct: Math.round(score * 100), stars: clamp(Math.round(score * 5), 1, 5), tip, good: weak[1] >= 0.62 };
+  }
+
+  // attractant suitability 0..1 — base presence + combos with lure style & temp
+  function scentScore(lu, temp) {
+    const a = ATTRACTANTS[G.attractant] || ATTRACTANTS.none;
+    let s = a.base;
+    const moving = ["torpedo", "jitterbug", "crank", "spoon", "pencil"].includes(lu.id);
+    const slow = lu.id === "worm" || lu.id === "furry";
+    const bottom = lu.style === "sink";
+    if (a.fav === "moving" && moving) s += 0.30;
+    else if (a.fav === "slow" && slow) s += 0.30;
+    else if (a.fav === "bottom" && bottom) s += 0.26;
+    else if (a.fav && !moving && !slow && !bottom) s -= 0.05;
+    if (a.warm && temp > 68) s += 0.12; else if (a.warm && temp < 56) s -= 0.06;
+    if (a.cold && temp < 58) s += 0.12; else if (a.cold && temp > 74) s -= 0.06;
+    return clamp(s, 0, 1);
   }
 
   function bestLureNow() {
@@ -825,6 +862,7 @@
     const hz = hotZone();
     S.castBonus = Math.hypot(px - hz.x, py - hz.y) < hz.r;
     S.castFacing = facingQuality();   // how well the boat was aimed at the fish when you cast
+    S.castLuck = rnd(0.82, 1.28);     // real fishing varies cast-to-cast
     showBtn(false); setStatus("");
     S.aim = null;
   }
@@ -1393,7 +1431,8 @@
     const depthNow = clamp(1 - Math.abs(R.depth - S.cond.band) / ((S.cond.window || 0.09) * 3), 0, 1);
     const struct = S.castBonus ? 1.2 : 1;
     const aimed = 0.55 + 0.45 * (S.castFacing != null ? S.castFacing : 1);   // faced the fish when you cast?
-    const build = (R.action > 0.55 ? 1 : 0.3) * (0.25 + sc) * depthNow * struct * aimed;
+    const hot = lu.id === S.cond.hotLure ? 1.45 : 1;                          // matched the day's pattern
+    const build = (R.action > 0.55 ? 1 : 0.3) * (0.25 + sc) * depthNow * struct * aimed * (S.castLuck || 1) * hot;
     R.interest = clamp(R.interest + (build * 0.012 - 0.0016) * step, 0, 1);
     R.follower = R.interest;
     if (R.interest >= 1) { strike(); return; }
@@ -2175,6 +2214,19 @@
       return `<div class="color-dot ${sel ? "sel" : ""}" data-color="${c}" style="background:${col.hex}">
         <small>${col.name}${good ? " ⭐" : ""} · ${r}</small></div>`;
     }).join("");
+    renderScents();
+  }
+  function renderScents() {
+    const row = document.getElementById("scentRow"); if (!row) return;
+    const l = lure(), saved = G.attractant;
+    row.innerHTML = Object.keys(ATTRACTANTS).map(k => {
+      const a = ATTRACTANTS[k], sel = saved === k;
+      G.attractant = k; const r = lureScore(l).pct;   // show the combined % this scent yields
+      return `<div class="scent-opt ${sel ? "sel" : ""}" data-scent="${k}">
+        <span class="scent-ico">${a.ico}</span><b>${a.name}</b>
+        <i style="color:${ratingColor(r)}">${r}%</i></div>`;
+    }).join("");
+    G.attractant = saved;
   }
   el.lureChip.addEventListener("click", openLures);
   el.lureClose.addEventListener("click", () => el.lureModal.classList.add("hidden"));
@@ -2192,6 +2244,9 @@
       }
     } else if (dot) {
       G.lure.color = dot.dataset.color; save(); updateHUD(); renderColors();
+    } else {
+      const sc = e.target.closest(".scent-opt");
+      if (sc) { G.attractant = sc.dataset.scent; save(); updateHUD(); renderLures(); }
     }
   });
 
