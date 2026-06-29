@@ -34,6 +34,10 @@ html, body {
 }
 
 #c { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+/* 3D underwater layer — sits over the 2D canvas, fades in on the dive,
+   and never intercepts taps (the 2D canvas keeps handling input). */
+#c3d { position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+  z-index: 2; opacity: 0; pointer-events: none; transition: opacity .45s ease; }
 
 /* ---------- HUD ---------- */
 .hud {

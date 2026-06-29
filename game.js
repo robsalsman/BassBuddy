@@ -1163,7 +1163,40 @@
     const dt = Math.min(50, now - last); last = now;
     update(dt, now);
     render(now);
+    drive3D(dt, now);
     requestAnimationFrame(frame);
+  }
+
+  // ---- 3D underwater layer (Three.js). The 2D scene above keeps rendering as
+  // a fallback; if WebGL is unavailable Scene3D never goes ready and we no-op.
+  let _3dInit = false, _3dVenue = "";
+  function drive3D(dt, now) {
+    const S3 = window.Scene3D;
+    if (!S3) return;
+    if (!_3dInit) {
+      _3dInit = true;
+      try { S3.init(document.getElementById("c3d")); } catch (e) {}
+    }
+    if (!S3.isReady()) return;
+    const under = S.view === "under";
+    S3.setVisible(under);
+    if (!under) return;
+    const sp = spot(), lu = lure();
+    if (_3dVenue !== sp.id) { _3dVenue = sp.id; S3.setVenue(sp.water[0], sp.water[1]); }
+    const band = S.cond.band, win = S.cond.window || 0.085;
+    const lureDepth = S.mode === "fight" ? (S.bobberDepth != null ? S.bobberDepth : band) : S.rv.depth;
+    const st = {
+      mode: S.mode, band, win,
+      lureDepth, lureDist: S.rv.dist, lureHex: COLORS[G.lure.color].hex, lureStyle: lu.style,
+      inZone: Math.abs(lureDepth - band) < win,
+      interest: S.rv.interest,
+      daylight: dayColors(sp).daylight,
+      fight: S.mode === "fight" && S.hookedFish ? {
+        dist: S.ft.dist, state: S.ft.state, tension: S.ft.tension,
+        size: S.ft.size, pull: S.ft.pull, art: S.hookedFish.art,
+      } : null,
+    };
+    S3.frame(st, dt);
   }
 
   function update(dt, now) {
