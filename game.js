@@ -754,7 +754,9 @@
     const rangeFrac = (weight - lo) / Math.max(0.01, hi - lo);
     const difficulty = clamp(RARITY_HARD[chosen.rarity] * 0.6 + rangeFrac * 0.5, 0.05, 0.98);
     const value = Math.max(1, Math.round(chosen.base * (0.6 + weight / hi) * RARITY_MULT[chosen.rarity]));
-    return { def: chosen, name: chosen.name, art: chosen.art, rarity: chosen.rarity, lm: !!chosen.lm, bass: !!chosen.bass, weight, difficulty, value };
+    // length from the standard bass length-weight relation (W = L^3 / 1600), +/- a little
+    const lengthIn = +(Math.cbrt(weight * 1600) * (0.96 + Math.random() * 0.08)).toFixed(1);
+    return { def: chosen, name: chosen.name, art: chosen.art, rarity: chosen.rarity, lm: !!chosen.lm, bass: !!chosen.bass, weight, lengthIn, difficulty, value };
   }
 
   // ===========================================================================
@@ -887,6 +889,8 @@
     if (S.mode !== "strike") return;
     const f = S.hookedFish, d = f.difficulty;
     S.mode = "fight";
+    // fight from the angler's point of view, up on the surface
+    S.view = "surface"; S.viewT = 0;
     setStatus(""); setBtn("HOLD TO REEL", "reel"); showBtn(true);
     el.fightPanel.classList.remove("hidden");
     const T = S.ft;
@@ -895,20 +899,25 @@
     T.maxStam = 1; T.size = d;
     S.holding = false;
     vibrate([20, 30, 40]);
-    // splashy hook-set spray right where the fish smashed the lure
-    const fx = lerp(W * 0.66, W * 0.34, 1 - S.rv.dist), fy = depthY(S.rv.depth);
-    sprayBurst(fx, fy, 16, 1.3);
     el.ftHint.textContent = "Wear it down — reel when it tires!";
   }
 
   function landFish() {
+    // start the boating animation — swing small ones in, hand-lip the big ones
     const f = S.hookedFish;
-    S.mode = "caught";
+    S.mode = "landing";
+    S.landT = 0;
+    S.landBig = f.weight >= 3.5;
     el.fightPanel.classList.add("hidden");
     el.retrievePanel.classList.add("hidden");
     showBtn(false);
-    splash(S.bobber.x, waterLine());
-
+    setStatus(S.landBig ? "Lipping it…" : "Swinging it in…");
+    vibrate([15, 30]);
+  }
+  function finishLand() {
+    const f = S.hookedFish;
+    S.mode = "caught";
+    setStatus("");
     G.caught[f.name] = (G.caught[f.name] || 0) + 1;
     const prev = G.records[f.name] || 0;
     const isRecord = f.weight > prev;
@@ -937,6 +946,8 @@
     else { cv3d.style.display = "none"; svgHost.innerHTML = heroSVG(f, 168); }
     el.catchName.textContent = f.name;
     el.catchWeight.textContent = f.weight;
+    const lenEl = document.getElementById("catchLength");
+    if (lenEl) lenEl.textContent = (f.lengthIn || Math.cbrt(f.weight * 1600)).toFixed(1);
     el.catchReward.textContent = f.value;
     el.catchRewardWrap.classList.remove("hidden");
     el.catchRecord.textContent = isRecord && prev > 0 ? "🏆 NEW PERSONAL BEST!" : isRecord ? "🏆 FIRST CATCH!" : "";
@@ -1264,7 +1275,11 @@
       hotZone: (function () { const z = hotZone(); return { x: z.x, y: z.y }; })(),
       fight: S.mode === "fight" && S.hookedFish ? {
         dist: S.ft.dist, state: S.ft.state, tension: S.ft.tension,
-        size: S.ft.size, pull: S.ft.pull, art: S.hookedFish.art,
+        size: S.ft.size, pull: S.ft.pull, art: S.hookedFish.art, reeling: !!S.holding,
+      } : null,
+      landing: S.mode === "landing" && S.hookedFish ? {
+        t: clamp((S.landT || 0) / (S.landBig ? 1500 : 1000), 0, 1),
+        big: !!S.landBig, size: S.ft.size, art: S.hookedFish.art,
       } : null,
     };
     S3.frame(st, dt);
@@ -1286,7 +1301,11 @@
       S.bobber.x = S.bobber.sx + (S.bobber.targetX - S.bobber.sx) * fp;
       const arc = Math.sin(fp * Math.PI) * (60 + S.bobber.dist * 130);
       S.bobber.y = S.bobber.sy + (S.bobber.targetY - S.bobber.sy) * fp - arc;
-      if (p >= 1) { S.bobber.y = S.bobber.targetY; startRetrieve(); }
+      if (p >= 1) { S.bobber.y = S.bobber.targetY; S.mode = "splashdown"; S.splashT = 0; }
+    }
+    if (S.mode === "splashdown") {                 // brief surface beat so the splash/ripples read
+      S.splashT = (S.splashT || 0) + dt;
+      if (S.splashT >= 360) startRetrieve();
     }
     if (S.mode === "retrieve") {
       updateRetrieve(dt, now);
@@ -1309,6 +1328,10 @@
         S.bobber.x = tip.x + (S.bobber.targetX - tip.x) * S.ft.dist;
         S.bobber.y = S.ft.state === "jump" ? wl - 16 - Math.abs(Math.sin(now / 80)) * 16 : wl + 14 + Math.sin(now / 200) * 3;
       }
+    }
+    if (S.mode === "landing") {
+      S.landT = (S.landT || 0) + dt;
+      if (S.landT >= (S.landBig ? 1500 : 1000)) finishLand();
     }
 
     for (const f of S.fishes) {

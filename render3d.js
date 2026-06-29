@@ -223,6 +223,7 @@ const Scene3D = (() => {
   // surface world (above the water — idle / aim / cast)
   let scene2, camS, water, sunS, sunMesh, sunGlow, boat, aimRing, castLine, castLure;
   let fishShadows = [], hills, structProps, world;
+  let splashRings = [], surfFish = null, surfFishKey = "", boil, castSplashed = false;
   let skyKey = "";
   const waterPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   const ray = new THREE.Raycaster();
@@ -398,6 +399,29 @@ const Scene3D = (() => {
       new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 }));
     castLine.visible = false; scene2.add(castLine);
     castLure = buildLure(); castLure.scale.setScalar(0.7); castLure.visible = false; scene2.add(castLure);
+
+    // splash-ring pool (lure splashdown, fish boils)
+    for (let i = 0; i < 5; i++) {
+      const r = new THREE.Mesh(new THREE.RingGeometry(0.2, 0.34, 28), new THREE.MeshBasicMaterial({ color: 0xeaf6fb, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
+      r.rotation.x = -Math.PI / 2; r.visible = false; r.userData = { life: 0, max: 1 }; scene2.add(r); splashRings.push(r);
+    }
+    // a churning "boil" disc that shows where a hooked fish is working sub-surface
+    boil = new THREE.Mesh(new THREE.CircleGeometry(0.6, 24), new THREE.MeshBasicMaterial({ color: 0xcfe8f0, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
+    boil.rotation.x = -Math.PI / 2; boil.visible = false; scene2.add(boil);
+  }
+
+  function splashAt(x, z, size) {
+    const r = splashRings.find(s => !s.visible) || splashRings[0];
+    r.visible = true; r.position.set(x, 0.06, z); r.userData.life = 0; r.userData.max = size || 1;
+    r.scale.setScalar(0.4);
+  }
+  function ensureSurfFish(art) {
+    const key = JSON.stringify(art || {});
+    if (!surfFish || key !== surfFishKey) {
+      if (surfFish) { scene2.remove(surfFish); if (surfFish.disposables) surfFish.disposables.forEach(d => d.dispose && d.dispose()); surfFish.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+      surfFish = makeBass(art || {}); scene2.add(surfFish); surfFishKey = key;
+    }
+    return surfFish;
   }
 
   function buildBoat() {
@@ -447,11 +471,19 @@ const Scene3D = (() => {
     const cap = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 12, 0, 6.28, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xc23a2a, roughness: 0.7 }));
     cap.position.y = 0.78; ang.add(cap);
     g.add(ang);
-    // fishing rod (pivots at the grip; a tracked tip feeds the line its origin)
+    // fishing rod — pivots at the grip; a hinged upper section bends under load.
+    const rodMat = new THREE.MeshStandardMaterial({ color: 0x241a12, roughness: 0.4, metalness: 0.3 });
     const rod = new THREE.Group(); rod.position.set(0.25, 0.78, -0.4);
-    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.04, 3.6, 8), new THREE.MeshStandardMaterial({ color: 0x4a3420 }));
-    shaft.position.y = 1.8; rod.add(shaft);
-    const tip = new THREE.Object3D(); tip.position.y = 3.6; rod.add(tip);
+    const lower = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.05, 2.4, 8), rodMat); lower.position.y = 1.2; rod.add(lower);
+    const tipSec = new THREE.Group(); tipSec.position.y = 2.4; rod.add(tipSec); g.rodTipSec = tipSec;
+    const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.028, 1.3, 8), rodMat); upper.position.y = 0.65; tipSec.add(upper);
+    const tip = new THREE.Object3D(); tip.position.y = 1.3; tipSec.add(tip);
+    // spinning reel with a crank handle
+    const reel = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.06, 14), trimMat);
+    reel.rotation.x = Math.PI / 2; reel.position.set(0, 0.5, 0.12); rod.add(reel);
+    const handle = new THREE.Group(); handle.position.set(0, 0.5, 0.18); rod.add(handle); g.reelHandle = handle;
+    const crank = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.16, 6), trimMat); crank.position.set(0.07, 0, 0); crank.rotation.z = Math.PI / 2; handle.add(crank);
+    const knob = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 8), deckMat); knob.position.set(0.14, 0, 0); handle.add(knob);
     rod.rotation.x = -0.95; rod.rotation.z = 0.12;
     g.add(rod); g.rod = rod; g.rodTip = tip;
     return g;
@@ -513,46 +545,114 @@ const Scene3D = (() => {
       s.material.opacity = (0.12 + facing * 0.3) + Math.sin(t + u.ph) * 0.05;
     }
 
-    // point-and-click cast: a single tap plays the whole motion — the rod
-    // sweeps back over the shoulder to load, whips forward, and the lure
-    // launches off the tip and arcs out to the tapped spot.
+    // ---- rod animation per phase (cast whip / fight bend / landing hoist) ----
     const lerp = (a, b, k) => a + (b - a) * k;
-    const rod = boat.rod;
-    const casting = st.mode === "casting";
+    const rod = boat.rod, tipSec = boat.rodTipSec;
+    const casting = st.mode === "casting", splashing = st.mode === "splashdown";
+    const fighting = st.mode === "fight" && st.fight, landing = st.mode === "landing" && st.landing;
     const p = casting ? Math.min(1, st.castProgress || 0) : 0;
+    let bend = 0;
     if (casting) {
       let rx, rz;
-      if (p < 0.32) {                                      // load back over the shoulder
-        const u = 1 - Math.pow(1 - p / 0.32, 2);
-        rx = lerp(-0.95, 1.15, u); rz = lerp(0.12, 0.6, u);
-      } else if (p < 0.5) {                                // whip forward (fast flick)
-        const u = (p - 0.32) / 0.18, e = 1 - Math.pow(1 - u, 3);
-        rx = lerp(1.15, -1.5, e); rz = lerp(0.6, 0.12, e);
-      } else {                                             // follow through / settle
-        rx = lerp(-1.5, -1.05, (p - 0.5) / 0.5); rz = 0.12;
-      }
+      if (p < 0.32) { const u = 1 - Math.pow(1 - p / 0.32, 2); rx = lerp(-0.95, 1.15, u); rz = lerp(0.12, 0.6, u); }
+      else if (p < 0.5) { const u = (p - 0.32) / 0.18, e = 1 - Math.pow(1 - u, 3); rx = lerp(1.15, -1.5, e); rz = lerp(0.6, 0.12, e); }
+      else { rx = lerp(-1.5, -1.05, (p - 0.5) / 0.5); rz = 0.12; }
       rod.rotation.x = rx; rod.rotation.z = rz;
+    } else if (fighting) {
+      const f = st.fight, load = 0.4 + f.tension * 0.9 + f.pull * 0.25;
+      const pump = f.reeling ? Math.sin(t * 7) * 0.13 : 0;          // reeling pumps the rod
+      rod.rotation.x = -1.15 - load * 0.22 + pump;                  // tipped down toward the fish
+      rod.rotation.z = 0.12 + Math.sin(t * 5) * f.tension * 0.06;
+      bend = 0.3 + load * 0.8 + (f.state === "jump" ? 0.2 : 0) + Math.sin(t * 9) * 0.04;
+    } else if (landing) {
+      const e = landing.t;
+      rod.rotation.x = lerp(-1.25, -0.15, e); rod.rotation.z = 0.12;
+      bend = 0.7 * (1 - e) + 0.15;
     } else {
       rod.rotation.x += (-0.95 + Math.sin(t * 1.3) * 0.04 - rod.rotation.x) * Math.min(1, dt * 0.01);
       rod.rotation.z += (0.12 - rod.rotation.z) * Math.min(1, dt * 0.01);
     }
+    if (tipSec) tipSec.rotation.x += (bend - tipSec.rotation.x) * Math.min(1, dt * 0.02);
+    // reel the handle while fighting + reeling, or during the landing hoist
+    if (boat.reelHandle) boat.reelHandle.rotation.z -= ((fighting && st.fight.reeling) || landing ? dt * 0.025 : 0);
     boat.updateMatrixWorld(true);
     const tip = boat.rodTip.getWorldPosition(new THREE.Vector3());
 
-    // the lure: rides the rod tip through the windup/whip, then flies out
     const land = st.castAim ? screenToWater(st.castAim.x, st.castAim.y) : null;
+
+    // ---- cast: lure rides the tip through the whip, then arcs out & splashes ----
     if (casting && land) {
       const landV = new THREE.Vector3(land.x, 0.05, land.z);
       let pos;
-      if (p < 0.45) { pos = tip.clone(); }                 // still on the tip (loading/whipping)
+      if (p < 0.45) pos = tip.clone();
       else { const fp = (p - 0.45) / 0.55; pos = tip.clone().lerp(landV, fp); pos.y += Math.sin(fp * Math.PI) * (2.4 + tip.distanceTo(landV) * 0.14); }
       castLure.visible = true; castLure.position.copy(pos);
       castLure.body.material.color.set(st.lureHex || 0xff5a2a);
-      castLine.visible = true; castLine.geometry.setFromPoints([tip, pos]);
-      // a target marker on the water where it's headed
+      castLine.visible = true; castLine.material.color.setHex(0xffffff); castLine.material.opacity = 0.6;
+      castLine.geometry.setFromPoints([tip, pos]);
       aimRing.visible = true; aimRing.position.copy(landV); aimRing.scale.setScalar(0.8 + 0.12 * Math.sin(t * 6));
+      castSplashed = false;
+    } else if (splashing && land) {
+      // lure has hit the water — kick a splash + spreading rings, lure resting
+      if (!castSplashed) { splashAt(land.x, land.z, 1.3); castSplashed = true; }
+      castLure.visible = true; castLure.position.set(land.x, 0.05 + Math.sin(t * 8) * 0.03, land.z);
+      castLine.visible = true; castLine.geometry.setFromPoints([tip, new THREE.Vector3(land.x, 0.05, land.z)]);
+      aimRing.visible = false;
     } else {
-      aimRing.visible = false; castLine.visible = false; castLure.visible = false;
+      castLure.visible = false;
+      if (!fighting && !landing) { castLine.visible = false; aimRing.visible = false; }
+    }
+
+    // ---- fight: the hooked bass out in front, boiling / jumping, drawing closer ----
+    if (fighting) {
+      const f = st.fight, fish = ensureSurfFish(f.art);
+      const dist3d = 2.3 + f.dist * 13, fxw = Math.sin(t * 0.6) * 0.7 * (0.35 + f.dist);
+      let fy;
+      if (f.state === "jump") fy = 0.35 + Math.abs(Math.sin(t * 5)) * 1.7;
+      else fy = f.dist < 0.22 ? -0.12 : -0.55;
+      const sc = 0.6 + f.size * 0.9;
+      fish.visible = true; fish.scale.setScalar(sc); fish.position.set(fxw, fy, -dist3d);
+      fish.rotation.set(f.state === "jump" ? 0.5 : 0.12 * Math.sin(t * 3), -Math.PI / 2 + Math.sin(t * 1.5) * 0.25, Math.sin(t * 4) * 0.12);
+      if (fish.tail) fish.tail.rotation.y = Math.sin(t * (8 + f.pull * 4)) * 0.5;
+      undulate(fish, t, 0.16 + f.pull * 0.06, true);
+      boil.visible = f.state !== "jump";
+      boil.position.set(fxw, 0.05, -dist3d); boil.material.opacity = 0.22 + Math.sin(t * 10) * 0.1;
+      boil.scale.setScalar(0.7 + sc * 0.3 + Math.sin(t * 6) * 0.12);
+      if (f.state === "jump" && Math.sin(t * 5) > 0.96) splashAt(fxw, -dist3d, 1.4);
+      fish.updateMatrixWorld(true);
+      const mouth = fish.mouth.getWorldPosition(new THREE.Vector3());
+      castLine.visible = true; castLine.material.color.setHex(f.tension > 0.7 ? 0xff6a6a : 0xffffff);
+      castLine.material.opacity = 0.7; castLine.geometry.setFromPoints([tip, mouth]);
+    } else if (landing) {
+      // boat the fish — swing the small ones in, hoist the big ones up by the lip
+      const e = landing.t, fish = ensureSurfFish(landing.art), sc = 0.6 + (landing.size || 0.5) * 0.9;
+      fish.visible = true; fish.scale.setScalar(sc);
+      let pos;
+      if (landing.big) pos = new THREE.Vector3(Math.sin(t * 2) * 0.1, lerp(-0.4, 1.0, e), lerp(-2.4, 1.1, e));
+      else { const a = Math.sin(e * Math.PI * 0.5); pos = new THREE.Vector3(0, lerp(-0.3, 1.1, a), lerp(-3.0, 1.4, e)); }
+      fish.position.copy(pos);
+      fish.rotation.set(0.2 * Math.sin(t * 7), -Math.PI / 2, 0.3 + Math.sin(t * 9) * 0.25 * (1 - e));
+      if (fish.tail) fish.tail.rotation.y = Math.sin(t * 12) * 0.5 * (1 - e * 0.5);
+      undulate(fish, t * 1.5, 0.12 * (1 - e * 0.6), true);
+      boil.visible = false;
+      if (e < 0.06 && !castSplashed) { splashAt(pos.x, pos.z, 1.5); castSplashed = true; }
+      fish.updateMatrixWorld(true);
+      const mouth = fish.mouth.getWorldPosition(new THREE.Vector3());
+      castLine.visible = true; castLine.material.color.setHex(0xffffff); castLine.material.opacity = 0.45;
+      castLine.geometry.setFromPoints([tip, mouth]);
+    } else {
+      if (surfFish) surfFish.visible = false;
+      boil.visible = false;
+      if (!casting && !splashing) castSplashed = false;
+    }
+
+    // animate the splash rings (expand + fade)
+    for (const r of splashRings) {
+      if (!r.visible) continue;
+      r.userData.life += dt / 650;
+      if (r.userData.life >= 1) { r.visible = false; continue; }
+      r.scale.setScalar(0.4 + r.userData.life * 2.6 * r.userData.max);
+      r.material.opacity = 0.55 * (1 - r.userData.life);
     }
 
     renderer.render(scene2, camS);

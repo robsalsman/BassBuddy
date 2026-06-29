@@ -226,6 +226,13 @@ html, body {
 .catch-art svg { width: 168px; height: 168px; filter: drop-shadow(0 8px 8px rgba(0,0,0,.4)); animation: bob 1.6s ease-in-out infinite; }
 #catch3d { position: absolute; inset: 0; width: 100%; height: 100%; display: none; }
 #catchArtSvg { display: flex; align-items: flex-end; justify-content: center; }
+/* hold-up scale: weight + length measurements */
+.catch-scale { display: flex; gap: 10px; justify-content: center; margin: 8px 0 4px; }
+.cs-cell { display: flex; align-items: baseline; gap: 5px; background: rgba(255,255,255,.07);
+  border: 1px solid var(--ui-line); border-radius: 12px; padding: 7px 14px; }
+.cs-cell .cs-ico { font-size: 15px; }
+.cs-cell b { font-size: 22px; font-weight: 800; color: #ffd35c; }
+.cs-cell small { font-size: 11px; color: var(--muted, #9fc3d2); font-weight: 700; }
 .reel-fish svg { width: 38px; height: 24px; filter: drop-shadow(0 2px 2px rgba(0,0,0,.45)); }
 
 /* ---------- Lure tray ---------- */
