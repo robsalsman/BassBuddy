@@ -281,8 +281,9 @@ const Scene3D = (() => {
     );
     scene.add(lineMesh);
 
-    // pursuer shadow-bass pool
-    for (let i = 0; i < 3; i++) { const p = buildShadowFish(); p.visible = false; scene.add(p); pursuers.push(p); }
+    // pursuer pool — real detailed bass that swim in to chase the lure
+    const PURSUER_ART = { body: "#5f8f4a", belly: "#dfe7c2", patColor: "#2c3a1c", pat: "lateral", eye: "#caa23a", bigmouth: true };
+    for (let i = 0; i < 3; i++) { const p = makeBass(PURSUER_ART); p.visible = false; scene.add(p); pursuers.push(p); }
 
     buildSurface();
 
@@ -396,9 +397,14 @@ const Scene3D = (() => {
     const cap = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 12, 0, 6.28, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xc23a2a, roughness: 0.7 }));
     cap.position.y = 0.78; ang.add(cap);
     g.add(ang);
-    // fishing rod from the angler out over the bow
-    const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.035, 3.6, 8), new THREE.MeshStandardMaterial({ color: 0x4a3420 }));
-    rod.position.set(0.25, 0.85, -1.3); rod.rotation.x = -0.55; rod.rotation.z = 0.12; g.add(rod);
+    // fishing rod from the angler out over the bow. Pivot at the grip so the
+    // whole rod swings; a tracked tip marker feeds the line its start point.
+    const rod = new THREE.Group(); rod.position.set(0.25, 0.7, -0.4);
+    const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.018, 0.04, 3.6, 8), new THREE.MeshStandardMaterial({ color: 0x4a3420 }));
+    shaft.position.y = 1.8; rod.add(shaft);                 // grow upward from the pivot
+    const tip = new THREE.Object3D(); tip.position.y = 3.6; rod.add(tip);
+    rod.rotation.x = -0.95; rod.rotation.z = 0.12;
+    g.add(rod); g.rod = rod; g.rodTip = tip;
     return g;
   }
 
@@ -444,20 +450,29 @@ const Scene3D = (() => {
     if (hz) { structProps.position.set(hz.x, 0, Math.max(-16, hz.z)); structProps.visible = true; }
     else structProps.visible = false;
 
+    // animate the rod: cocked back while aiming, whips forward on the cast,
+    // gentle sway otherwise.
+    const rod = boat.rod;
+    if (st.mode === "charging") rod.rotation.x = -0.45 + Math.sin(t * 22) * 0.015;   // reared back, twitchy
+    else if (st.mode === "casting") rod.rotation.x = -0.45 - Math.min(1, st.castProgress || 0) * 0.9;  // whip down/forward
+    else rod.rotation.x = -0.95 + Math.sin(t * 1.3) * 0.04;
+    boat.updateMatrixWorld(true);
+    const tip = boat.rodTip.getWorldPosition(new THREE.Vector3());
+
     // aim + cast
     const land = st.castAim ? screenToWater(st.castAim.x, st.castAim.y) : null;
     if (st.mode === "charging" && land) {
       aimRing.visible = true; aimRing.position.set(land.x, 0.05, land.z);
-      const pulse = 0.5 + 0.12 * Math.sin(t * 6); aimRing.scale.setScalar(pulse / 0.5 * 0.9 + 0.4);
-      castLine.visible = true; castLine.geometry.setFromPoints([ROD_S.clone(), new THREE.Vector3(land.x, 0.05, land.z)]);
+      aimRing.scale.setScalar(0.9 + 0.12 * Math.sin(t * 6));
+      castLine.visible = true; castLine.geometry.setFromPoints([tip, new THREE.Vector3(land.x, 0.05, land.z)]);
       castLure.visible = false;
     } else if (st.mode === "casting" && land) {
       const p = Math.min(1, st.castProgress || 0);
-      const pos = ROD_S.clone().lerp(new THREE.Vector3(land.x, 0.05, land.z), p);
-      pos.y += Math.sin(p * Math.PI) * (1.6 + land.distanceTo(ROD_S) * 0.12);
+      const pos = tip.clone().lerp(new THREE.Vector3(land.x, 0.05, land.z), p);
+      pos.y += Math.sin(p * Math.PI) * (1.6 + land.distanceTo(tip) * 0.12);
       castLure.visible = true; castLure.position.copy(pos);
       castLure.body.material.color.set(st.lureHex || 0xff5a2a);
-      castLine.visible = true; castLine.geometry.setFromPoints([ROD_S.clone(), pos]);
+      castLine.visible = true; castLine.geometry.setFromPoints([tip, pos]);
       aimRing.visible = false;
     } else {
       aimRing.visible = false; castLine.visible = false; castLure.visible = false;
@@ -517,14 +532,15 @@ const Scene3D = (() => {
     g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material && !g.disposables) o.material.dispose(); });
   }
 
-  function undulate(g, t, strength) {
+  function undulate(g, t, strength, recompute) {
     if (!g.geo || !g.basePos) return;
     const p = g.geo.attributes.position.array, base = g.basePos;
     for (let i = 0; i < p.length; i += 3) {
       const x = base[i], tailness = Math.min(1, Math.max(0, (-x + 1.0) / 2.0));
       p[i + 2] = base[i + 2] + Math.sin(x * 2.6 - t * 9) * strength * (0.15 + tailness * tailness);
     }
-    g.geo.attributes.position.needsUpdate = true; g.geo.computeVertexNormals();
+    g.geo.attributes.position.needsUpdate = true;
+    if (recompute !== false) g.geo.computeVertexNormals();
   }
 
   // ---- per-frame update, driven by the game ----
@@ -552,24 +568,34 @@ const Scene3D = (() => {
     lineMesh.visible = showLure || st.mode === "fight";
 
     if (showLure) {
-      const lx = xOf(st.lureDist), ly = yOf(st.lureDepth) + Math.sin(t * (st.lureStyle === "top" ? 9 : 6)) * 0.12;
+      // the lure visibly works: jigs up/down and wiggles, faster for fast lures
+      const fast = st.lureStyle === "top" ? 11 : 7;
+      const jig = Math.sin(t * fast) * 0.20 + Math.sin(t * fast * 2.3) * 0.06;
+      const wig = Math.sin(t * (fast * 0.6)) * 0.14;
+      const lx = xOf(st.lureDist) + wig, ly = yOf(st.lureDepth) + jig;
       lureGroup.position.set(lx, ly, 0);
+      lureGroup.rotation.z = Math.sin(t * fast) * 0.3;
       lureGroup.body.material.color.set(st.lureHex || 0xff5a2a);
       lineMesh.geometry.setFromPoints([ROD.clone(), new THREE.Vector3(lx, ly, 0)]);
       lineMesh.material.opacity = 0.5; lineMesh.material.color.setHex(0xffffff);
 
-      // pursuers close in as interest builds
-      const want = st.mode === "strike" ? 0 : Math.min(3, 1 + Math.round((st.interest || 0) * 2));
+      // detailed bass swim in and close on the lure as interest builds
+      const it = st.interest || 0;
+      const want = st.mode === "strike" ? 1 : Math.min(3, 1 + Math.round(it * 2));
       for (let i = 0; i < pursuers.length; i++) {
         const p = pursuers[i]; const on = i < want;
         p.visible = on; if (!on) continue;
-        const it = st.interest || 0, side = i % 2 === 0 ? 1 : -1;
-        const reach = (1 - it) * (3.0 + i * 1.1) + 0.8;
-        const tx = lx + side * reach, ty = yOf(st.band) + Math.sin(t * 0.9 + i) * 0.4;
-        p.position.set(tx, ty, -0.4 - i * 0.5);
-        const facing = tx > lx ? -1 : 1; p.scale.x = Math.abs(p.scale.x) * facing;
-        p.mat.opacity = (i === 0 ? 0.22 + 0.5 * it : 0.16 + 0.25 * it);
-        if (p.tail) p.tail.rotation.y = Math.sin(t * 7 + i) * 0.5;
+        const lead = i === 0, side = i % 2 === 0 ? 1 : -1;
+        const reach = (1 - it) * (3.4 + i * 1.0) + (lead ? 0.7 : 1.3);
+        const tx = lx + side * reach + Math.cos(t * 0.8 + i) * 0.35;
+        const ty = yOf(st.band) + Math.sin(t * 0.9 + i * 1.7) * 0.45
+                 + (ly - yOf(st.band)) * (lead ? it : it * 0.4);          // lead rises to the lure's depth
+        const tz = -0.5 - i * 0.7 + Math.sin(t * (1.2 + i * 0.3) + i) * 0.5;
+        p.position.set(tx, ty, tz);
+        p.rotation.y = Math.atan2(tz, lx - tx);                            // head toward the lure
+        p.scale.setScalar(lead ? 0.55 + it * 0.4 : 0.5);
+        undulate(p, t * (lead ? 1.3 : 1.0) + i * 2, 0.18, lead);           // body swims (normals only for the lead — cheaper)
+        if (p.tail) p.tail.rotation.y = Math.sin(t * (7 + it * 4) + i) * 0.5;
       }
     } else {
       for (const p of pursuers) p.visible = false;
@@ -604,7 +630,53 @@ const Scene3D = (() => {
     renderer.render(scene, camera);
   }
 
-  return { init, setVisible, setVenue, frame, isReady: () => ready };
+  // ===========================================================================
+  // Catch / trophy view — its own little renderer in the catch modal
+  // ===========================================================================
+  let catchR, catchScene, catchCam, catchFish, catchRAF = 0, catchReady = false, catchT = 0;
+
+  function initCatch(cv) {
+    if (!cv) return false;
+    try { catchR = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true }); }
+    catch (e) { return false; }
+    catchR.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    catchScene = new THREE.Scene();
+    catchCam = new THREE.PerspectiveCamera(42, 1.8, 0.1, 50);
+    catchCam.position.set(0, 0, 6.4);
+    catchScene.add(new THREE.HemisphereLight(0xffffff, 0x44525e, 1.2));
+    const d1 = new THREE.DirectionalLight(0xfff2cf, 1.7); d1.position.set(3, 5, 6); catchScene.add(d1);
+    const d2 = new THREE.DirectionalLight(0x9fc0ff, 0.6); d2.position.set(-4, -1, 3); catchScene.add(d2);
+    catchReady = true;
+    return true;
+  }
+
+  function showCatch(art) {
+    if (!catchReady && !initCatch(document.getElementById("catch3d"))) return false;
+    const cv = catchR.domElement;
+    const w = cv.clientWidth || 300, h = cv.clientHeight || 160;
+    catchR.setSize(w, h, false); catchCam.aspect = w / h; catchCam.updateProjectionMatrix();
+    hideCatch();
+    if (catchFish) { catchScene.remove(catchFish); if (catchFish.disposables) catchFish.disposables.forEach(d => d.dispose && d.dispose()); catchFish.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+    catchFish = makeBass(art || {});
+    catchFish.scale.setScalar(2.1);
+    catchScene.add(catchFish);
+    catchT = 0;
+    const loop = () => {
+      catchT += 0.016;
+      catchFish.rotation.y = -0.55 + Math.sin(catchT * 0.55) * 0.85;   // turn to show both flanks
+      catchFish.rotation.z = Math.sin(catchT * 0.8) * 0.05;
+      catchFish.position.y = -0.1 + Math.sin(catchT * 1.1) * 0.12;
+      if (catchFish.tail) catchFish.tail.rotation.y = Math.sin(catchT * 5) * 0.32;
+      catchR.render(catchScene, catchCam);
+      catchRAF = requestAnimationFrame(loop);
+    };
+    loop();
+    return true;
+  }
+
+  function hideCatch() { if (catchRAF) cancelAnimationFrame(catchRAF); catchRAF = 0; }
+
+  return { init, setVisible, setVenue, frame, isReady: () => ready, showCatch, hideCatch };
 })();
 
 export { makeBass, bassTextures };

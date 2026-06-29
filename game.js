@@ -929,7 +929,12 @@
     el.catchRarity.style.color = (lunk || f.rarity === "legendary") ? "#5a3a00" : "#06222c";
     el.catchRarity.classList.toggle("lunker", lunk);
     if (lunk) vibrate([30, 50, 30, 50, 60]);
-    el.catchArt.innerHTML = heroSVG(f, 168);
+    // 3D trophy if WebGL is up, else the SVG hero pose
+    const cv3d = document.getElementById("catch3d"), svgHost = document.getElementById("catchArtSvg");
+    let shown3d = false;
+    if (window.Scene3D && Scene3D.showCatch) { try { shown3d = Scene3D.showCatch(f.art); } catch (e) {} }
+    if (shown3d) { cv3d.style.display = "block"; svgHost.innerHTML = ""; }
+    else { cv3d.style.display = "none"; svgHost.innerHTML = heroSVG(f, 168); }
     el.catchName.textContent = f.name;
     el.catchWeight.textContent = f.weight;
     el.catchReward.textContent = f.value;
@@ -2031,6 +2036,7 @@
   // ===========================================================================
   el.catchOk.addEventListener("click", () => {
     el.catchModal.classList.add("hidden");
+    if (window.Scene3D && Scene3D.hideCatch) Scene3D.hideCatch();
     if (!S.tournament && S.hookedFish) floatText("+" + S.hookedFish.value + " 🪙", "#ffd35c");
     resetToIdle();
   });
