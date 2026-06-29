@@ -257,7 +257,7 @@
     canvas.style.width = W + "px"; canvas.style.height = H + "px";
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   }
-  window.addEventListener("resize", resize);
+  window.addEventListener("resize", () => { resize(); if (S.clouds) seedScenery(); });
   resize();
 
   const waterLine = () => H * 0.42;
@@ -447,7 +447,7 @@
     ft: { stamina: 1, tension: 0, dist: 1, state: "tire", stateT: 0, pull: 0, jumpY: 0 },
     holding: false,
     pressT: 0, pressIsHold: false,
-    fishes: [], ripples: [], splashes: [], bubbles: [], pursuers: [],
+    fishes: [], ripples: [], splashes: [], bubbles: [], pursuers: [], clouds: [], motes: [],
     aim: null,
     view: "surface", viewT: 1,   // surface <-> underwater camera (viewT = transition 0..1)
     cond: { timeMin: 6.5 * 60, weather: "sun", temp: 64, band: 0.3 },
@@ -467,7 +467,14 @@
       });
     }
   }
+  function seedScenery() {
+    S.clouds = [];
+    for (let i = 0; i < 4; i++) S.clouds.push({ x: Math.random() * W, y: 20 + Math.random() * (waterLine() * 0.5), s: 0.6 + Math.random() * 0.8, spd: 0.003 + Math.random() * 0.006 });
+    S.motes = [];
+    for (let i = 0; i < 26; i++) S.motes.push({ x: Math.random() * W, y: Math.random() * H, r: 0.6 + Math.random() * 1.8, ph: Math.random() * 6.28, spd: 0.004 + Math.random() * 0.01 });
+  }
   seedFish();
+  seedScenery();
 
   // ===========================================================================
   // Helpers
@@ -1161,6 +1168,10 @@
     for (const s of S.splashes) { s.r += dt * 0.08; s.a -= dt * 0.0022; }
     S.splashes = S.splashes.filter(s => s.a > 0);
 
+    // drifting clouds (surface) + particulate motes (underwater)
+    for (const c of S.clouds) { c.x += c.spd * dt; if (c.x - 60 > W) c.x = -60; }
+    for (const m of S.motes) { m.ph += m.spd * dt; m.y -= m.spd * dt * 6; m.x += Math.sin(m.ph) * 0.2; if (m.y < UW_TOP) { m.y = H; m.x = Math.random() * W; } }
+
     // camera crossfade + underwater bubbles
     if (S.viewT < 1) S.viewT = Math.min(1, S.viewT + dt / 420);
     if (S.view === "under") {
@@ -1294,6 +1305,49 @@
     ctx.restore();
   }
 
+  // Detailed side-view bass on canvas (matches the catch-screen art quality).
+  function drawBassPattern(a, rx, ry) {
+    const pc = a.patColor || "#33401f";
+    ctx.save(); ctx.globalAlpha *= 0.5; ctx.fillStyle = pc;
+    if (a.pat === "lateral") { for (let i = 0; i < 5; i++) { const x = -rx * 0.62 + i * rx * 0.32; ctx.beginPath(); ctx.ellipse(x, 0, rx * 0.08, ry * 0.5, 0, 0, 6.29); ctx.fill(); } }
+    else if (a.pat === "bars") { for (let i = 0; i < 5; i++) { const x = -rx * 0.6 + i * rx * 0.3; ctx.fillRect(x, -ry * 0.78, rx * 0.05, ry * 1.56); } }
+    else if (a.pat === "spots") { for (let i = 0; i < 6; i++) { const x = -rx * 0.66 + i * rx * 0.26; ctx.beginPath(); ctx.arc(x, ry * 0.42, rx * 0.045, 0, 6.29); ctx.fill(); } ctx.beginPath(); ctx.ellipse(0, -ry * 0.05, rx * 0.5, ry * 0.12, 0, 0, 6.29); ctx.fill(); }
+    else if (a.pat === "trout") { ctx.fillStyle = "#e3849e"; ctx.fillRect(-rx * 0.7, -ry * 0.12, rx * 1.4, ry * 0.24); ctx.fillStyle = pc; for (let i = 0; i < 7; i++) { ctx.beginPath(); ctx.arc(-rx * 0.6 + i * rx * 0.2, -ry * 0.4 + (i % 2) * ry * 0.3, rx * 0.035, 0, 6.29); ctx.fill(); } }
+    ctx.restore();
+  }
+  function drawBass(x, y, len, art, dir, alpha) {
+    const a = art || {};
+    const body = a.body || "#6f9e4e", back = a.back || shade(body, -36), belly = a.belly || "#eef1d6", fin = shade(back, -4);
+    const rx = len * 0.5, ry = len * 0.27;
+    ctx.save(); ctx.translate(x, y); ctx.scale(dir || 1, 1); if (alpha != null) ctx.globalAlpha = alpha;
+    // soft drop shadow
+    ctx.save(); ctx.globalAlpha *= 0.22; ctx.fillStyle = "#000"; ctx.beginPath(); ctx.ellipse(0, ry + len * 0.08, rx * 0.9, ry * 0.4, 0, 0, 6.29); ctx.fill(); ctx.restore();
+    // tail
+    ctx.fillStyle = fin;
+    ctx.beginPath(); ctx.moveTo(-rx + len * 0.06, 0); ctx.lineTo(-rx - len * 0.22, -len * 0.2); ctx.lineTo(-rx - len * 0.08, 0); ctx.lineTo(-rx - len * 0.22, len * 0.2); ctx.closePath(); ctx.fill();
+    // dorsal fin (spiny + soft)
+    ctx.beginPath(); ctx.moveTo(-rx * 0.42, -ry * 0.92); ctx.lineTo(-rx * 0.1, -ry - len * 0.16); ctx.lineTo(rx * 0.16, -ry - len * 0.03); ctx.lineTo(rx * 0.42, -ry - len * 0.12); ctx.lineTo(rx * 0.52, -ry * 0.8); ctx.closePath(); ctx.fill();
+    // body
+    const g = ctx.createLinearGradient(0, -ry, 0, ry); g.addColorStop(0, back); g.addColorStop(0.52, body); g.addColorStop(1, belly);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(0, 0, rx, ry, 0, 0, 6.29); ctx.fill();
+    drawBassPattern(a, rx, ry);
+    // pectoral fin
+    ctx.fillStyle = shade(body, -16); ctx.beginPath(); ctx.moveTo(rx * 0.22, ry * 0.25); ctx.quadraticCurveTo(rx * 0.5, ry * 1.15, rx * 0.04, ry * 0.95); ctx.closePath(); ctx.fill();
+    // gill line
+    ctx.save(); ctx.globalAlpha *= 0.5; ctx.strokeStyle = shade(back, -8); ctx.lineWidth = Math.max(1, len * 0.03);
+    ctx.beginPath(); ctx.moveTo(rx * 0.5, -ry * 0.62); ctx.quadraticCurveTo(rx * 0.42, 0, rx * 0.5, ry * 0.62); ctx.stroke(); ctx.restore();
+    // eye
+    const ex = rx * 0.64, ey = -ry * 0.26, er = Math.max(2, len * 0.075);
+    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(ex, ey, er, 0, 6.29); ctx.fill();
+    ctx.fillStyle = a.eye || "#16242b"; ctx.beginPath(); ctx.arc(ex + er * 0.2, ey, er * 0.55, 0, 6.29); ctx.fill();
+    ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(ex - er * 0.3, ey - er * 0.3, er * 0.2, 0, 6.29); ctx.fill();
+    // mouth
+    ctx.strokeStyle = shade(back, -16); ctx.lineWidth = Math.max(1.5, len * 0.045); ctx.lineCap = "round";
+    if (a.bigmouth) { ctx.beginPath(); ctx.moveTo(rx * 0.78, ey + er * 1.4); ctx.lineTo(rx * 1.05, ry * 0.18); ctx.stroke(); ctx.beginPath(); ctx.moveTo(rx * 1.02, ry * 0.2); ctx.lineTo(rx * 0.8, ry * 0.5); ctx.stroke(); }
+    else { ctx.beginPath(); ctx.moveTo(rx * 0.92, ry * 0.08); ctx.lineTo(rx * 1.04, ry * 0.3); ctx.stroke(); }
+    ctx.restore();
+  }
+
   // ---- Lure art: each of the 8 lures, tinted by the chosen color, animated by `ph`
   function drawLure(x, y, id, hex, ph, scale, facing) {
     const dark = shade(hex, -45), light = shade(hex, 45);
@@ -1370,10 +1424,19 @@
     const sky = ctx.createLinearGradient(0, 0, 0, wl);
     sky.addColorStop(0, sp.sky[0]); sky.addColorStop(1, sp.sky[1]);
     ctx.fillStyle = sky; ctx.fillRect(0, 0, W, wl);
-    if (w === "sun" || night) {
-      ctx.beginPath(); ctx.arc(W * 0.78, wl * 0.42, 30, 0, 6.29);
-      ctx.fillStyle = night ? "rgba(232,236,255,.92)" : "rgba(255,238,170,.95)"; ctx.fill();
+    const sunX = W * 0.78, sunY = wl * 0.42, showSun = (w === "sun" || night);
+    if (showSun) {
+      const gl = ctx.createRadialGradient(sunX, sunY, 6, sunX, sunY, 130);
+      gl.addColorStop(0, night ? "rgba(210,220,255,0.40)" : "rgba(255,240,180,0.55)");
+      gl.addColorStop(1, "rgba(255,240,180,0)");
+      ctx.fillStyle = gl; ctx.fillRect(0, 0, W, wl);
+      ctx.beginPath(); ctx.arc(sunX, sunY, 30, 0, 6.29);
+      ctx.fillStyle = night ? "rgba(236,240,255,.96)" : "rgba(255,243,184,.98)"; ctx.fill();
     }
+    // drifting clouds
+    ctx.fillStyle = night ? "rgba(180,190,220,0.12)" : (w === "fog" ? "rgba(255,255,255,0.45)" : "rgba(255,255,255,0.72)");
+    for (const c of S.clouds) drawCloud(c.x, c.y, c.s);
+    // hills
     ctx.fillStyle = night ? "rgba(20,30,60,.6)" : "rgba(70,150,120,.45)";
     ctx.beginPath(); ctx.moveTo(0, wl);
     for (let x = 0; x <= W; x += 40) ctx.lineTo(x, wl - 26 - Math.sin(x * 0.01 + 1) * 18 - Math.sin(x * 0.03) * 8);
@@ -1389,6 +1452,12 @@
       ctx.beginPath();
       for (let x = 0; x <= W; x += 24) { const yy = y + Math.sin(x * 0.03 + now / 700 + i) * 3; x === 0 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy); }
       ctx.stroke();
+    }
+    // sun glint shimmering on the water under the sun
+    if (showSun) {
+      ctx.save(); ctx.fillStyle = night ? "rgba(210,220,255,0.10)" : "rgba(255,240,180,0.13)";
+      for (let yy = wl + 8; yy < H; yy += 9) { const ww = 26 + (yy - wl) * 0.55, wob = Math.sin(yy * 0.18 + now / 320) * 9; ctx.fillRect(sunX - ww / 2 + wob, yy, ww, 3); }
+      ctx.restore();
     }
 
     const hz = hotZone();
@@ -1435,6 +1504,7 @@
       ctx.beginPath(); ctx.moveTo(tip.x, tip.y); ctx.lineTo(S.bobber.x, S.bobber.y); ctx.stroke();
       drawLure(S.bobber.x, S.bobber.y, G.lure.id, COLORS[G.lure.color].hex, now / 90, 0.7, -1);
     }
+    drawVignette();
   }
 
   function posQuality() {
@@ -1526,6 +1596,14 @@
       ctx.moveTo(rx, UW_TOP); ctx.lineTo(rx + 34, UW_TOP); ctx.lineTo(rx + 90, H); ctx.lineTo(rx - 30, H); ctx.closePath(); ctx.fill();
     }
     ctx.restore();
+    // caustic light dapples just under the surface
+    ctx.save(); ctx.globalAlpha = 0.12; ctx.fillStyle = "#eafaff";
+    for (let x = 0; x < W; x += 34) { const cw = 14 + Math.sin(x * 0.2 + now / 500) * 6; ctx.beginPath(); ctx.ellipse(x + (now / 40 % 34), UW_TOP + 10, cw, 4, 0, 0, 6.29); ctx.fill(); }
+    ctx.restore();
+    // drifting particulate
+    ctx.fillStyle = "rgba(220,240,250,0.5)";
+    for (const m of S.motes) { ctx.globalAlpha = 0.25 + Math.sin(m.ph) * 0.2; ctx.beginPath(); ctx.arc(m.x, m.y, m.r, 0, 6.29); ctx.fill(); }
+    ctx.globalAlpha = 1;
 
     // bottom: weeds or rocks
     ctx.fillStyle = shade(sp.water[1], -12); ctx.fillRect(0, H - 30, W, 30);
@@ -1602,15 +1680,16 @@
       ctx.strokeStyle = taut > 0.7 ? "rgba(255,120,120,0.8)" : "rgba(255,255,255,0.5)"; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.moveTo(rodEntry.x, rodEntry.y);
       const sag = 22 - taut * 26; ctx.quadraticCurveTo((rodEntry.x + fx) / 2, (rodEntry.y + fy) / 2 + sag, fx, fy); ctx.stroke();
-      const col = (f && f.art.body) || "#5e8f54";
       const dir = S.ft.state === "run" ? 1 : -1;
-      drawFishShape(fx, fy, 16 + 12 * S.ft.size, col, dir, true);
+      const len = 46 + 46 * S.ft.size;
+      drawBass(fx, fy, len, f && f.art, dir, 1);
       // the lure in its mouth
-      drawLure(fx + dir * (16 + 12 * S.ft.size) * 0.6, fy, G.lure.id, COLORS[G.lure.color].hex, now / 120, 0.55, dir);
+      drawLure(fx + dir * len * 0.52, fy + len * 0.05, G.lure.id, COLORS[G.lure.color].hex, now / 120, 0.55, dir);
       if (S.ft.state === "jump") splashAt(fx, UW_TOP, now);
     }
 
     drawRipplesSplashes();
+    drawVignette();
   }
 
   function zoneArrow(x, y, dir, label) {
@@ -1631,10 +1710,14 @@
       const px = lx + p.side * reach + Math.sin(now / 480 * p.sp + p.ph) * 8;
       const py = lerp(depthY(p.depth), ly, lead ? t : t * 0.6) + Math.sin(now / 560 + p.ph) * 4;
       const op = lead ? 0.25 + 0.65 * t : 0.18 + 0.3 * t;
-      const sz = (lead ? 15 : 12) + (lead ? 9 * t : 3);
       const dir = px < lx ? 1 : -1;
-      const col = lead && t > 0.55 ? "rgba(70,120,70," + op + ")" : "rgba(14,32,34," + op + ")";
-      drawFishShape(px, py, sz, col, dir, lead && t > 0.6);
+      if (lead && t > 0.45) {
+        // the committing bass resolves from a shadow into a real fish
+        drawBass(px, py, 34 + 22 * t, { body: "#5f8f4a", belly: "#dfe7c2", patColor: "#2c3a1c", pat: "lateral", bigmouth: true }, dir, op);
+      } else {
+        const sz = (lead ? 15 : 12) + (lead ? 9 * t : 3);
+        drawFishShape(px, py, sz, "rgba(14,32,34," + op + ")", dir, false);
+      }
     }
   }
 
@@ -1667,18 +1750,48 @@
     ctx.restore();
   }
 
+  function drawCloud(x, y, s) {
+    for (const [dx, dy, r] of [[-22 * s, 5 * s, 15 * s], [-2 * s, -5 * s, 21 * s], [20 * s, 5 * s, 15 * s], [4 * s, 9 * s, 19 * s]])
+      { ctx.beginPath(); ctx.ellipse(x + dx, y + dy, r, r * 0.68, 0, 0, 6.29); ctx.fill(); }
+  }
+  function drawVignette() {
+    const g = ctx.createRadialGradient(W / 2, H * 0.5, H * 0.34, W / 2, H * 0.5, H * 0.78);
+    g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,0,0,0.28)");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  }
+
+  // Angler in a low bass boat, casting.
   function drawAngler() {
-    const b = anglerBase(); const x = b.x, y = b.y;
-    ctx.save();
-    ctx.fillStyle = "rgba(60,40,25,.7)"; ctx.fillRect(x - 70, y + 40, 90, 10);
-    ctx.fillStyle = "rgba(20,30,40,.85)";
-    ctx.beginPath(); ctx.ellipse(x - 30, y + 22, 16, 22, 0, 0, 6.29); ctx.fill();
-    ctx.beginPath(); ctx.arc(x - 30, y - 6, 11, 0, 6.29); ctx.fill();
-    ctx.fillStyle = "rgba(40,90,70,.9)";
-    ctx.beginPath(); ctx.ellipse(x - 30, y - 14, 16, 5, 0, 0, 6.29); ctx.fill();
-    ctx.fillRect(x - 38, y - 24, 16, 11);
-    ctx.strokeStyle = "rgba(120,80,40,.95)"; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(x - 20, y + 6); ctx.lineTo(x + 64, y - 38); ctx.stroke();
+    const b = anglerBase(), x = b.x, y = b.y, bob = Math.sin(performance.now() / 900) * 2;
+    ctx.save(); ctx.translate(0, bob);
+    // water shadow under the boat
+    ctx.fillStyle = "rgba(0,0,0,0.18)"; ctx.beginPath(); ctx.ellipse(x - 6, y + 50, 96, 12, 0, 0, 6.29); ctx.fill();
+    // boat hull (sleek bass boat)
+    const hull = ctx.createLinearGradient(0, y + 26, 0, y + 56); hull.addColorStop(0, "#2b3a45"); hull.addColorStop(1, "#16222b");
+    ctx.fillStyle = hull;
+    ctx.beginPath();
+    ctx.moveTo(x - 96, y + 34); ctx.quadraticCurveTo(x - 104, y + 52, x - 78, y + 56);
+    ctx.lineTo(x + 70, y + 56); ctx.quadraticCurveTo(x + 104, y + 52, x + 96, y + 34);
+    ctx.quadraticCurveTo(x, y + 24, x - 96, y + 34); ctx.closePath(); ctx.fill();
+    // gunwale highlight + deck
+    ctx.strokeStyle = "rgba(120,150,170,0.5)"; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = "#3a4c58"; ctx.beginPath(); ctx.ellipse(x - 6, y + 34, 80, 9, 0, 0, 6.29); ctx.fill();
+    // seat pedestal
+    ctx.fillStyle = "#22303a"; ctx.fillRect(x - 34, y + 16, 7, 20);
+    // angler — torso, head, cap, arm to the rod
+    ctx.fillStyle = "#243743";
+    ctx.beginPath(); ctx.moveTo(x - 46, y + 18); ctx.quadraticCurveTo(x - 30, y - 8, x - 16, y + 18); ctx.closePath(); ctx.fill(); // torso (vest)
+    ctx.fillStyle = "#caa56f"; ctx.beginPath(); ctx.arc(x - 31, y - 14, 9, 0, 6.29); ctx.fill(); // head
+    ctx.fillStyle = "#2f6f4a"; // cap
+    ctx.beginPath(); ctx.ellipse(x - 31, y - 20, 11, 4, 0, 0, 6.29); ctx.fill();
+    ctx.beginPath(); ctx.arc(x - 31, y - 22, 9, Math.PI, 0); ctx.fill();
+    ctx.fillRect(x - 31, y - 24, 14, 4); // brim
+    // arm + rod
+    ctx.strokeStyle = "#243743"; ctx.lineWidth = 5; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(x - 26, y - 2); ctx.lineTo(x - 8, y + 2); ctx.stroke();
+    ctx.strokeStyle = "#6a4a28"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(x - 10, y + 4); ctx.lineTo(x + 64, y - 40); ctx.stroke();
+    ctx.fillStyle = "#1b2a33"; ctx.beginPath(); ctx.arc(x - 9, y + 6, 4, 0, 6.29); ctx.fill(); // reel
     ctx.restore();
   }
 
