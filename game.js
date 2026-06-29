@@ -63,31 +63,18 @@
 
   // Fish. `art` drives the SVG. `bass:true` = black bass (counts in tournaments);
   // `lm:true` marks a largemouth specifically.
+  // Black bass only — this is a bass fishing game.
   const F = {
     largemouth:{ name: "Largemouth Bass", w: [1.0, 7.0],  rarity: "common", base: 12, lm: true, bass: true,
                  art: { shape: "bass", body: "#6f9e4e", belly: "#eef1d6", pat: "lateral", patColor: "#33401f", bigmouth: true } },
-    smallmouth:{ name: "Smallmouth Bass", w: [0.8, 5.0],  rarity: "common", base: 14, bass: true,
+    smallmouth:{ name: "Smallmouth Bass", w: [0.8, 5.5],  rarity: "common", base: 15, bass: true,
                  art: { shape: "bass", body: "#a07b46", belly: "#efe6cf", pat: "bars", patColor: "#6e4f28", eye: "#c23a2a" } },
-    spotted:   { name: "Spotted Bass",    w: [0.6, 4.5],  rarity: "common", base: 13, bass: true,
+    spotted:   { name: "Spotted Bass",    w: [0.6, 4.8],  rarity: "common", base: 14, bass: true,
                  art: { shape: "bass", body: "#6f8a3e", belly: "#eef0d2", pat: "spots", patColor: "#2f3d1c", eye: "#c23a2a" } },
-    golden:    { name: "Golden Bass",     w: [3.0, 9.0],  rarity: "rare", base: 70, bass: true,
-                 art: { shape: "bass", body: "#e8b53a", belly: "#fff3c4", pat: "lateral", patColor: "#b07a16", bigmouth: true, shimmer: true } },
-    rainbow:   { name: "Rainbow Trout",   w: [0.6, 4.0],  rarity: "common", base: 14,
-                 art: { shape: "trout", body: "#7fae9c", belly: "#f2f0e6", pat: "trout" } },
-    catfish:   { name: "Channel Catfish", w: [2.0, 14.0], rarity: "uncommon", base: 28,
-                 art: { shape: "catfish", body: "#6b6450", belly: "#efe9d6" } },
-    muskie:    { name: "Tiger Muskie",    w: [5.0, 22.0], rarity: "rare", base: 95,
-                 art: { shape: "musky", body: "#8aa05a", belly: "#eef0d8", pat: "bars", patColor: "#46562a" } },
-    walleye:   { name: "Walleye",         w: [1.0, 8.0],  rarity: "common", base: 22,
-                 art: { shape: "walleye", body: "#b59b54", belly: "#f2ead0", pat: "bars", patColor: "#7c6a32", bigeye: true } },
-    giant:     { name: "Giant Largemouth", w: [6.0, 18.0], rarity: "uncommon", base: 45, lm: true, bass: true,
+    giant:     { name: "Giant Largemouth", w: [6.0, 14.0], rarity: "uncommon", base: 45, lm: true, bass: true,
                  art: { shape: "bass", body: "#5e8f54", belly: "#e8edcf", pat: "lateral", patColor: "#2c3f22", bigmouth: true } },
-    sturgeon:  { name: "Sturgeon",        w: [10.0, 48.0],rarity: "rare", base: 130,
-                 art: { shape: "sturgeon", body: "#8b8f8a", belly: "#d8d6cc" } },
-    monster:   { name: "Lake Monster",    w: [30.0, 95.0],rarity: "legendary", base: 500,
-                 art: { shape: "monster", body: "#3f8d63", belly: "#9be0b4" } },
-    glowfish:  { name: "Glowfish",        w: [2.0, 6.0],  rarity: "rare", base: 120,
-                 art: { shape: "trout", body: "#39c5d6", belly: "#c6f9ff", pat: "glow" } },
+    hawg:      { name: "Trophy Largemouth", w: [10.0, 24.0], rarity: "legendary", base: 280, lm: true, bass: true,
+                 art: { shape: "bass", body: "#4f7d46", belly: "#dfe6c4", pat: "lateral", patColor: "#243a1e", bigmouth: true } },
   };
 
   // Venues, each with a fish table and selectable fishing positions.
@@ -98,7 +85,7 @@
       desc: "Calm, clear largemouth water — lily pads and laydowns.",
       fish: [
         { k: "largemouth", weight: 56 }, { k: "spotted", weight: 16 }, { k: "smallmouth", weight: 14 },
-        { k: "giant", weight: 8 }, { k: "golden", weight: 6 },
+        { k: "giant", weight: 10 }, { k: "hawg", weight: 2 },
       ],
       positions: [
         { id: "pads", name: "Lily Pads", ico: "🪷", desc: "Prime largemouth ambush cover.", depth: -0.14,
@@ -108,7 +95,7 @@
         { id: "open", name: "Open Water", ico: "🌊", desc: "Roaming smallmouth & spots.", depth: 0.0,
           zone: [0.50, 0.62, 0.22, 0.16], bias: { smallmouth: 1.7, spotted: 1.5 } },
         { id: "drop", name: "The Drop-off", ico: "📉", desc: "Deeper edge — the big girls.", depth: 0.26,
-          zone: [0.50, 0.84, 0.26, 0.14], bias: { giant: 2.3, golden: 2.0, largemouth: 1.3, spotted: 1.2 } },
+          zone: [0.50, 0.84, 0.26, 0.14], bias: { giant: 2.4, hawg: 2.8, largemouth: 1.3, spotted: 1.2 } },
       ],
     },
     {
@@ -116,14 +103,14 @@
       sky: ["#9fdcc0", "#d7f3e6"], water: ["#2fae8e", "#0c4438"],
       desc: "Clear rocky current — smallmouth and spotted bass country.",
       fish: [
-        { k: "smallmouth", weight: 42 }, { k: "spotted", weight: 27 }, { k: "largemouth", weight: 15 },
-        { k: "giant", weight: 3 }, { k: "catfish", weight: 7 }, { k: "rainbow", weight: 4 }, { k: "muskie", weight: 2 },
+        { k: "smallmouth", weight: 44 }, { k: "spotted", weight: 30 }, { k: "largemouth", weight: 18 },
+        { k: "giant", weight: 7 }, { k: "hawg", weight: 1 },
       ],
       positions: [
         { id: "riffle", name: "Rocky Riffles", ico: "💨", desc: "Oxygen-rich — smallmouth feed.", depth: -0.14,
-          zone: [0.32, 0.42, 0.18, 0.14], bias: { smallmouth: 1.9, spotted: 1.4, rainbow: 1.4 } },
+          zone: [0.32, 0.42, 0.18, 0.14], bias: { smallmouth: 1.9, spotted: 1.4, giant: 0.8 } },
         { id: "pool", name: "Deep Pool", ico: "🌀", desc: "Big bass and toothy muskie.", depth: 0.2,
-          zone: [0.68, 0.66, 0.20, 0.18], bias: { largemouth: 1.4, spotted: 1.2, catfish: 1.6, muskie: 1.8 } },
+          zone: [0.68, 0.66, 0.20, 0.18], bias: { largemouth: 1.6, spotted: 1.2, giant: 1.6 } },
         { id: "bank", name: "Undercut Bank", ico: "🪵", desc: "Largemouth tuck under wood.", depth: -0.08,
           zone: [0.22, 0.70, 0.18, 0.16], bias: { largemouth: 1.9, spotted: 1.3, smallmouth: 1.1 } },
         { id: "tailout", name: "Current Seam", ico: "🏞️", desc: "Smallmouth & spots stage here.", depth: 0.04,
@@ -135,19 +122,18 @@
       sky: ["#3a4b7a", "#1b2447"], water: ["#243a78", "#070d2a"],
       desc: "Deep, low-light trophy lake — where giant bass live.",
       fish: [
-        { k: "largemouth", weight: 30 }, { k: "giant", weight: 26 }, { k: "spotted", weight: 14 },
-        { k: "smallmouth", weight: 10 }, { k: "golden", weight: 6 }, { k: "walleye", weight: 6 },
-        { k: "sturgeon", weight: 4 }, { k: "glowfish", weight: 2 }, { k: "monster", weight: 1 },
+        { k: "largemouth", weight: 32 }, { k: "giant", weight: 30 }, { k: "spotted", weight: 18 },
+        { k: "smallmouth", weight: 16 }, { k: "hawg", weight: 4 },
       ],
       positions: [
         { id: "weed", name: "Weed Edge", ico: "🌿", desc: "Giant largemouth prowl the grass.", depth: -0.1,
           zone: [0.30, 0.44, 0.18, 0.16], bias: { giant: 2.1, largemouth: 1.5, spotted: 1.1 } },
         { id: "point", name: "Main-Lake Point", ico: "📍", desc: "Smallmouth, spots & old sturgeon.", depth: 0.02,
-          zone: [0.70, 0.58, 0.18, 0.16], bias: { smallmouth: 1.6, spotted: 1.5, walleye: 1.5, sturgeon: 1.5 } },
+          zone: [0.70, 0.58, 0.18, 0.16], bias: { smallmouth: 1.7, spotted: 1.6, giant: 1.3 } },
         { id: "hole", name: "Deep Hole", ico: "🕳️", desc: "Where the true giants lurk.", depth: 0.24,
-          zone: [0.50, 0.84, 0.24, 0.14], bias: { giant: 1.9, golden: 1.6, sturgeon: 2.0, monster: 2.6, largemouth: 1.2 } },
+          zone: [0.50, 0.84, 0.24, 0.14], bias: { giant: 2.2, hawg: 3.0, largemouth: 1.4, spotted: 1.0 } },
         { id: "flat", name: "Moonlit Flat", ico: "🌙", desc: "Spots & smallmouth roam the flat.", depth: -0.2,
-          zone: [0.50, 0.40, 0.26, 0.14], bias: { spotted: 1.7, smallmouth: 1.4, golden: 1.4, glowfish: 1.8 } },
+          zone: [0.50, 0.40, 0.26, 0.14], bias: { spotted: 1.8, smallmouth: 1.5, largemouth: 1.2 } },
       ],
     },
   ];
@@ -582,31 +568,42 @@
     fog:    { ico: "🌫️", name: "Foggy",    fam: "bright",  warm: -1 },
     night:  { ico: "🌙", name: "Night",    fam: "bright",  warm: -4 },
   };
+  // Seasonal patterns layered on the daily cycle — real bass behaviour.
+  const SEASONS = {
+    spring: { name: "Spring", ico: "🌱", tempBase: 60, depth: -0.14, activity: 0.22, note: "Pre-spawn — bass move shallow" },
+    summer: { name: "Summer", ico: "☀️", tempBase: 80, depth: 0.14, activity: 0.0, note: "Heat pushes bass deep (early/late best)" },
+    fall:   { name: "Fall",   ico: "🍂", tempBase: 62, depth: -0.06, activity: 0.24, note: "Fall feed-up — bass chase bait" },
+    winter: { name: "Winter", ico: "❄️", tempBase: 45, depth: 0.20, activity: -0.28, note: "Cold water — slow & deep" },
+  };
+  const SEASON_ORDER = ["spring", "summer", "fall", "winter"];
+
   function rollConditions() {
     const sp = spot();
     if (sp.id === "deep") S.cond.weather = "night";
     else { const r = Math.random(); S.cond.weather = r < 0.5 ? "sun" : r < 0.78 ? "cloud" : "fog"; }
     S.cond.timeMin = (sp.id === "deep" ? 21 * 60 : 6 * 60) + Math.random() * 120;
+    if (!S.cond.season) S.cond.season = SEASON_ORDER[Math.floor(Math.random() * 4)];
     recomputeCond();
   }
   function recomputeCond() {
     const c = S.cond, hour = c.timeMin / 60, sp = spot(), pos = position(), wx = c.weather;
+    const sea = SEASONS[c.season] || SEASONS.summer;
     const midday = clamp(1 - Math.abs(hour - 14) / 9, 0, 1);
-    c.temp = Math.round(clamp(54 + midday * 22 + WEATHER[wx].warm, 42, 86));
+    c.temp = Math.round(clamp(sea.tempBase + (midday - 0.5) * 16 + WEATHER[wx].warm, 38, 92));
 
-    // Holding depth = venue base + structure + time + weather + temperature.
-    const base = (sp.baseDepth != null ? sp.baseDepth : 0.4) + ((pos && pos.depth) || 0);
+    // Holding depth = venue base + structure + season + time + weather + temperature.
+    const base = (sp.baseDepth != null ? sp.baseDepth : 0.4) + ((pos && pos.depth) || 0) + sea.depth;
     const timeShift = (midday - 0.5) * 0.42;                       // deep midday, shallow at dawn/dusk
     const weatherShift = wx === "sun" ? 0.08 : wx === "cloud" ? -0.04 : wx === "fog" ? -0.08 : -0.10; // night up
-    const tempShift = c.temp < 52 ? 0.12 : c.temp > 80 ? 0.10 : 0; // temp extremes push deep
-    c.band = clamp(base + timeShift + weatherShift + tempShift, 0.06, 0.95);
+    const tempShift = c.temp < 50 ? 0.14 : c.temp > 82 ? 0.12 : 0; // temp extremes push deep
+    c.band = clamp(base + timeShift + weatherShift + tempShift, 0.05, 0.96);
 
     // Feeding window: wide & easy when fish are active, tight when conditions are tough.
     const lowLight = midday < 0.45 || wx !== "sun";
-    const moderate = c.temp >= 58 && c.temp <= 76;
-    let activity = 0.4 + (lowLight ? 0.22 : 0) + (moderate ? 0.2 : 0) + (wx === "cloud" || wx === "fog" ? 0.16 : 0);
-    c.activity = clamp(activity, 0.2, 1);
-    c.window = 0.05 + c.activity * 0.09;                            // zone half-width 0.05..0.14
+    const moderate = c.temp >= 56 && c.temp <= 78;
+    let activity = 0.4 + sea.activity + (lowLight ? 0.2 : 0) + (moderate ? 0.18 : 0) + (wx === "cloud" || wx === "fog" ? 0.14 : 0);
+    c.activity = clamp(activity, 0.15, 1);
+    c.window = 0.045 + c.activity * 0.095;                          // zone half-width
   }
   function preferredFam() { return WEATHER[S.cond.weather].fam; }
   function fmtClock(min) {
@@ -968,7 +965,15 @@
     setStatus("Tap & hold the water to aim, release to cast 🎣");
   }
 
-  function advanceTime(min) { S.cond.timeMin += min; if (S.cond.timeMin >= 24 * 60) S.cond.timeMin -= 24 * 60; recomputeCond(); renderConditions(); }
+  function advanceTime(min) {
+    S.cond.timeMin += min;
+    if (S.cond.timeMin >= 24 * 60) {           // a new day — the season drifts forward over time
+      S.cond.timeMin -= 24 * 60;
+      S.cond.day = (S.cond.day || 0) + 1;
+      if (S.cond.day % 3 === 0) S.cond.season = SEASON_ORDER[(SEASON_ORDER.indexOf(S.cond.season) + 1) % 4];
+    }
+    recomputeCond(); renderConditions();
+  }
   function ripple(x, y) { S.ripples.push({ x, y, r: 4, a: 0.7 }); }
   function splash(x, y) { S.splashes.push({ x, y, r: 3, a: 0.9 }); }
   function sprayBurst(x, y, n, power) {
@@ -2005,7 +2010,7 @@
   function renderLures() {
     const c = S.cond, w = WEATHER[c.weather], band = c.band;
     const zone = band < 0.34 ? "shallow" : band < 0.67 ? "mid-depth" : "deep";
-    el.lureCond.innerHTML = `${w.ico} ${w.name} · ${c.temp}° · ${fmtClock(c.timeMin)} · bass holding <b>${zone}</b> (~${Math.round(band * 24)}ft)`;
+    el.lureCond.innerHTML = `${(SEASONS[c.season] || SEASONS.summer).ico} ${(SEASONS[c.season] || SEASONS.summer).name} · ${w.ico} ${w.name} · ${c.temp}° · ${fmtClock(c.timeMin)} · bass holding <b>${zone}</b> (~${Math.round(band * 24)}ft)`;
     // rate every lure for right now, best first
     const rated = LURES.map(l => ({ l, owned: ownsLure(l.id), r: lureScore(l) }))
       .sort((a, b) => b.r.score - a.r.score);
@@ -2111,7 +2116,8 @@
         <span class="s-top">0 ft</span><span class="s-bot">${Math.round(24)} ft</span>
       </div>
       <div class="finder-info">
-        <div class="fi-line">${w.ico} ${w.name} · ${c.temp}° · ${fmtClock(c.timeMin)}</div>
+        <div class="fi-line">${(SEASONS[c.season] || SEASONS.summer).ico} ${(SEASONS[c.season] || SEASONS.summer).name} · ${w.ico} ${w.name} · ${c.temp}° · ${fmtClock(c.timeMin)}</div>
+        <div class="fi-line" style="color:#9fc3d2">${(SEASONS[c.season] || SEASONS.summer).note}</div>
         <div class="fi-line">Bass holding <b>${zone}</b> · ~${depthFt} ft</div>
         <div class="fi-line">Throw <b>${recDepth}</b> lures in <b>${recColor}</b></div>
         ${best ? `<div class="fi-line">Best lure: <b>${best.lure.ico} ${best.lure.name}</b> <span style="color:${ratingColor(best.pct)}">${best.pct}</span></div>` : ""}
