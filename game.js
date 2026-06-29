@@ -84,9 +84,9 @@
                  art: { shape: "bass", body: "#a07b46", belly: "#efe6cf", pat: "bars", patColor: "#6e4f28", eye: "#c23a2a" } },
     spotted:   { name: "Spotted Bass",    w: [0.6, 4.8],  rarity: "common", base: 14, bass: true,
                  art: { shape: "bass", body: "#6f8a3e", belly: "#eef0d2", pat: "spots", patColor: "#2f3d1c", eye: "#c23a2a" } },
-    giant:     { name: "Giant Largemouth", w: [6.0, 14.0], rarity: "uncommon", base: 45, lm: true, bass: true,
+    giant:     { name: "Giant Largemouth", w: [6.0, 14.0], rarity: "uncommon", base: 45, lm: true, bass: true, big: true,
                  art: { shape: "bass", body: "#5e8f54", belly: "#e8edcf", pat: "lateral", patColor: "#2c3f22", bigmouth: true } },
-    hawg:      { name: "Trophy Largemouth", w: [10.0, 24.0], rarity: "legendary", base: 280, lm: true, bass: true,
+    hawg:      { name: "Trophy Largemouth", w: [10.0, 24.0], rarity: "legendary", base: 280, lm: true, bass: true, big: true,
                  art: { shape: "bass", body: "#4f7d46", belly: "#dfe6c4", pat: "lateral", patColor: "#243a1e", bigmouth: true } },
   };
 
@@ -761,6 +761,12 @@
     // how well the lure was presented at the fish's holding depth
     const depthMatch = clamp(1 - Math.abs(S.rv.depth - S.cond.band) * 1.6, 0, 1);
     const goodAction = S.rv.action > 0.6;
+    // where the big girls live: deeper water, low light, and on the fished depth.
+    // worked deep + dawn/dusk/dark = trophy odds climb; shallow bright midday = small fish.
+    const hour = S.cond.timeMin / 60, wx = S.cond.weather;
+    const lowLight = hour < 7.5 || hour > 18 || wx === "night" || wx === "fog" || wx === "cloud";
+    const deepFished = clamp((S.rv.depth - 0.32) / 0.5, -0.4, 1);     // how deep the lure was worked
+    const trophyFactor = clamp(0.55 + deepFished * 1.0 + (lowLight ? 0.35 : 0) + (S.castBonus ? 0.2 : 0), 0.3, 2.4);
 
     const table = sp.fish.map(entry => {
       const def = fishDef(entry.k);
@@ -773,6 +779,7 @@
       if (def.rarity === "junk") w *= lu.junk * Math.max(0.2, 1 - luck * 2);
       if (colorMatch && (def.rarity === "rare" || def.rarity === "legendary")) w *= 1.2;
       if (S.castBonus && (def.rarity === "rare" || def.rarity === "legendary" || def.lm)) w *= 1.25;
+      if (def.big) w *= trophyFactor;     // trophies favor deep, low-light, on-structure water
       return { def, w: Math.max(0.0001, w) };
     });
 
