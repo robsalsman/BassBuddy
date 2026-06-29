@@ -6,6 +6,45 @@
 // All geometry is original/procedural — no third-party art assets.
 // =============================================================================
 import * as THREE from "./vendor/three.module.min.js";
+import { GLTFLoader } from "./vendor/GLTFLoader.js";
+
+// =============================================================================
+// Optional real 3D models: drop a glTF/GLB into  models/<species>.glb
+// (largemouth / smallmouth / spotted) and it's loaded and used in place of the
+// procedural bass. The model is auto-centered and scaled to fit; it should
+// face +X (head toward +X). If no file is present we silently use procedural.
+// =============================================================================
+const LOADED_MODELS = {};            // species -> prepared THREE.Object3D (template)
+let _gltfLoader = null;
+function loadRealModels() {
+  if (_gltfLoader) return;
+  _gltfLoader = new GLTFLoader();
+  // a manifest lists which species models are present, so we never 404-probe
+  fetch("models/manifest.json").then(r => r.ok ? r.json() : null).then(man => {
+    if (!man) return;
+    for (const key of ["largemouth", "smallmouth", "spotted"]) if (man[key]) loadOne(key);
+  }).catch(() => {});
+}
+function loadOne(key) {
+  _gltfLoader.load("models/" + key + ".glb", (gltf) => {
+      const root = gltf.scene || gltf.scenes[0];
+      // normalize: center at origin and scale longest axis to the game's fish length
+      const box = new THREE.Box3().setFromObject(root), size = new THREE.Vector3();
+      box.getSize(size); const c = box.getCenter(new THREE.Vector3());
+      root.position.sub(c);
+      const longest = Math.max(size.x, size.y, size.z) || 1;
+      root.scale.multiplyScalar(2.4 / longest);
+      const wrap = new THREE.Group(); wrap.add(root); wrap.userData.imported = true;
+      LOADED_MODELS[key] = wrap;
+    }, undefined, () => { /* no file for this species — procedural fallback */ });
+}
+// a clone of the loaded model for a species, or null
+function realModel(key) {
+  const tpl = LOADED_MODELS[key]; if (!tpl) return null;
+  const g = tpl.clone(true); g.userData.imported = true;
+  g.mouth = new THREE.Object3D(); g.mouth.position.set(1.2, -0.05, 0); g.add(g.mouth);
+  return g;
+}
 
 // =============================================================================
 // Detailed, realistic procedural bass — shared by the fight, the 3D preview,
@@ -143,9 +182,17 @@ function bassTextures(art) {
   b.beginPath(); b.moveTo(gx, H * 0.10); b.quadraticCurveTo(gx - 30, H * 0.5, gx, H * 0.90); b.stroke();
   g.strokeStyle = "rgba(150,40,40,0.30)"; g.lineWidth = 6;
   g.beginPath(); g.moveTo(gx + 2, H * 0.18); g.quadraticCurveTo(gx - 26, H * 0.5, gx + 2, H * 0.82); g.stroke();
-  // dark mouth gape at the snout, lower jaw
+  // mouth + jaw line. The defining largemouth trait: the maxilla (upper jaw)
+  // extends PAST the eye — a big "bucket" mouth — vs smallmouth (jaw under eye).
+  const jawBack = art.bigmouth ? 0.82 : 0.90;     // how far back the jaw hinges
+  g.strokeStyle = "rgba(15,10,8,0.85)"; g.lineWidth = art.bigmouth ? 9 : 6; g.lineCap = "round";
+  g.beginPath(); g.moveTo(W * 0.995, H * 0.55); g.quadraticCurveTo(W * 0.93, H * 0.60, W * jawBack, H * 0.60); g.stroke();
+  // matching relief on the height/normal map so the jaw seam catches light
+  b.strokeStyle = "rgba(30,30,30,0.9)"; b.lineWidth = art.bigmouth ? 8 : 5;
+  b.beginPath(); b.moveTo(W * 0.995, H * 0.55); b.quadraticCurveTo(W * 0.93, H * 0.60, W * jawBack, H * 0.60); b.stroke();
+  // open gape at the snout
   g.fillStyle = "rgba(15,10,8,0.7)";
-  g.beginPath(); g.ellipse(W * 0.96, H * 0.62, W * 0.05, H * 0.06, 0, 0, 6.28); g.fill();
+  g.beginPath(); g.ellipse(W * 0.965, H * 0.625, W * 0.05, H * 0.055, 0, 0, 6.28); g.fill();
 
   const map = new THREE.CanvasTexture(cv); map.anisotropy = 8;
   if (THREE.SRGBColorSpace) map.colorSpace = THREE.SRGBColorSpace;
@@ -315,6 +362,7 @@ const Scene3D = (() => {
     if (THREE.ACESFilmicToneMapping !== undefined) { renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.08; }
     resize();
     envMap = buildEnv(renderer);                    // image-based lighting for real reflections
+    loadRealModels();                               // pick up any models/<species>.glb you drop in
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0a3a4a);   // opaque so it fully covers the 2D layer
     scene.fog = new THREE.FogExp2(0x0d3f55, 0.052);
@@ -1094,15 +1142,16 @@ const Scene3D = (() => {
     return true;
   }
 
-  function showCatch(art) {
+  function showCatch(art, speciesKey) {
     if (!catchReady && !initCatch(document.getElementById("catch3d"))) return false;
     const cv = catchR.domElement;
     const w = cv.clientWidth || 300, h = cv.clientHeight || 160;
     catchR.setSize(w, h, false); catchCam.aspect = w / h; catchCam.updateProjectionMatrix();
     hideCatch();
     if (catchFish) { catchScene.remove(catchFish); if (catchFish.disposables) catchFish.disposables.forEach(d => d.dispose && d.dispose()); catchFish.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
-    catchFish = makeBass(art || {});
-    catchFish.scale.setScalar(2.1);
+    // prefer a real loaded model for this species; else the procedural bass
+    catchFish = realModel(speciesKey) || makeBass(art || {});
+    catchFish.scale.setScalar(catchFish.userData.imported ? 1.0 : 2.1);
     catchScene.add(catchFish);
     catchT = 0;
     const loop = () => {

@@ -988,7 +988,8 @@
     // 3D trophy if WebGL is up, else the SVG hero pose
     const cv3d = document.getElementById("catch3d"), svgHost = document.getElementById("catchArtSvg");
     let shown3d = false;
-    if (window.Scene3D && Scene3D.showCatch) { try { shown3d = Scene3D.showCatch(f.art); } catch (e) {} }
+    const modelKey = f.lm ? "largemouth" : /Smallmouth/.test(f.name) ? "smallmouth" : /Spotted/.test(f.name) ? "spotted" : "largemouth";
+    if (window.Scene3D && Scene3D.showCatch) { try { shown3d = Scene3D.showCatch(f.art, modelKey); } catch (e) {} }
     if (shown3d) { cv3d.style.display = "block"; svgHost.innerHTML = ""; }
     else { cv3d.style.display = "none"; svgHost.innerHTML = heroSVG(f, 168); }
     el.catchName.textContent = f.name;
