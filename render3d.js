@@ -436,12 +436,12 @@ const Scene3D = (() => {
     );
     surf.rotation.x = -Math.PI / 2; surf.position.y = 2.9; scene.add(surf);
 
-    // god-ray cones from the surface
-    const rayMat = new THREE.MeshBasicMaterial({ color: 0xdff6ff, transparent: true, opacity: 0.045, side: THREE.DoubleSide, depthWrite: false });
-    for (let i = 0; i < 5; i++) {
-      const cone = new THREE.Mesh(new THREE.ConeGeometry(1.8, 12, 8, 1, true), rayMat);
-      cone.position.set((i - 2) * 2.6, 2, -3 - (i % 3)); cone.rotation.x = Math.PI; cone.rotation.z = (i - 2) * 0.05;
-      scene.add(cone); rays.push(cone);
+    // god-ray cones streaming down from the surface (shafts of light)
+    const rayMat = new THREE.MeshBasicMaterial({ color: 0xeaf9ff, transparent: true, opacity: 0.06, side: THREE.DoubleSide, depthWrite: false, blending: THREE.AdditiveBlending });
+    for (let i = 0; i < 8; i++) {
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(1.4 + (i % 3) * 0.5, 15, 8, 1, true), rayMat.clone());
+      cone.position.set((i - 3.5) * 1.9, 3.5, -3 - (i % 4)); cone.rotation.x = Math.PI; cone.rotation.z = (i - 3.5) * 0.04;
+      cone.userData.phase = i * 0.7; scene.add(cone); rays.push(cone);
     }
 
     // contoured bottom with a drop-off ledge + lumps (worked structure)
@@ -455,7 +455,7 @@ const Scene3D = (() => {
       }
       bgeo.computeVertexNormals();
     }
-    bottom = new THREE.Mesh(bgeo, new THREE.MeshStandardMaterial({ color: 0x0a3247, roughness: 1, flatShading: true }));
+    bottom = new THREE.Mesh(bgeo, new THREE.MeshStandardMaterial({ map: siltTexture(), color: 0xcabf90, roughness: 1 }));
     bottom.rotation.x = -Math.PI / 2; bottom.position.y = -3.5; scene.add(bottom);
     buildTerrain();
 
@@ -952,9 +952,32 @@ const Scene3D = (() => {
   function setVenue(water0, water1) {
     if (!ready) return;
     surf.material.color.set(water0);
-    bottom.material.color.set(water1);
+    // the bottom stays silt-coloured (just tinted toward the water) so it reads
+    // as a lit lakebed up close while depth fog blends the distance into the water
+    bottom.material.color.copy(new THREE.Color(0xcabf90).lerp(new THREE.Color(water1), 0.4));
     scene.fog.color.set(water1);
     scene.background.set(water1);
+  }
+
+  // canvas silt/sand texture for the lakebed — mottled patches, ripples, grain
+  function siltTexture() {
+    const N = 256, cv = document.createElement("canvas"); cv.width = N; cv.height = N;
+    const x = cv.getContext("2d");
+    x.fillStyle = "#8f8a68"; x.fillRect(0, 0, N, N);
+    for (let i = 0; i < 160; i++) {                      // mottled silt patches
+      x.globalAlpha = 0.04 + Math.random() * 0.08; x.fillStyle = Math.random() < 0.5 ? "#6f6a4a" : "#a8a47e";
+      x.beginPath(); x.arc(Math.random() * N, Math.random() * N, 8 + Math.random() * 40, 0, 6.28); x.fill();
+    }
+    x.globalAlpha = 1;
+    x.strokeStyle = "rgba(80,76,54,0.16)"; x.lineWidth = 2;   // faint sand ripples
+    for (let y = 0; y < N; y += 10) { x.beginPath(); for (let xx = 0; xx <= N; xx += 8) x.lineTo(xx, y + Math.sin(xx * 0.09) * 4); x.stroke(); }
+    for (let i = 0; i < 2200; i++) {                     // fine grain
+      x.fillStyle = Math.random() < 0.5 ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)";
+      x.fillRect(Math.random() * N, Math.random() * N, 1.5, 1.5);
+    }
+    const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(6, 5);
+    if (THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace;
+    return t;
   }
 
   // canvas bark texture for submerged timber — vertical grooves + cracks
@@ -1108,6 +1131,8 @@ const Scene3D = (() => {
     surf.material.opacity = 0.22 + 0.14 * dl;
     if (uwSun) uwSun.intensity = 0.25 + dl * 1.25;        // dim & moonlit at night
     if (uwHemi) uwHemi.intensity = 0.30 + dl * 0.95;
+    // god-rays shimmer and fade out at night
+    for (const ray of rays) { ray.material.opacity = (0.025 + 0.05 * dl) * (0.7 + 0.3 * Math.sin(t * 0.8 + ray.userData.phase)); }
 
     // show the structure that matches this spot; sway the weeds
     const struct = st.structure || "open";
