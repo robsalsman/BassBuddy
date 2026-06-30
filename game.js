@@ -164,6 +164,8 @@
       positions: { cove: "pads", river: "riffle", deep: "weed" },
       records: {}, caught: {},
       tourWins: 0, bestBag: 0,
+      season: { best: {}, titles: 0 },   // circuit season: best points per event + championships won
+      challenges: {}, lakes: {},          // unlocked achievements + lakes you've caught a bass in
       mode: "free",     // "free" fishing (default) — tournaments are entered from the circuit
       muted: false,
     };
@@ -215,7 +217,7 @@
     status: $("status"), actionBtn: $("actionBtn"),
     castMeter: $("castMeter"), cmFill: $("cmFill"),
     retrievePanel: $("retrievePanel"), rvDepth: $("rvDepth"), rvLine: $("rvLine"), rvAction: $("rvAction"), rvInterest: $("rvInterest"), rvHint: $("rvHint"),
-    fightPanel: $("fightPanel"), ftStamina: $("ftStamina"), ftTension: $("ftTension"), ftDist: $("ftDist"), ftFishMark: $("ftFishMark"), ftLine: $("ftLine"), ftHint: $("ftHint"),
+    fightPanel: $("fightPanel"), ftStamina: $("ftStamina"), ftTension: $("ftTension"), ftDist: $("ftDist"), ftFishMark: $("ftFishMark"), ftLine: $("ftLine"), ftHint: $("ftHint"), ftCover: $("ftCover"), ftCoverRow: $("ftCoverRow"),
     condIcon: $("condIcon"), condTemp: $("condTemp"), condClock: $("condClock"),
     catchModal: $("catchModal"), catchRarity: $("catchRarity"), catchArt: $("catchArt"),
     catchName: $("catchName"), catchWeight: $("catchWeight"), catchReward: $("catchReward"),
@@ -478,6 +480,34 @@
   };
   // total of the session's best-5 free-play bag
   function bagTotal() { return S.bag.reduce((s, w) => s + w, 0); }
+  // ---- achievements / challenges ----
+  const CHALLENGES = [
+    { id: "tourwin", name: "Tournament Win", desc: "Win any tournament" },
+    { id: "champ",   name: "Circuit Champion", desc: "Win a circuit season" },
+    { id: "lunker",  name: "Lunker!", desc: "Boat an 8 lb+ bass" },
+    { id: "trophy",  name: "Trophy Bass", desc: "Land a 10 lb+ largemouth" },
+    { id: "bag15",   name: "Heavy Sack", desc: "A livewell over 15 lb" },
+    { id: "slam",    name: "Lake Slam", desc: "Catch a bass in all 3 lakes" },
+  ];
+  function unlock(id) {
+    if (!G.challenges) G.challenges = {};
+    if (G.challenges[id]) return;
+    G.challenges[id] = true;
+    const c = CHALLENGES.find(x => x.id === id);
+    if (c) toast(`🏅 Challenge complete: ${c.name}`);
+    save();
+  }
+  // catch-driven challenges (called whenever a bass is boated)
+  function checkCatchChallenges(f) {
+    if (!f || !f.bass) return;
+    if (!G.lakes) G.lakes = {};
+    G.lakes[G.spot] = true;
+    if (f.weight >= LUNKER_LB) unlock("lunker");
+    if (f.weight >= 10) unlock("trophy");
+    if ((S.tournament ? wellTotal() : bagTotal()) >= 15) unlock("bag15");
+    if (SPOTS.every(sp => G.lakes[sp.id])) unlock("slam");
+  }
+
   // add a bass to the session livewell, keeping only the 5 heaviest
   function bagAdd(weight) {
     S.bag.push(weight);
@@ -711,15 +741,23 @@
 
   function openCircuit() {
     if (S.tournament && !S.tournament.ended) { toast("Tournament in progress ⏱️"); return; }
+    const season = G.season || { best: {}, titles: 0 };
+    const seasonPts = Object.values(season.best || {}).reduce((s, p) => s + p, 0);
+    const seasonEvents = Object.keys(season.best || {}).length;
+    document.getElementById("circuitSeason").innerHTML =
+      `Season: <b>${seasonPts} pts</b> · ${seasonEvents}/${TOURNAMENTS.length} events` +
+      (season.titles ? ` · 👑 <b>${season.titles}</b> title${season.titles > 1 ? "s" : ""}` : "");
     const list = document.getElementById("circuitList");
     list.innerHTML = TOURNAMENTS.map(t => {
       const sp = SPOTS.find(s => s.id === t.spot) || SPOTS[0];
       const mins = Math.round(t.dur / 60000), secs = Math.round(t.dur / 1000) % 60;
+      const best = (season.best || {})[t.id] || 0;
+      const done = best ? ` · <span style="color:#5be37a">✓ ${best} pts</span>` : "";
       return `<div class="item circuit" data-tour="${t.id}">
         <div class="item-ico">${sp.ico}</div>
         <div class="item-info">
           <div class="item-name">${t.name}</div>
-          <div class="item-desc">${sp.name} · ${mins}:${String(secs).padStart(2, "0")} · field of ${t.field}<br>${t.blurb}</div>
+          <div class="item-desc">${sp.name} · ${mins}:${String(secs).padStart(2, "0")} · field of ${t.field}${done}<br>${t.blurb}</div>
         </div>
         <button class="item-btn owned" data-tour="${t.id}">ENTER</button>
       </div>`;
@@ -1059,7 +1097,9 @@
     S.bobber.flyT = 0; S.bobber.dist = reach / maxR;
     S.castFt = Math.round(28 + S.bobber.dist * 66);    // how far this cast reached (ft)
     const hz = hotZone();
-    S.castBonus = Math.hypot(px - hz.x, py - hz.y) < hz.r;
+    const coverDist = Math.hypot(px - hz.x, py - hz.y);
+    S.castAccuracy = clamp(1 - coverDist / (hz.r * 1.7), 0, 1);   // 1 = pitched on the cover, 0 = open water
+    S.castBonus = coverDist < hz.r;
     S.castFacing = facingQuality();   // how well the boat was aimed at the fish when you cast
     S.castLuck = rnd(0.82, 1.28);     // real fishing varies cast-to-cast
     showBtn(false); setStatus("");
@@ -1071,7 +1111,8 @@
     const lu = lure();
     S.mode = "retrieve";
     S.rv.dist = 1; S.rv.interest = 0; S.rv.action = 0.5; S.rv.taps = []; S.rv.follower = 0; S.rv.bob = 0; S.rv.ambush = null;
-    S.rv.bigCred = 0.25;   // big-fish credit — earned by good presentation, drained by bad (see updateRetrieve)
+    // big-fish credit — a tight pitch to the cover primes bigger fish before you even work it
+    S.rv.bigCred = clamp(0.18 + (S.castAccuracy || 0) * 0.34, 0, 1);
     S.rv.depth = lu.style === "top" ? lu.band : 0.04;
     S.holding = false;
     // dive into the underwater view and spawn the bass holding nearby
@@ -1080,7 +1121,7 @@
     splash(S.bobber.x, S.bobber.y); splash(S.bobber.x, S.bobber.y);
     el.retrievePanel.classList.remove("hidden");
     showBtn(true); setBtn("HOLD TO REEL", "reel");
-    setStatus(S.castBonus ? "On the structure — work it!" : "Work the lure…");
+    setStatus((S.castAccuracy || 0) > 0.7 ? "🎯 Pitched it tight to the cover!" : (S.castAccuracy || 0) > 0.35 ? "Near the structure — work it!" : "Open water — work it back…");
     // clear the big centre text so it doesn't cover the underwater action
     setTimeout(() => { if (S.mode === "retrieve" || S.mode === "strike") setStatus(""); }, 1500);
   }
@@ -1164,6 +1205,7 @@
     const T = S.ft;
     // a good hookset starts the fish more worn down and pulling less = easier fight
     T.stamina = 1 - quality * 0.32; T.tension = 0; T.dist = clamp(S.rv.dist, 0.45, 1);
+    T.cover = 0; T._coverBuzz = 0; T.lat = 0; T.latTarget = 0;
     T.state = "run"; T.stateT = rnd(500, 1100); T.pull = 0.85 - quality * 0.3; T.jumpY = 0;
     T.maxStam = T.stamina; T.size = d;
     S.holding = false;
@@ -1208,6 +1250,7 @@
     // free-play livewell: every bass updates your session best-5 bag
     let bagPB = false;
     if (f.bass) bagPB = bagAdd(f.weight);
+    checkCatchChallenges(f);
     save(); updateHUD();
     vibrate([20, 40, 30]);
     if (bagPB && S.bag.length >= 2) setTimeout(() => toast(`🪣 New personal-best livewell: ${bagTotal().toFixed(2)} lb`), 700);
@@ -1338,7 +1381,7 @@
     // a fee still seeds the purse maths, but the player never pays it
     const fee = t.spot === "deep" ? 150 : t.spot === "river" ? 90 : 50;
     el.tourStartModal.classList.add("hidden");
-    S.tournament = { timeLeft: t.dur, dur: t.dur, well: [], big: 0, culls: 0, field: t.field, fee, spotId: t.spot, name: t.name, ended: false };
+    S.tournament = { timeLeft: t.dur, dur: t.dur, well: [], big: 0, culls: 0, field: t.field, fee, spotId: t.spot, name: t.name, eventId: t.id, ended: false };
     el.tourHud.classList.remove("hidden");
     renderWell();
     updateHUD();
@@ -1373,6 +1416,7 @@
       }
     }
     if (f.weight > T.big) T.big = f.weight;
+    checkCatchChallenges(f);
     vibrate([20, 40, 30]);
     renderWell();
     toast(msg);
@@ -1441,8 +1485,22 @@
     if (T.big > 0 && T.big >= fieldBigTop) { bigBonus = Math.round(fee * 1.5); payout += bigBonus; }
 
     G.coins += payout;
-    if (place === 1) G.tourWins = (G.tourWins || 0) + 1;
+    if (place === 1) { G.tourWins = (G.tourWins || 0) + 1; unlock("tourwin"); }
     if (myTotal > (G.bestBag || 0)) G.bestBag = +myTotal.toFixed(2);
+
+    // --- circuit season: best points per event; a full sweep crowns a champion ---
+    if (!G.season) G.season = { best: {}, titles: 0 };
+    const pts = Math.min(120, Math.round(100 * (T.field - place + 1) / T.field) + (place === 1 ? 15 : 0));
+    if (T.eventId && pts > (G.season.best[T.eventId] || 0)) G.season.best[T.eventId] = pts;
+    const seasonDone = Object.keys(G.season.best).length, seasonTotal = Object.values(G.season.best).reduce((s, p) => s + p, 0);
+    let champBanner = "";
+    if (seasonDone >= TOURNAMENTS.length) {
+      // completed the circuit — champion if you averaged a top-third finish
+      if (seasonTotal >= TOURNAMENTS.length * 72) { G.season.titles = (G.season.titles || 0) + 1; unlock("champ"); champBanner = `<br><span style="color:var(--gold);font-weight:900">🏆 CIRCUIT CHAMPION! (title #${G.season.titles})</span>`; }
+      else champBanner = `<br><span class="muted">Circuit complete — ${seasonTotal} pts, not quite champion. New season!</span>`;
+      G.season.best = {};   // fresh season starts
+    }
+    const seasonNow = Object.keys(G.season.best).length, seasonPtsNow = Object.values(G.season.best).reduce((s, p) => s + p, 0);
     save(); updateHUD();
 
     // results UI
@@ -1455,7 +1513,8 @@
     el.tourResultStats.innerHTML =
       `5-fish bag: <b>${myTotal.toFixed(2)} lb</b> (${me.fish} fish)<br>` +
       `Big bass: <b>${T.big ? T.big.toFixed(1) + " lb" : "—"}</b>${bigBonus ? ` &nbsp;<span style="color:var(--gold)">+${bigBonus} 🪙 Big Bass!</span>` : ""}<br>` +
-      `Payout: <b>${payout} 🪙</b>` + (place === 1 ? "  🏆" : "");
+      `Payout: <b>${payout} 🪙</b>` + (place === 1 ? "  🏆" : "") +
+      `<br>Circuit: <b>+${pts} pts</b> · season ${seasonPtsNow} (${seasonNow}/${TOURNAMENTS.length} events)` + champBanner;
     el.tourStandings.innerHTML = board.map((b, i) =>
       `<div class="stand-row ${b.me ? "me" : ""}"><span>${i + 1}. ${b.name}</span><span class="w">${b.total.toFixed(2)} lb</span></div>`).join("");
     el.tourResultModal.classList.remove("hidden");
@@ -1817,7 +1876,7 @@
     // strategic suitability (the bite rating) × live skill (working it at the right depth)
     const sc = lureScore(lu).score;
     const depthNow = clamp(1 - Math.abs(R.depth - S.cond.band) / ((S.cond.window || 0.09) * 3), 0, 1);
-    const struct = S.castBonus ? 1.2 : 1;
+    const struct = 0.8 + (S.castAccuracy != null ? S.castAccuracy : 0.5) * 0.5;   // pitched tight to cover = more bites
     const aimed = 0.55 + 0.45 * (S.castFacing != null ? S.castFacing : 1);   // faced the fish when you cast?
     const hot = lu.id === S.cond.hotLure ? 1.45 : 1;                          // matched the day's pattern
     const build = (R.action > 0.55 ? 1 : 0.3) * (0.25 + sc) * depthNow * struct * aimed * (S.castLuck || 1) * hot;
@@ -1902,6 +1961,23 @@
     } else T._dragT = 0;
     if (T.state === "jump" && Math.random() < 0.06) splash(S.bobber.x, waterLine());
 
+    // --- the cover is now a real hazard ---
+    const hasCover = (STRUCT_GROUP[position().id] || "open") !== "open";
+    const bigFish = T.size > 0.45;
+    // a big bass bolts for the cover on its runs: horsing it (holding) drives it
+    // INTO the structure; giving line turns it out. Wrap up and you're broken off.
+    if (T.state === "run" && bigFish && hasCover) {
+      if (S.holding) T.cover = clamp((T.cover || 0) + dt * 0.00072 * (0.55 + T.size), 0, 1);
+      else T.cover = clamp((T.cover || 0) - dt * 0.0013, 0, 1);
+      if ((T.cover || 0) > 0.5 && !T._coverBuzz) { vibrate(45); T._coverBuzz = 1; }
+      if ((T.cover || 0) < 0.3) T._coverBuzz = 0;
+      if ((T.cover || 0) >= 1) { loseFish("It wrapped you in the cover!"); return; }
+    } else { T.cover = clamp((T.cover || 0) - dt * 0.0018, 0, 1); T._coverBuzz = 0; }
+    // a jumping bass throws the hook if you hold it tight — you have to give slack
+    if (T.state === "jump" && S.holding && T.tension > 0.55) {
+      if (Math.random() < dt * 0.00075 * (0.5 + T.size)) { loseFish("It threw the hook on the jump!"); return; }
+    }
+
     if (T.tension >= 1) { loseFish("The line snapped!"); return; }
     if (T.dist <= 0 && T.stamina < 0.25) { landFish(); return; }
     if (T.dist <= 0 && T.stamina >= 0.25) { T.dist = 0.04; T.state = "run"; T.stateT = rnd(450, 900); }
@@ -1911,9 +1987,19 @@
     el.ftDist.style.width = ((1 - T.dist) * 100) + "%";
     el.ftFishMark.style.left = ((1 - T.dist) * 100) + "%";
     el.ftLine.textContent = Math.round(T.dist * (S.castFt || 60)) + " ft";
-    const running = T.state !== "tire";
-    el.ftHint.textContent = T.tension > 0.78 ? "EASE OFF — about to snap!" : running ? "It's running — give it line!" : "Tired — reel it in!";
-    el.ftHint.className = "phase-hint" + (T.tension > 0.78 || running ? " warn" : " good");
+    // cover-risk meter — only while a big bass is boring into the structure
+    const coverShown = (T.cover || 0) > 0.04;
+    el.ftCoverRow.classList.toggle("hidden", !coverShown);
+    if (coverShown) el.ftCover.style.width = (T.cover * 100) + "%";
+    // contextual coaching: jump → give slack, run-into-cover → give line, else reel
+    let hint, warn = true;
+    if (T.state === "jump") hint = "🐟 JUMPING — give slack!";
+    else if (T.state === "run" && bigFish && hasCover && (T.cover || 0) > 0.12) hint = "⚠️ Diving for cover — GIVE LINE!";
+    else if (T.tension > 0.78) hint = "EASE OFF — about to snap!";
+    else if (T.state === "run") hint = "It's running — give it line!";
+    else { hint = "Tired — reel it in!"; warn = false; }
+    el.ftHint.textContent = hint;
+    el.ftHint.className = "phase-hint" + (warn ? " warn" : " good");
   }
 
   // hot zone (chosen structure) in screen coords
@@ -2811,16 +2897,20 @@
     const totalCaught = Object.values(G.caught || {}).reduce((s, n) => s + n, 0);
     const recVals = Object.values(G.records || {});
     const biggest = recVals.length ? Math.max(...recVals) : 0;
+    const season = G.season || { best: {}, titles: 0 };
+    const seasonPts = Object.values(season.best || {}).reduce((s, p) => s + p, 0);
+    const seasonEvents = Object.keys(season.best || {}).length;
     const stats = [
       ["🐟", "Bass caught", totalCaught],
       ["🏅", "Biggest bass", biggest ? biggest.toFixed(1) + " lb" : "—"],
       ["🪣", "Best livewell", (G.bestBag || 0) ? G.bestBag.toFixed(2) + " lb" : "—"],
       ["🏁", "Tournament wins", G.tourWins || 0],
-      ["🏆", "Winnings", G.coins],
+      ["👑", "Circuit titles", season.titles || 0],
+      ["📋", "Season", `${seasonPts} pts · ${seasonEvents}/${TOURNAMENTS.length}`],
     ];
     el.recStats.innerHTML = stats.map(([i, l, v]) =>
       `<div class="rec-stat"><div class="rs-ico">${i}</div><div class="rs-v">${v}</div><div class="rs-l">${l}</div></div>`).join("");
-    el.recBody.innerHTML = Object.keys(F).map(k => {
+    const fishRows = Object.keys(F).map(k => {
       const def = F[k], best = G.records[def.name], n = G.caught[def.name];
       const lunk = best && best >= LUNKER_LB;
       return `<div class="item"><div class="item-ico">${n ? fishSVG(def, 40) : "❓"}</div>
@@ -2828,6 +2918,15 @@
         <div class="item-desc">${n ? `Caught ${n} · biggest ${best ? best.toFixed(1) + " lb" : "—"}` : "Not caught yet"}</div></div>
         <div class="item-btn ${lunk ? "equipped" : "owned"}">${best ? best.toFixed(1) + " lb" : "—"}</div></div>`;
     }).join("");
+    const ch = G.challenges || {};
+    const chRows = CHALLENGES.map(c => {
+      const done = !!ch[c.id];
+      return `<div class="item"><div class="item-ico">${done ? "🏅" : "🔒"}</div>
+        <div class="item-info"><div class="item-name" style="${done ? "" : "color:#8aa0ab"}">${c.name}</div>
+        <div class="item-desc">${c.desc}</div></div>
+        <div class="item-btn ${done ? "equipped" : ""}">${done ? "DONE" : "—"}</div></div>`;
+    }).join("");
+    el.recBody.innerHTML = fishRows + `<h3 class="rec-h" style="margin-top:14px">Challenges</h3>` + chRows;
   }
   el.xpPill.addEventListener("click", openRecords);
   el.recordsClose.addEventListener("click", () => el.recordsModal.classList.add("hidden"));

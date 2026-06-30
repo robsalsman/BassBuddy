@@ -118,6 +118,7 @@
       <div class="gauge wide"><span>LINE TENSION</span><div class="meter"><div id="ftTension" class="meter-fill tens"></div><i class="snap-mark"></i></div></div>
     </div>
     <div class="dist-row"><span>🛶</span><div class="meter dist"><div id="ftDist" class="meter-fill distf"></div><i id="ftFishMark" class="dist-fish"></i></div><span>🐟</span><b id="ftLine" class="dist-num">0 ft</b></div>
+    <div class="gauge wide cover-row hidden" id="ftCoverRow"><span>⚠️ HEADING FOR COVER</span><div class="meter"><div id="ftCover" class="meter-fill cover"></div></div></div>
     <div class="phase-hint" id="ftHint">HOLD to reel — ease off when it runs!</div>
   </div>
 
@@ -193,7 +194,8 @@
         <h2>🏁 Tournament Circuit</h2>
         <button class="close-btn" id="modeClose">✕</button>
       </div>
-      <p class="muted" style="margin:0 0 8px">Pick a tournament, set your tackle, and fish it. Everything's unlocked — winning is about the right lure in the right place.</p>
+      <p class="muted" style="margin:0 0 6px">Pick a tournament, set your tackle, and fish it. Everything's unlocked — winning is about the right lure in the right place.</p>
+      <div class="circuit-season" id="circuitSeason"></div>
       <div class="shop-body" id="circuitList"></div>
     </div>
   </div>
