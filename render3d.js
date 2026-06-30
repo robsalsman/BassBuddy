@@ -415,6 +415,7 @@ const Scene3D = (() => {
   let surf, bottom, motes, biteSlab, biteEdgeTop, biteEdgeBot, biteLabel, zoneRing, arrowUp, arrowDn;
   let terrainSets = {}, uwHemi, uwSun;
   let lureGroup, lineMesh, fightFish, fightArtKey = "", lureTrail, trailPts = [], ambusher;
+  let camLook = null;                // eased underwater look-at target (for the strike zoom)
   let bubbles = [], bubbles2 = [];   // rising-bubble pools for the under / surface scenes
   function makeBubblePool(scn, arr, n) {
     for (let i = 0; i < n; i++) {
@@ -1380,10 +1381,12 @@ const Scene3D = (() => {
   // ---- per-frame update, driven by the game ----
   function frame(st, dt) {
     if (!ready || !visible) return;
-    clock.t += (dt || 16) / 1000;
+    // slow-mo on the bite: time dilates so the strike reads as a cinematic moment
+    clock.t += ((dt || 16) / 1000) * (st.mode === "strike" ? 0.4 : 1);
     const t = clock.t;
 
     if (st.view === "surface") { renderSurface(st, t, dt || 16); return; }
+    let strikeFocusX = 0, strikeFocusY = -0.6;          // where the camera punches in on a strike
 
     // bite zone — only while you're working the lure; gone once a fish is on
     const showZone = st.mode === "retrieve" || st.mode === "strike";
@@ -1445,6 +1448,7 @@ const Scene3D = (() => {
         }
       }
       const lx = xOf(st.lureDist) + wig, ly = yOf(st.lureDepth) + jig;
+      strikeFocusX = lx; strikeFocusY = ly;          // the bass engulfs the lure here — punch in on it
       lureGroup.setType(st.lureId);
       lureGroup.position.set(lx, ly, 0);
       lureGroup.rotation.set(pitch, yaw, roll);
@@ -1584,6 +1588,27 @@ const Scene3D = (() => {
       lineMesh.material.opacity = 0.6;
     } else if (fightFish) {
       fightFish.visible = false;
+    }
+
+    // strike punch-in: ease the camera onto the open-mouthed bass and tighten the
+    // lens, then ease back out — pairs with the slow-mo to dramatise the bite
+    if (camera) {
+      if (!camLook) camLook = { x: 0.2, y: -0.7, z: 0 };
+      const striking = st.mode === "strike";
+      const tpx = striking ? strikeFocusX * 0.45 : 0;
+      const tpy = striking ? strikeFocusY + 0.4 : -0.3;
+      const tpz = striking ? 4.9 : 9.4;
+      const tlx = striking ? strikeFocusX : 0.2;
+      const tly = striking ? strikeFocusY : -0.7;
+      const tlz = striking ? -0.3 : 0;
+      const k = Math.min(1, ((dt || 16) / 1000) * 5);
+      camera.position.x += (tpx - camera.position.x) * k;
+      camera.position.y += (tpy - camera.position.y) * k;
+      camera.position.z += (tpz - camera.position.z) * k;
+      camLook.x += (tlx - camLook.x) * k; camLook.y += (tly - camLook.y) * k; camLook.z += (tlz - camLook.z) * k;
+      camera.lookAt(camLook.x, camLook.y, camLook.z);
+      const tfov = striking ? 40 : 50;
+      if (Math.abs(camera.fov - tfov) > 0.05) { camera.fov += (tfov - camera.fov) * k; camera.updateProjectionMatrix(); }
     }
 
     renderer.render(scene, camera);

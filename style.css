@@ -718,8 +718,18 @@ html, body {
 }
 
 /* ---- Hookset timing meter ---- */
-.hook-meter { position: absolute; left: 50%; top: 38%; transform: translateX(-50%);
-  width: min(86%, 460px); z-index: 7; text-align: center; pointer-events: none; }
+.hook-meter { position: absolute; left: 50%; top: 30%; transform: translateX(-50%);
+  width: min(86%, 460px); z-index: 20; text-align: center; pointer-events: none; }
+/* armed = live tap target, well clear of the bottom reel button */
+.hook-meter.armed { pointer-events: auto; cursor: pointer; touch-action: none;
+  padding: 16px 18px 14px; border-radius: 20px;
+  background: rgba(6,18,26,.5); border: 2px solid rgba(255,210,60,.55);
+  box-shadow: 0 12px 34px rgba(0,0,0,.5);
+  animation: hmThrob .7s ease-in-out infinite; }
+@keyframes hmThrob {
+  0%,100% { box-shadow: 0 12px 34px rgba(0,0,0,.5), 0 0 0 0 rgba(255,210,60,.45); }
+  50%     { box-shadow: 0 12px 34px rgba(0,0,0,.5), 0 0 0 12px rgba(255,210,60,0); }
+}
 .hm-label { font-weight: 900; font-style: italic; font-size: 26px; color: #ffd23c;
   -webkit-text-stroke: 1.5px #7a3d00; text-shadow: 0 2px 6px rgba(0,0,0,.6); letter-spacing: .5px; margin-bottom: 8px; }
 .hm-track { position: relative; height: 30px; border-radius: 8px; overflow: hidden;

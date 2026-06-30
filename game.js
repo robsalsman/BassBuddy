@@ -983,7 +983,8 @@
     pressActive = true; holdCandidate = false; swiped = false;
     S.pressT = performance.now(); downX = x; downY = y;
     if (S.mode === "idle") startCast(x, y);
-    else if (S.mode === "strike") hookSet();
+    // NOTE: strike has no canvas/reel-button handler on purpose — the hookset is
+    // its own target on the timing meter, so working the lure can't trigger it early
     else if (S.mode === "fight") S.holding = true;
     else if (S.mode === "retrieve") holdCandidate = true;
   }
@@ -1011,6 +1012,9 @@
   el.actionBtn.addEventListener("pointerup", (e) => { e.preventDefault(); onUp(); });
   el.actionBtn.addEventListener("pointercancel", onUp);
   el.actionBtn.addEventListener("pointerleave", () => { if (S.mode === "fight" || (S.mode === "retrieve" && holdCandidate)) onUp(); });
+  // the hookset is set ONLY by tapping the timing meter (its own target, away from
+  // the reel button) so working the lure never fires it by accident
+  el.hookMeter.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); if (S.mode === "strike") { sfx("ui"); hookSet(); } });
 
   // promote a sustained retrieve press into a reel
   function pollHold(now) {
@@ -1092,10 +1096,16 @@
     // meter for more tension; little ones are forgiving
     const diff = clamp(S.hookedFish.difficulty || 0.4, 0, 1);
     S.strikeWindow = 2900 - diff * 700;                       // ~2.9s easy .. ~2.2s hard — time to react
-    S.hook = { phase: rnd(0, 6.28), marker: 0.5, done: false, speed: 0.0038 + diff * 0.0032 };  // slow, readable sweep
+    // hold = a short cinematic beat: time slows and the camera punches in on the
+    // open mouth before the timing marker starts to sweep
+    S.hook = { phase: rnd(0, 6.28), marker: 0.5, done: false, speed: 0.0038 + diff * 0.0032, hold: 520 };
+    S.strikeT = 0;
     el.retrievePanel.classList.add("hidden");
-    showBtn(true); setBtn("SET THE HOOK!", "hook");
+    // hide the reel button entirely so a held/late reel tap can't set the hook early —
+    // the hookset lives on its own target up on the timing meter
+    showBtn(false);
     el.hookMeter.classList.remove("hidden");
+    el.hookMeter.classList.add("armed");
     flashStrike();
     setStatus("FISH ON!", true);
     splash(S.bobber.x, S.bobber.y); splash(S.bobber.x, S.bobber.y);
@@ -1107,6 +1117,7 @@
   }
   function strikeMissed() {
     el.hookMeter.classList.add("hidden");
+    el.hookMeter.classList.remove("armed");
     setStatus("It spat the lure!");
     advanceTime(3);
     resetToIdle();
@@ -1124,6 +1135,7 @@
     S.hookRating = perfect ? "Perfect ✨" : good ? "Good" : quality > 0.12 ? "Fair" : "Weak";
     if (S.hook) S.hook.done = true;
     el.hookMeter.classList.add("hidden");
+    el.hookMeter.classList.remove("armed");
     S.mode = "fight";
     // fight from the angler's point of view, up on the surface
     S.view = "surface"; S.viewT = 0;
@@ -1665,16 +1677,24 @@
       }
     }
     if (S.mode === "strike") {
-      S.strikeWindow -= dt;
-      // sweep the hookset marker back and forth; the centre is the sweet spot
-      if (S.hook) {
-        S.hook.phase += dt * (S.hook.speed || 0.009);
-        S.hook.marker = 0.5 + 0.5 * Math.sin(S.hook.phase);
-        if (el.hmMarker) el.hmMarker.style.left = (S.hook.marker * 100) + "%";
+      S.strikeT = (S.strikeT || 0) + dt;
+      const holding = S.hook && S.hook.hold > 0;     // slow-mo zoom beat before the meter goes live
+      if (holding) {
+        S.hook.hold -= dt;
+        S.hook.marker = 0.5;                          // parked dead-centre during the punch-in
+        if (el.hmMarker) el.hmMarker.style.left = "50%";
+      } else {
+        S.strikeWindow -= dt;                         // clock only runs once the marker starts sweeping
+        // sweep the hookset marker back and forth; the centre is the sweet spot
+        if (S.hook) {
+          S.hook.phase += dt * (S.hook.speed || 0.009);
+          S.hook.marker = 0.5 + 0.5 * Math.sin(S.hook.phase);
+          if (el.hmMarker) el.hmMarker.style.left = (S.hook.marker * 100) + "%";
+        }
+        if (S.strikeWindow <= 0) strikeMissed();
       }
       S.bobber.y += Math.sin(now / 60) * 1.4;
       if (Math.random() < 0.3) ripple(S.bobber.x, S.bobber.y);
-      if (S.strikeWindow <= 0) strikeMissed();
     }
     if (S.mode === "fight") {
       updateFight(dt, now);
