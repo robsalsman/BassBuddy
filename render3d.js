@@ -727,14 +727,15 @@ const Scene3D = (() => {
     // out to lip/swing a landed fish
     const sleeve = new THREE.MeshStandardMaterial({ color: 0xecefef, roughness: 0.85 });
     function makeArm(side) {
-      const arm = new THREE.Group(); arm.position.set(side * 0.2, 1.32, 0.0);
-      const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.055, 0.4, 8), sleeve);
-      upper.position.set(0, -0.18, -0.02); arm.add(upper);
-      const fore = new THREE.Group(); fore.position.set(0, -0.36, 0); arm.add(fore); arm.fore = fore;
-      const foreMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.045, 0.36, 8), skin);
-      foreMesh.position.set(0, -0.05, -0.13); foreMesh.rotation.x = -0.9; fore.add(foreMesh);
-      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 10), skin); hand.position.set(0, -0.1, -0.27); fore.add(hand); arm.hand = hand;
-      arm.rotation.x = -0.5;            // resting reach toward the rod
+      // a single continuous limb (sleeve + rolled-cuff forearm flush in line) so
+      // it always reads as ONE arm — no elbow kink that looks like a second limb
+      const arm = new THREE.Group(); arm.position.set(side * 0.19, 1.32, 0.0);
+      const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.05, 0.42, 8), sleeve);
+      upper.position.set(0, -0.21, 0); arm.add(upper);
+      const fore = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.044, 0.34, 8), skin);
+      fore.position.set(0, -0.57, 0); arm.add(fore);
+      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 10), skin); hand.position.set(0, -0.75, 0); arm.add(hand); arm.hand = hand;
+      arm.rotation.x = 1.45;            // +x swings forward; reaches up to the rod grip
       return arm;
     }
     const armL = makeArm(1), armR = makeArm(-1);
@@ -899,24 +900,24 @@ const Scene3D = (() => {
     // angler's arms: hold the rod, crank the reel, reach out to land the fish
     const armL = boat.armL, armR = boat.armR;
     if (armL && armR) {
+      // NOTE: +rotation.x swings the arm FORWARD/up toward the rod, 0 = hanging down
       if (fighting) {
-        armL.rotation.x += (-0.62 - armL.rotation.x) * 0.15; armL.rotation.z *= 0.85;
-        if (st.fight.reeling) { armR.rotation.x = -0.45 + Math.sin(t * 7) * 0.2; armR.rotation.z = Math.cos(t * 7) * 0.24; }  // cranking
-        else { armR.rotation.x += (-0.42 - armR.rotation.x) * 0.12; armR.rotation.z *= 0.85; }
+        armL.rotation.x += (1.55 - armL.rotation.x) * 0.15; armL.rotation.z *= 0.85;
+        if (st.fight.reeling) { armR.rotation.x = 1.5 + Math.sin(t * 7) * 0.2; armR.rotation.z = Math.cos(t * 7) * 0.24; }  // cranking
+        else { armR.rotation.x += (1.5 - armR.rotation.x) * 0.12; armR.rotation.z *= 0.85; }
         if (boat.angler) boat.angler.rotation.x *= 0.9;
       } else if (landing) {
         const e = landing.t, reach = Math.sin(Math.min(1, e / 0.5) * Math.PI / 2), lift = Math.max(0, (e - 0.5) / 0.5);
-        const ax = -0.5 - reach * 1.0 + lift * 1.5;                 // reach down/out, then raise
+        const ax = 1.35 - reach * 0.8 + lift * 1.4;                 // reach down to the water, then hoist up
         armL.rotation.x = ax; armR.rotation.x = ax;
-        armL.rotation.z = 0.25 * reach; armR.rotation.z = -0.25 * reach;
-        if (boat.angler) boat.angler.rotation.x = reach * 0.5 - lift * 0.3;   // lean to reach, sit back to lift
+        armL.rotation.z = 0.2 * reach; armR.rotation.z = -0.2 * reach;
+        if (boat.angler) boat.angler.rotation.x = reach * 0.4 - lift * 0.25;   // lean to reach, sit back to lift
       } else {
-        // resting hold: upper arms raised forward, forearms bent up to grip the rod
-        armL.rotation.x += (-1.15 + Math.sin(t * 1.2) * 0.03 - armL.rotation.x) * 0.08;
-        armR.rotation.x += (-1.15 + Math.sin(t * 1.2 + 1) * 0.03 - armR.rotation.x) * 0.08;
-        armL.rotation.z += (-0.2 - armL.rotation.z) * 0.08; armR.rotation.z += (0.2 - armR.rotation.z) * 0.08;
-        if (armL.fore) armL.fore.rotation.x += (1.0 - armL.fore.rotation.x) * 0.08;
-        if (armR.fore) armR.fore.rotation.x += (1.0 - armR.fore.rotation.x) * 0.08;
+        // resting hold: both arms reach forward to the rod, angled slightly inward
+        // so the hands meet on the grip (no wide splay that looks like extra limbs)
+        armL.rotation.x += (1.45 + Math.sin(t * 1.2) * 0.03 - armL.rotation.x) * 0.08;
+        armR.rotation.x += (1.45 + Math.sin(t * 1.2 + 1) * 0.03 - armR.rotation.x) * 0.08;
+        armL.rotation.z += (-0.12 - armL.rotation.z) * 0.08; armR.rotation.z += (0.12 - armR.rotation.z) * 0.08;
         if (boat.angler) boat.angler.rotation.x *= 0.9;
       }
     }
@@ -969,9 +970,9 @@ const Scene3D = (() => {
       if (f.state === "jump") fy = 0.35 + Math.abs(Math.sin(t * 5)) * 1.7;
       else fy = f.dist < 0.22 ? -0.12 : -0.55;
       const sz = isFinite(f.size) ? f.size : 0.5, pull = isFinite(f.pull) ? f.pull : 0;
-      // grows as it's worked closer to the boat so it fills the frame at landing
+      // grows a little as it's worked closer (perspective already enlarges it too)
       const near = 1 - Math.min(1, isFinite(f.dist) ? f.dist : 1);
-      const sc = (0.6 + sz * 0.9) * (1 + near * 0.9);
+      const sc = (0.55 + sz * 0.8) * (1 + near * 0.3);
       fish.visible = true; fish.scale.setScalar(sc); fish.position.set(fxw, fy, -dist3d);
       // present a 3/4 BROADSIDE view (flank to the camera) so the whole bass
       // reads as one fish — head-on it looked like loose eyes and fins. It
@@ -1127,7 +1128,7 @@ const Scene3D = (() => {
     for (const tk of trunks) {
       const tr = new THREE.Mesh(new THREE.CylinderGeometry(tk.r * 0.62, tk.r, tk.h, 10), barkMat);
       tr.position.set(tk.x, -3.4 + tk.h / 2, tk.z); tr.rotation.z = tk.lean; tr.rotation.x = tk.lean * 0.5; wood.add(tr);
-      const top = new THREE.Mesh(new THREE.ConeGeometry(tk.r * 0.62, tk.r * 1.6, 8), barkDark);   // broken/jagged top
+      const top = new THREE.Mesh(new THREE.ConeGeometry(tk.r * 0.6, tk.r * 0.8, 9), barkMat);   // short splintered top
       top.position.set(tk.x + tk.lean * tk.h * 0.5, -3.4 + tk.h, tk.z); top.rotation.z = tk.lean; wood.add(top);
       if (tk.h > 3) {                                  // a stub limb on the taller snags
         const br = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.09, 1.0, 6), barkDark);
