@@ -307,6 +307,8 @@
     xpPill: $("xpPill"), recordsModal: $("recordsModal"), recordsClose: $("recordsClose"), recStats: $("recStats"), recBody: $("recBody"),
     catchLogModal: $("catchLogModal"), catchLogClose: $("catchLogClose"), clogList: $("clogList"), clogCount: $("clogCount"),
     fLake: $("fLake"), fLure: $("fLure"), fRod: $("fRod"), fTime: $("fTime"), fWx: $("fWx"),
+    statsModal: $("statsModal"), statsClose: $("statsClose"), statsBody: $("statsBody"), openStatsBtn: $("openStatsBtn"),
+    catchDetailModal: $("catchDetailModal"), catchDetailClose: $("catchDetailClose"), catchDetailBody: $("catchDetailBody"),
     shopRods: $("shopRods"), shopLures: $("shopLures"), shopSpots: $("shopSpots"), shopDex: $("shopDex"),
     rodChip: $("rodChip"), lureChip: $("lureChip"), spotChip: $("spotChip"),
     hookMeter: $("hookMeter"), hmMarker: $("hmMarker"), strikeFlash: $("strikeFlash"), catchHookset: $("catchHookset"),
@@ -596,6 +598,7 @@
     if (!G.catchLog) G.catchLog = [];
     G.catchLog.push({
       ts: Date.now(), w: f.weight, len: f.lengthIn || +Math.cbrt(f.weight * 1600).toFixed(1),
+      depth: Math.round((S.catchDepth != null ? S.catchDepth : S.cond.band) * 24),   // feet the fish was caught at
       lure: G.lure.id, color: G.lure.color, size: G.lure.size || "med", rod: G.rod,
       spot: G.spot, pos: position().id,
       timeMin: Math.round(S.cond.timeMin), weather: S.cond.weather, season: S.cond.season, temp: S.cond.temp,
@@ -792,7 +795,7 @@
   const sfx = n => Sound.play(n);
   function anyModalOpen() {
     return [el.catchModal, el.failModal, el.shopModal, el.lureModal, el.mapModal,
-            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal].some(m => !m.classList.contains("hidden"));
+            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal].some(m => !m.classList.contains("hidden"));
   }
 
   function floatText(txt, color) {
@@ -1288,6 +1291,8 @@
   function strike() {
     S.mode = "strike";
     S.hookedFish = pickFish();
+    // snapshot the depth the lure was working when the fish committed (the catch depth)
+    S.catchDepth = (S.rv && S.rv.depth != null) ? S.rv.depth : S.cond.band;
     // window + sweep speed scale with the fish: trophies give a tighter, faster
     // meter for more tension; little ones are forgiving
     const diff = clamp(S.hookedFish.difficulty || 0.4, 0, 1);
@@ -3145,6 +3150,7 @@
 
   // ---- Catch Log — every bass, sortable & filterable ----
   let clogSort = "recent";
+  let clogView = [];   // the current filtered+sorted rows, for tap-to-detail
   const clogFilters = { spot: "", lure: "", rod: "", time: "", weather: "" };
   function openCatchLog() {
     clogSort = "recent";
@@ -3175,29 +3181,145 @@
     if (clogSort === "weight") rows.sort((a, b) => b.w - a.w);
     else if (clogSort === "length") rows.sort((a, b) => b.len - a.len);
     else rows.sort((a, b) => b.ts - a.ts);
-    el.clogCount.textContent = `${rows.length} bass`;
+    clogView = rows;
+    el.clogCount.textContent = `${rows.length} bass · tap one for details`;
     if (!rows.length) { el.clogList.innerHTML = `<p class="muted" style="text-align:center;padding:18px">No catches match those filters.</p>`; return; }
-    el.clogList.innerHTML = rows.map(e => {
+    el.clogList.innerHTML = rows.map((e, i) => {
       const l = LURES.find(x => x.id === e.lure), r = RODS.find(x => x.id === e.rod), sp = SPOTS.find(x => x.id === e.spot);
       const pos = sp && sp.positions.find(p => p.id === e.pos), col = COLORS[e.color], sz = SIZES[e.size];
       const wx = WEATHER[e.weather] || {}, sea = SEASONS[e.season] || {};
       const lunk = e.w >= LUNKER_LB;
-      return `<div class="clog-row">
-        <div class="clog-w ${lunk ? "lunk" : ""}"><b>${e.w.toFixed(1)}</b><small>lb</small><span>${e.len.toFixed(1)}"</span></div>
+      return `<div class="clog-row" data-idx="${i}">
+        <div class="clog-w ${lunk ? "lunk" : ""}"><b>${e.w.toFixed(1)}</b><small>lb</small><span>${e.len.toFixed(1)}"${e.depth != null ? " · " + e.depth + "ft" : ""}</span></div>
         <div class="clog-meta">
           <div>${l ? l.ico + " " + l.name : e.lure}${sz ? " · " + sz.name : ""}${col ? ` <i class="cdot" style="background:${col.hex}"></i>` : ""}</div>
           <div>${r ? r.ico + " " + r.name : e.rod} · ${sp ? sp.ico + " " + sp.name : e.spot}${pos ? " — " + pos.name : ""}</div>
           <div>${wx.ico || ""} ${wx.name || e.weather} · ${e.temp}° · ${fmtClock(e.timeMin)} · ${sea.ico || ""}${e.tour ? " · 🏁" : ""}</div>
-        </div></div>`;
+        </div><div class="clog-chev">›</div></div>`;
     }).join("");
   }
   el.catchLogClose.addEventListener("click", () => el.catchLogModal.classList.add("hidden"));
   el.catchLogModal.addEventListener("click", (e) => {
     const sb = e.target.closest(".clog-sbtn");
-    if (sb) { clogSort = sb.dataset.sort; el.catchLogModal.querySelectorAll(".clog-sbtn").forEach(b => b.classList.toggle("active", b === sb)); renderCatchLog(); }
+    if (sb) { clogSort = sb.dataset.sort; el.catchLogModal.querySelectorAll(".clog-sbtn").forEach(b => b.classList.toggle("active", b === sb)); renderCatchLog(); return; }
+    const row = e.target.closest(".clog-row");
+    if (row && clogView[+row.dataset.idx]) openCatchDetail(clogView[+row.dataset.idx]);
   });
+
+  // ---- Single catch detail (tap a row) ----
+  function logArt(w) { return w >= 10 ? F.hawg.art : w >= 6 ? F.giant.art : F.largemouth.art; }
+  // a little top-down map of the lake with a pin where it was caught
+  function lakeMapSVG(spotId, posId) {
+    const sp = SPOTS.find(s => s.id === spotId); if (!sp) return "";
+    const pos = sp.positions.find(p => p.id === posId);
+    const W = 300, H = 116;
+    const px = clamp(pos ? pos.zone[0] : 0.5, 0.06, 0.94) * W;
+    const py = clamp(pos ? pos.zone[1] : 0.5, 0.12, 0.9) * H;
+    const dots = sp.positions.map(p => { const x = clamp(p.zone[0], 0.06, 0.94) * W, y = clamp(p.zone[1], 0.12, 0.9) * H, on = p.id === posId; return `<circle cx="${x}" cy="${y}" r="${on ? 0 : 3}" fill="rgba(255,255,255,.35)"/>`; }).join("");
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="lm" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${sp.water[0]}"/><stop offset="1" stop-color="${sp.water[1]}"/></linearGradient></defs>
+      <rect x="0" y="0" width="${W}" height="${H}" rx="12" fill="url(#lm)"/>
+      <rect x="0" y="0" width="${W}" height="16" fill="rgba(60,90,50,.55)"/>
+      ${dots}
+      <circle cx="${px}" cy="${py}" r="9" fill="none" stroke="#ffd35c" stroke-width="2.5" opacity=".9"/>
+      <circle cx="${px}" cy="${py}" r="3.5" fill="#ffd35c"/>
+    </svg>`;
+  }
+  function openCatchDetail(e) {
+    const l = LURES.find(x => x.id === e.lure), r = RODS.find(x => x.id === e.rod), sp = SPOTS.find(x => x.id === e.spot);
+    const pos = sp && sp.positions.find(p => p.id === e.pos), col = COLORS[e.color], sz = SIZES[e.size];
+    const wx = WEATHER[e.weather] || {}, sea = SEASONS[e.season] || {};
+    const lunk = e.w >= LUNKER_LB;
+    const picSize = clamp(150 + e.w * 9, 150, 330);   // bigger fish → bigger picture
+    const fish = { name: "Largemouth Bass", art: logArt(e.w), weight: e.w, lengthIn: e.len };
+    let dateStr = "";
+    try { if (e.ts > 1e12) dateStr = new Date(e.ts).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }); } catch (x) {}
+    const rows = [
+      ["🎣", "Lure", `${l ? l.ico + " " + l.name : e.lure} · ${sz ? sz.name : e.size}${col ? ` <i class="cdot" style="background:${col.hex}"></i> ${col.name}` : ""}`],
+      ["🪝", "Rod", r ? r.ico + " " + r.name : e.rod],
+      ["📍", "Location", `${sp ? sp.ico + " " + sp.name : e.spot}${pos ? " — " + pos.name : ""}`],
+      ["🌊", "Depth", e.depth != null ? e.depth + " ft" : "—"],
+      ["🌡️", "Conditions", `${wx.ico || ""} ${wx.name || e.weather} · ${e.temp}°F · ${sea.ico || ""} ${sea.name || e.season}`],
+      ["⏰", "Time of day", `${fmtClock(e.timeMin)} (${todBucket(e.timeMin).label})`],
+    ];
+    if (dateStr) rows.push(["📅", "Date", dateStr]);
+    if (e.tour) rows.push(["🏁", "Event", "Tournament catch"]);
+    el.catchDetailBody.innerHTML =
+      `<div class="cd-hero ${lunk ? "lunk" : ""}">${fishSVG(fish, picSize)}${lunk ? '<div class="cd-badge">🏆 LUNKER</div>' : ""}</div>
+       <div class="cd-name">Largemouth Bass</div>
+       <div class="cd-trio">
+         <div><b>${e.w.toFixed(1)}</b><small>lb</small></div>
+         <div><b>${e.len.toFixed(1)}</b><small>in</small></div>
+         <div><b>${e.depth != null ? e.depth : "—"}</b><small>ft deep</small></div>
+       </div>
+       <div class="cd-map-h">📍 Where on the lake</div>
+       <div class="cd-map">${lakeMapSVG(e.spot, e.pos)}</div>
+       <div class="cd-rows">` +
+        rows.map(([i, k, v]) => `<div class="cd-row"><span class="cd-ic">${i}</span><span class="cd-k">${k}</span><span class="cd-v">${v}</span></div>`).join("") +
+      `</div>`;
+    el.catchDetailModal.classList.remove("hidden");
+  }
+  el.catchDetailClose.addEventListener("click", () => el.catchDetailModal.classList.add("hidden"));
   [["fLake", "spot"], ["fLure", "lure"], ["fRod", "rod"], ["fTime", "time"], ["fWx", "weather"]].forEach(([id, key]) =>
     el[id].addEventListener("change", () => { clogFilters[key] = el[id].value; renderCatchLog(); }));
+
+  // ---- Stats dashboard ----
+  let statsMetric = "count";
+  function openStats() { renderStats(); el.statsModal.classList.remove("hidden"); }
+  function renderStats() {
+    const log = G.catchLog || [];
+    if (!log.length) { el.statsBody.innerHTML = `<p class="muted" style="text-align:center;padding:24px">No catches logged yet — go fishing!</p>`; return; }
+    const n = log.length, sumW = log.reduce((s, e) => s + e.w, 0), avgW = sumW / n;
+    const maxW = Math.max(...log.map(e => e.w));
+    const avgLen = log.reduce((s, e) => s + (e.len || 0), 0) / n;
+    const depths = log.filter(e => e.depth != null).map(e => e.depth);
+    const avgDepth = depths.length ? depths.reduce((s, d) => s + d, 0) / depths.length : 0;
+    const cards = [
+      ["🐟", "Caught", n], ["⚖️", "Avg", avgW.toFixed(1) + " lb"], ["🏅", "Biggest", maxW.toFixed(1) + " lb"],
+      ["🪣", "Total", sumW.toFixed(0) + " lb"], ["📏", "Avg len", avgLen.toFixed(1) + '"'], ["🌊", "Avg depth", avgDepth.toFixed(0) + " ft"],
+    ];
+    // group catches by a key, computing count / avg / max weight
+    function group(keyFn, labelFn) {
+      const m = {};
+      for (const e of log) { const k = keyFn(e); if (k == null) continue; (m[k] = m[k] || { count: 0, sumW: 0, maxW: 0, label: labelFn(k) }); m[k].count++; m[k].sumW += e.w; m[k].maxW = Math.max(m[k].maxW, e.w); }
+      return Object.values(m).map(v => ({ label: v.label, count: v.count, avg: v.sumW / v.count, max: v.maxW }));
+    }
+    const mVal = g => statsMetric === "avg" ? g.avg : g.count;
+    const mFmt = g => statsMetric === "avg" ? g.avg.toFixed(1) + " lb" : g.count;
+    function bars(title, groups) {
+      if (!groups.length) return "";
+      groups = groups.slice().sort((a, b) => mVal(b) - mVal(a));
+      const mx = Math.max(...groups.map(mVal), 0.0001);
+      return `<div class="sd-sec"><div class="sd-h">${title}</div>` + groups.map(g =>
+        `<div class="sd-bar"><span class="sd-lbl">${g.label}</span><div class="sd-track"><i style="width:${Math.round(mVal(g) / mx * 100)}%"></i></div><b>${mFmt(g)}</b></div>`).join("") + `</div>`;
+    }
+    function histo(title, vals, edges, unit) {
+      const counts = edges.map((lo, i) => { const hi = edges[i + 1] != null ? edges[i + 1] : Infinity; return vals.filter(v => v >= lo && v < hi).length; });
+      const mx = Math.max(...counts, 1);
+      return `<div class="sd-sec"><div class="sd-h">${title}</div>` + edges.map((lo, i) => {
+        const hi = edges[i + 1], lbl = hi != null ? `${lo}–${hi}` : `${lo}+`;
+        return `<div class="sd-bar"><span class="sd-lbl">${lbl}${unit}</span><div class="sd-track"><i style="width:${Math.round(counts[i] / mx * 100)}%"></i></div><b>${counts[i]}</b></div>`;
+      }).join("") + `</div>`;
+    }
+    const TOD = { dawn: "🌅 Dawn", day: "☀️ Day", dusk: "🌆 Dusk", night: "🌙 Night" };
+    el.statsBody.innerHTML =
+      `<div class="sd-cards">` + cards.map(([i, l, v]) => `<div class="sd-card"><div class="sd-ci">${i}</div><div class="sd-cv">${v}</div><div class="sd-cl">${l}</div></div>`).join("") + `</div>` +
+      `<div class="sd-metric"><span>Bars show:</span><button class="sd-mbtn ${statsMetric === "count" ? "active" : ""}" data-metric="count"># Caught</button><button class="sd-mbtn ${statsMetric === "avg" ? "active" : ""}" data-metric="avg">Avg lb</button></div>` +
+      bars("By Lure", group(e => e.lure, k => { const l = LURES.find(x => x.id === k); return l ? l.ico + " " + l.name : k; })) +
+      bars("By Lake", group(e => e.spot, k => { const s = SPOTS.find(x => x.id === k); return s ? s.ico + " " + s.name : k; })) +
+      bars("By Rod", group(e => e.rod, k => { const r = RODS.find(x => x.id === k); return r ? r.ico + " " + r.name : k; })) +
+      bars("By Size", group(e => e.size, k => { const s = SIZES[k]; return s ? s.ico + " " + s.name : k; })) +
+      bars("By Time of Day", group(e => todBucket(e.timeMin).k, k => TOD[k] || k)) +
+      bars("By Weather", group(e => e.weather, k => { const w = WEATHER[k]; return w ? w.ico + " " + w.name : k; })) +
+      histo("Depth caught", depths, [0, 5, 10, 15, 20], " ft") +
+      histo("Weight", log.map(e => e.w), [0, 2, 4, 6, 8, 10], " lb");
+  }
+  el.openStatsBtn.addEventListener("click", openStats);
+  el.statsClose.addEventListener("click", () => el.statsModal.classList.add("hidden"));
+  el.statsModal.addEventListener("click", (e) => {
+    const mb = e.target.closest(".sd-mbtn");
+    if (mb) { statsMetric = mb.dataset.metric; renderStats(); }
+  });
   el.xpPill.addEventListener("click", openRecords);
   el.recordsClose.addEventListener("click", () => el.recordsModal.classList.add("hidden"));
 

@@ -289,7 +289,10 @@
     <div class="modal-card shop-card">
       <div class="shop-head">
         <h2>🐟 Catch Log</h2>
-        <button class="close-btn" id="catchLogClose">✕</button>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="text-btn alt-btn" id="openStatsBtn" style="margin:0;width:auto">📊 Stats</button>
+          <button class="close-btn" id="catchLogClose">✕</button>
+        </div>
       </div>
       <div class="clog-sort">
         <button class="clog-sbtn active" data-sort="recent">Recent</button>
@@ -305,6 +308,28 @@
       </div>
       <div class="clog-count" id="clogCount"></div>
       <div class="clog-list" id="clogList"></div>
+    </div>
+  </div>
+
+  <!-- Single catch detail -->
+  <div id="catchDetailModal" class="modal hidden">
+    <div class="modal-card shop-card">
+      <div class="shop-head">
+        <h2>🎣 Catch Details</h2>
+        <button class="close-btn" id="catchDetailClose">✕</button>
+      </div>
+      <div id="catchDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- Stats dashboard -->
+  <div id="statsModal" class="modal hidden">
+    <div class="modal-card shop-card">
+      <div class="shop-head">
+        <h2>📊 Angler Stats</h2>
+        <button class="close-btn" id="statsClose">✕</button>
+      </div>
+      <div id="statsBody"></div>
     </div>
   </div>
 
