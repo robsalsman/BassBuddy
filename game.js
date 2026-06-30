@@ -298,7 +298,7 @@
     castMeter: $("castMeter"), cmFill: $("cmFill"),
     retrievePanel: $("retrievePanel"), rvDepth: $("rvDepth"), rvLine: $("rvLine"), rvAction: $("rvAction"), rvInterest: $("rvInterest"), rvHint: $("rvHint"),
     fightPanel: $("fightPanel"), ftStamina: $("ftStamina"), ftTension: $("ftTension"), ftDist: $("ftDist"), ftFishMark: $("ftFishMark"), ftLine: $("ftLine"), ftHint: $("ftHint"), ftCover: $("ftCover"), ftCoverRow: $("ftCoverRow"),
-    condIcon: $("condIcon"), condTemp: $("condTemp"), condClock: $("condClock"),
+    condIcon: $("condIcon"), condTemp: $("condTemp"), condClock: $("condClock"), condMoon: $("condMoon"),
     catchModal: $("catchModal"), catchRarity: $("catchRarity"), catchArt: $("catchArt"),
     catchName: $("catchName"), catchWeight: $("catchWeight"), catchReward: $("catchReward"),
     catchRewardWrap: $("catchRewardWrap"), catchRecord: $("catchRecord"), catchTourney: $("catchTourney"), catchOk: $("catchOk"),
@@ -1001,6 +1001,7 @@
     const c = S.cond, w = WEATHER[c.weather];
     el.condIcon.textContent = w.ico;
     el.condTemp.textContent = c.temp + "°";
+    if (el.condMoon) { const mn = moonNow(); el.condMoon.textContent = mn.ico; el.condMoon.title = mn.name; }
     el.condClock.textContent = fmtClock(c.timeMin);
   }
 
@@ -1907,7 +1908,7 @@
       inZone: Math.abs(lureDepth - band) < win,
       interest: S.rv.interest, fishSize, fishDensity,
       ambush: S.rv.ambush ? { prog: clamp((S.rv.ambush.t || 0) / 540, 0, 1), from: S.rv.ambush.from } : null,
-      daylight: dc.daylight, night: dc.night, sunX: dc.sunX, elev: dc.elev,
+      daylight: dc.daylight, night: dc.night, sunX: dc.sunX, elev: dc.elev, moon: ((S.cond.moon || 0) % 8 + 8) % 8,
       skyTop: dc.top, skyBot: dc.bot, water0: sp.water[0],
       castAim: S.castAim ? { x: S.castAim.x, y: S.castAim.y } : null,
       castProgress: S.bobber.flyT || 0,

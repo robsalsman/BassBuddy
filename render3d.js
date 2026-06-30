@@ -445,7 +445,29 @@ const Scene3D = (() => {
   const clock = { t: 0 };
 
   // surface world (above the water — idle / aim / cast)
-  let scene2, camS, water, sunS, sunMesh, sunGlow, boat, aimRing, castLine, castLure;
+  let scene2, camS, water, sunS, sunMesh, sunGlow, moonDisc, boat, aimRing, castLine, castLure;
+  let _moonPhase = -1;
+  // a moon textured to the lunar phase (unlit limb carved to transparent)
+  function moonTexture(phase) {
+    const N = 192, cv = document.createElement("canvas"); cv.width = cv.height = N;
+    const g = cv.getContext("2d"), r = N * 0.44, cx = N / 2, cy = N / 2;
+    const grad = g.createRadialGradient(cx - r * 0.25, cy - r * 0.25, r * 0.2, cx, cy, r);
+    grad.addColorStop(0, "#ffffff"); grad.addColorStop(1, "#c9d2ec");
+    g.fillStyle = grad; g.beginPath(); g.arc(cx, cy, r, 0, 6.2832); g.fill();
+    g.fillStyle = "rgba(150,165,205,0.5)";
+    [[-0.30, -0.18, 0.15], [0.26, 0.10, 0.12], [0.04, 0.36, 0.10], [-0.16, 0.30, 0.07], [0.34, -0.28, 0.06]]
+      .forEach(([dx, dy, rr]) => { g.beginPath(); g.arc(cx + dx * r, cy + dy * r, rr * r, 0, 6.2832); g.fill(); });
+    const frac = (1 - Math.cos(phase / 8 * 6.2832)) / 2;   // 0 new .. 1 full
+    if (frac < 0.992) {                                     // carve the unlit part to transparent
+      const o = frac * 2 * r, waxing = phase <= 4, sx = cx + (waxing ? -o : o);
+      g.globalCompositeOperation = "destination-out";
+      g.beginPath(); g.arc(sx, cy, r, 0, 6.2832); g.fill();
+      g.globalCompositeOperation = "source-over";
+    }
+    const tx = new THREE.CanvasTexture(cv); tx.anisotropy = 4;
+    if (THREE.SRGBColorSpace) tx.colorSpace = THREE.SRGBColorSpace;
+    return tx;
+  }
   let fishShadows = [], hills, structProps, world, venueStructs = null;
   let splashRings = [], surfFish = null, surfFishKey = "", boil, castSplashed = false;
   let skyKey = "", envMap = null;
@@ -696,6 +718,8 @@ const Scene3D = (() => {
     sunMesh = new THREE.Mesh(new THREE.CircleGeometry(1.1, 32), new THREE.MeshBasicMaterial({ color: 0xfff3c8 }));
     sunGlow = new THREE.Mesh(new THREE.CircleGeometry(2.6, 32), new THREE.MeshBasicMaterial({ color: 0xffe9a8, transparent: true, opacity: 0.35 }));
     scene2.add(sunGlow); scene2.add(sunMesh);
+    moonDisc = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.4), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, fog: false }));
+    moonDisc.visible = false; scene2.add(moonDisc);
 
     // everything that rotates when you steer the trolling motor goes in `world`
     world = new THREE.Group(); scene2.add(world);
@@ -938,6 +962,12 @@ const Scene3D = (() => {
     const sxw = (sx - 0.5) * 60, syw = 4 + elev * 22;
     sunMesh.position.set(sxw, syw, -55); sunGlow.position.set(sxw, syw, -56);
     sunS.position.set(sxw * 0.2, syw, -10);
+    // at night the real moon hangs in the sky, drawn to the current lunar phase
+    if (st.night && st.moon != null) {
+      if (_moonPhase !== st.moon) { _moonPhase = st.moon; if (moonDisc.material.map) moonDisc.material.map.dispose(); moonDisc.material.map = moonTexture(st.moon); moonDisc.material.needsUpdate = true; }
+      moonDisc.visible = true; moonDisc.position.set(sxw, syw, -54);
+      sunMesh.visible = false; sunGlow.material.opacity = 0.10;
+    } else { if (moonDisc) moonDisc.visible = false; sunMesh.visible = true; }
     if (st.water0) water.material.color.set(st.water0);
 
     // steer: the whole world rotates around the boat as you run the trolling motor
