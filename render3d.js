@@ -914,11 +914,12 @@ const Scene3D = (() => {
         armL.rotation.z = 0.2 * reach; armR.rotation.z = -0.2 * reach;
         if (boat.angler) boat.angler.rotation.x = reach * 0.4 - lift * 0.25;   // lean to reach, sit back to lift
       } else {
-        // two-handed hold: the lower (support) hand grips the foregrip, the upper
-        // hand the reel seat — staggered so BOTH hands read, not one behind the body
-        armL.rotation.x += (1.28 + Math.sin(t * 1.2) * 0.03 - armL.rotation.x) * 0.08;     // lower grip
-        armR.rotation.x += (1.6 + Math.sin(t * 1.2 + 1) * 0.03 - armR.rotation.x) * 0.08;  // up on the reel
-        armL.rotation.z += (-0.05 - armL.rotation.z) * 0.08; armR.rotation.z += (0.1 - armR.rotation.z) * 0.08;
+        // two-handed hold: the near (support) hand wraps the foregrip out in
+        // front where the camera sees it; the far hand sits up on the reel seat
+        armR.rotation.x += (1.4 + Math.sin(t * 1.2) * 0.03 - armR.rotation.x) * 0.08;      // support hand on the grip
+        armL.rotation.x += (1.62 + Math.sin(t * 1.2 + 1) * 0.03 - armL.rotation.x) * 0.08; // far hand up on the reel
+        armR.rotation.z += (0.16 - armR.rotation.z) * 0.08;   // reach inward across the front of the rod
+        armL.rotation.z += (-0.04 - armL.rotation.z) * 0.08;
         if (boat.angler) boat.angler.rotation.x *= 0.9;
       }
     }
@@ -1053,7 +1054,7 @@ const Scene3D = (() => {
     if (on !== visible) { visible = on; canvas.style.opacity = on ? "1" : "0"; }
   }
 
-  function setVenue(water0, water1) {
+  function setVenue(water0, water1, clarity) {
     if (!ready) return;
     surf.material.color.set(water0);
     // the bottom stays silt-coloured (just tinted toward the water) so it reads
@@ -1061,6 +1062,12 @@ const Scene3D = (() => {
     bottom.material.color.copy(new THREE.Color(0xcabf90).lerp(new THREE.Color(water1), 0.4));
     scene.fog.color.set(water1);
     scene.background.set(water1);
+    // water clarity drives underwater visibility: clear water you see far into,
+    // stained is hazier, muddy closes right in
+    const dens = clarity === "clear" ? 0.036 : clarity === "murky" ? 0.082 : clarity === "stained" ? 0.06 : 0.052;
+    scene.fog.density = dens;
+    // muddy/stained water also picks up a little extra silt tint on the bottom
+    if (clarity === "murky") bottom.material.color.lerp(new THREE.Color(0x5a5236), 0.25);
   }
 
   // canvas silt/sand texture for the lakebed — mottled patches, ripples, grain
@@ -1424,22 +1431,25 @@ const Scene3D = (() => {
         const p = pursuers[i]; const on = i < want;
         p.visible = on; if (!on) continue;
         const lead = i === 0, side = i % 2 === 0 ? 1 : -1;
-        const conv = lead ? Math.pow(it, 0.7) : it * 0.5;                  // how committed it is to the lure
+        // a quick chase-burst: the lead bass surges onto the lure right before
+        // a strike (interest near full, or already in the strike window)
+        const burst = lead ? Math.min(1, st.mode === "strike" ? 1 : Math.max(0, (it - 0.8) / 0.2)) : 0;
+        const conv = lead ? Math.min(1, Math.pow(it, 0.7) + burst * 0.5) : it * 0.5;
         // lazy patrol that keeps the fish moving and on-screen at all times
         const patrolX = side * (1.5 - 0.4 * it) + Math.sin(t * (0.6 + i * 0.25) + i * 2) * 0.55;
         const patrolY = bandY2 + Math.sin(t * 0.8 + i * 1.7) * 0.45;
         let tx = patrolX + (lx - patrolX) * conv;                          // drift in toward the lure
         const ty = patrolY + (ly - patrolY) * conv;
         tx = Math.max(-2.1, Math.min(2.1, tx));
-        const tz = -0.6 - i * 0.7 + Math.sin(t * (1.1 + i * 0.3) + i) * 0.45;
+        const tz = (-0.6 - i * 0.7 + Math.sin(t * (1.1 + i * 0.3) + i) * 0.45) * (1 - burst * 0.7);  // surges toward the camera/lure plane
         p.position.set(tx, ty, tz);
         // BROADSIDE to the camera (flank showing, head toward the lure) — not
         // tail-on. rotation.y 0 or PI = side view; +/-PI/2 would show head/tail.
         const faceLeft = lx < tx;
         p.rotation.y = (faceLeft ? Math.PI : 0) + Math.sin(t * 1.4 + i) * 0.16;
-        p.scale.setScalar(lead ? 0.55 + it * 0.4 : 0.5);
-        undulate(p, t * (lead ? 1.4 : 1.05) + i * 2, 0.22, true);          // body always swims
-        if (p.tail) p.tail.rotation.y = Math.sin(t * (7 + it * 4) + i) * 0.5;
+        p.scale.setScalar((lead ? 0.55 + it * 0.4 : 0.5) * (1 + burst * 0.12));
+        undulate(p, t * (lead ? 1.4 + burst * 2.5 : 1.05) + i * 2, 0.22 + burst * 0.12, true);  // tail beats hard on the burst
+        if (p.tail) p.tail.rotation.y = Math.sin(t * (7 + it * 4 + burst * 14) + i) * 0.5;
       }
     } else {
       for (const p of pursuers) p.visible = false;

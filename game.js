@@ -93,7 +93,7 @@
   // Venues, each with a fish table and selectable fishing positions.
   const SPOTS = [
     {
-      id: "cove", name: "Lily Cove", ico: "🌿", price: 0, clarity: "natural", baseDepth: 0.30,
+      id: "cove", name: "Lily Cove", ico: "🌿", price: 0, clarity: "stained", baseDepth: 0.30,
       sky: ["#7fd4e8", "#bff0f7"], water: ["#2a93b8", "#0a3a4a"],
       desc: "Calm, clear largemouth water — lily pads and laydowns.",
       fish: [
@@ -112,7 +112,7 @@
       ],
     },
     {
-      id: "river", name: "Boulder River", ico: "🏞️", price: 200, clarity: "natural", baseDepth: 0.46,
+      id: "river", name: "Boulder River", ico: "🏞️", price: 200, clarity: "clear", baseDepth: 0.46,
       sky: ["#9fdcc0", "#d7f3e6"], water: ["#2fae8e", "#0c4438"],
       desc: "Clear rocky current — smallmouth and spotted bass country.",
       fish: [
@@ -131,7 +131,7 @@
       ],
     },
     {
-      id: "deep", name: "Trophy Lake", ico: "🏆", price: 900, clarity: "bright", baseDepth: 0.66,
+      id: "deep", name: "Trophy Lake", ico: "🏆", price: 900, clarity: "murky", baseDepth: 0.66,
       sky: ["#3a4b7a", "#1b2447"], water: ["#243a78", "#070d2a"],
       desc: "Deep, low-light trophy lake — where giant bass live.",
       fish: [
@@ -1379,7 +1379,7 @@
     if (!S3.isReady()) return;
     S3.setVisible(true);   // 3D now drives both surface & underwater; 2D stays as fallback beneath
     const sp = spot(), lu = lure(), dc = dayColors(sp);
-    if (_3dVenue !== sp.id) { _3dVenue = sp.id; S3.setVenue(sp.water[0], sp.water[1]); }
+    if (_3dVenue !== sp.id) { _3dVenue = sp.id; S3.setVenue(sp.water[0], sp.water[1], sp.clarity); }
     const band = S.cond.band, win = S.cond.window || 0.085;
     const lureDepth = S.mode === "fight" ? (S.bobberDepth != null ? S.bobberDepth : band) : S.rv.depth;
     const st = {
