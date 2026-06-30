@@ -661,26 +661,41 @@ const Scene3D = (() => {
     const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.4, 0.26), new THREE.MeshBasicMaterial({ color: 0x0a2230 }));
     screen.position.set(0.55, 0.7, 0.45); g.add(screen); g.finderScreen = screen;
 
-    // angler — torso, head, cap (seated, viewed from behind)
-    const ang = new THREE.Group(); ang.position.set(-0.15, 0.42, 0.7);
-    const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 0.62, 12), new THREE.MeshStandardMaterial({ color: 0x3f7c54, roughness: 0.9 }));
-    torso.position.y = 0.3; ang.add(torso);
-    const ahead = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 16), new THREE.MeshStandardMaterial({ color: 0xe0b48a, roughness: 0.8 }));
-    ahead.position.y = 0.74; ang.add(ahead);
-    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 12, 0, 6.28, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0xc23a2a, roughness: 0.7 }));
-    cap.position.y = 0.78; ang.add(cap);
-    // arms — shoulder-pivoted so they can hold the rod, crank the reel, and
-    // reach out to lip/swing a landed fish
-    const skin = new THREE.MeshStandardMaterial({ color: 0xe0b48a, roughness: 0.8 });
-    const sleeve = new THREE.MeshStandardMaterial({ color: 0x3f7c54, roughness: 0.9 });
+    // angler — a standing figure viewed from behind (legs, vest, capped head),
+    // posed like the Sega caster on the bow deck. Local y=0 is the deck.
+    const ang = new THREE.Group(); ang.position.set(0.16, 0.42, 0.75);
+    const skin = new THREE.MeshStandardMaterial({ color: 0xe2b489, roughness: 0.8 });
+    const jeans = new THREE.MeshStandardMaterial({ color: 0x39506e, roughness: 0.9 });
+    const shirt = new THREE.MeshStandardMaterial({ color: 0xecefef, roughness: 0.85 });
+    const vestMat = new THREE.MeshStandardMaterial({ color: 0xb23528, roughness: 0.7 });
+    const capMat = new THREE.MeshStandardMaterial({ color: 0x2f7d4f, roughness: 0.7 });
+    const shoeMat = new THREE.MeshStandardMaterial({ color: 0x20242b, roughness: 0.7 });
+    for (const sx of [-1, 1]) {                          // legs + shoes
+      const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.072, 0.72, 8), jeans);
+      leg.position.set(sx * 0.11, 0.38, 0); ang.add(leg);
+      const shoe = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.09, 0.27), shoeMat);
+      shoe.position.set(sx * 0.11, 0.05, 0.05); ang.add(shoe);
+    }
+    const hips = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.19, 0.24, 12), jeans); hips.position.y = 0.84; ang.add(hips);
+    const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.185, 0.5, 12), shirt); torso.position.y = 1.18; ang.add(torso);
+    const vest = new THREE.Mesh(new THREE.CylinderGeometry(0.215, 0.205, 0.44, 14, 1, true), vestMat); vest.position.y = 1.2; ang.add(vest);
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.1, 0.035, 8, 16), vestMat); collar.rotation.x = Math.PI / 2; collar.position.y = 1.44; ang.add(collar);
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 0.12, 8), skin); neck.position.y = 1.47; ang.add(neck);
+    const aHead = new THREE.Mesh(new THREE.SphereGeometry(0.135, 16, 16), skin); aHead.position.y = 1.6; ang.add(aHead);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.145, 16, 12, 0, 6.28, 0, Math.PI / 2), capMat); cap.position.y = 1.61; ang.add(cap);
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.02, 16, 1, false, 0, Math.PI), capMat);
+    brim.position.set(0, 1.6, -0.12); ang.add(brim);    // bill points forward (-z)
+    // arms — shoulder-pivoted so they hold the rod, crank the reel, and reach
+    // out to lip/swing a landed fish
+    const sleeve = new THREE.MeshStandardMaterial({ color: 0xecefef, roughness: 0.85 });
     function makeArm(side) {
-      const arm = new THREE.Group(); arm.position.set(side * 0.2, 0.52, 0.02);
-      const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.06, 0.4, 8), sleeve);
-      upper.position.set(0, -0.16, -0.02); arm.add(upper);
-      const fore = new THREE.Group(); fore.position.set(0, -0.34, 0); arm.add(fore); arm.fore = fore;
-      const foreMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.05, 0.36, 8), skin);
-      foreMesh.position.set(0, -0.05, -0.12); foreMesh.rotation.x = -0.9; fore.add(foreMesh);
-      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.06, 10, 10), skin); hand.position.set(0, -0.1, -0.26); fore.add(hand); arm.hand = hand;
+      const arm = new THREE.Group(); arm.position.set(side * 0.2, 1.32, 0.0);
+      const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.055, 0.4, 8), sleeve);
+      upper.position.set(0, -0.18, -0.02); arm.add(upper);
+      const fore = new THREE.Group(); fore.position.set(0, -0.36, 0); arm.add(fore); arm.fore = fore;
+      const foreMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.045, 0.36, 8), skin);
+      foreMesh.position.set(0, -0.05, -0.13); foreMesh.rotation.x = -0.9; fore.add(foreMesh);
+      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 10), skin); hand.position.set(0, -0.1, -0.27); fore.add(hand); arm.hand = hand;
       arm.rotation.x = -0.5;            // resting reach toward the rod
       return arm;
     }
@@ -691,7 +706,7 @@ const Scene3D = (() => {
     // fishing rod — a chain of segments so it bends in a smooth continuous
     // curve under load (not a single hinge point).
     const rodMat = new THREE.MeshStandardMaterial({ color: 0x241a12, roughness: 0.4, metalness: 0.3 });
-    const rod = new THREE.Group(); rod.position.set(0.25, 0.78, -0.4);
+    const rod = new THREE.Group(); rod.position.set(0.22, 1.06, 0.2);
     const NSEG = 6, segLen = 0.62, segs = [];
     let parent = rod;
     for (let i = 0; i < NSEG; i++) {
@@ -725,8 +740,8 @@ const Scene3D = (() => {
     // cinematic camera: swing to a 3/4 side view to watch the fish get boated
     if (!camS.userData.look) camS.userData.look = new THREE.Vector3(0, -0.5, -9);
     const onLanding = st.mode === "landing" && st.landing;
-    const camPos = onLanding ? { x: 3.5, y: 2.0, z: 8.7 } : { x: 0, y: 3.0, z: 8.8 };
-    const camLook = onLanding ? { x: 0.0, y: 0.6, z: 5.0 } : { x: 0, y: -0.5, z: -9 };
+    const camPos = onLanding ? { x: 3.5, y: 2.2, z: 8.7 } : { x: -0.95, y: 2.45, z: 8.4 };
+    const camLook = onLanding ? { x: 0.0, y: 0.9, z: 5.0 } : { x: 0.35, y: 0.4, z: -9 };
     const k = Math.min(1, dt * 0.005);
     camS.position.x += (camPos.x - camS.position.x) * k;
     camS.position.y += (camPos.y - camS.position.y) * k;
@@ -836,9 +851,12 @@ const Scene3D = (() => {
         armL.rotation.z = 0.25 * reach; armR.rotation.z = -0.25 * reach;
         if (boat.angler) boat.angler.rotation.x = reach * 0.5 - lift * 0.3;   // lean to reach, sit back to lift
       } else {
-        armL.rotation.x += (-0.5 + Math.sin(t * 1.2) * 0.03 - armL.rotation.x) * 0.08;
-        armR.rotation.x += (-0.5 + Math.sin(t * 1.2 + 1) * 0.03 - armR.rotation.x) * 0.08;
-        armL.rotation.z *= 0.9; armR.rotation.z *= 0.9;
+        // resting hold: upper arms raised forward, forearms bent up to grip the rod
+        armL.rotation.x += (-1.15 + Math.sin(t * 1.2) * 0.03 - armL.rotation.x) * 0.08;
+        armR.rotation.x += (-1.15 + Math.sin(t * 1.2 + 1) * 0.03 - armR.rotation.x) * 0.08;
+        armL.rotation.z += (-0.2 - armL.rotation.z) * 0.08; armR.rotation.z += (0.2 - armR.rotation.z) * 0.08;
+        if (armL.fore) armL.fore.rotation.x += (1.0 - armL.fore.rotation.x) * 0.08;
+        if (armR.fore) armR.fore.rotation.x += (1.0 - armR.fore.rotation.x) * 0.08;
         if (boat.angler) boat.angler.rotation.x *= 0.9;
       }
     }
