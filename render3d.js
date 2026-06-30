@@ -222,6 +222,17 @@ function bassTextures(art) {
   g.fillStyle = "rgba(18,14,10,0.5)";
   g.fillRect(W * 0.97, H * 0.20, W * 0.03, H * 0.60);
 
+  // eyes painted straight onto the head texture on both flanks, so they are
+  // permanently part of the fish and can never detach when it turns
+  for (const evy of [0.23, 0.77]) {
+    const ey = evy * H, ex2 = W * 0.862;
+    g.fillStyle = "rgba(16,22,11,0.55)"; g.beginPath(); g.ellipse(ex2, ey, 31, 34, 0, 0, 6.28); g.fill();   // socket ring
+    g.fillStyle = css(new THREE.Color(art.eye || "#caa23a")); g.beginPath(); g.ellipse(ex2, ey, 23, 26, 0, 0, 6.28); g.fill();  // gold iris
+    g.fillStyle = "#0b0b09"; g.beginPath(); g.ellipse(ex2, ey, 11, 13, 0, 0, 6.28); g.fill();               // black pupil
+    g.fillStyle = "rgba(255,255,255,0.92)"; g.beginPath(); g.arc(ex2 - 6, ey - 7, 4.5, 0, 6.28); g.fill();  // glint
+    b.fillStyle = "rgba(186,186,186,0.6)"; b.beginPath(); b.ellipse(ex2, ey, 25, 28, 0, 0, 6.28); b.fill(); // gentle dome relief
+  }
+
   const map = new THREE.CanvasTexture(cv); map.anisotropy = 8;
   if (THREE.SRGBColorSpace) map.colorSpace = THREE.SRGBColorSpace;
   const normalMap = heightToNormal(bv, 2.4);
@@ -342,25 +353,10 @@ function makeBass(art) {
     pv.position.set(LEN * 0.1, botY(0.56) + 0.04, s * depth(0.56) * widthFac(0.56) * 0.6); group.add(pv);
   }
 
-  // eyes — sit on the side of the head; iris + pupil are pushed proud of the
-  // sclera along the outward (±z) normal so the white ball never hides them
-  const ex = LEN * 0.36, ed = depth(0.86), eyeY = ed * 0.46, R = 0.072;
-  // muted sclera (so the rear/far eye recedes instead of reading as a white
-  // ball); the eye is dominated by a big amber iris + black pupil, like a real bass
-  const scleraMat = new THREE.MeshStandardMaterial({ color: 0x74765c, roughness: 0.5 });
-  const irisCol = new THREE.Color(hexNum(art.eye || "#caa23a"));
-  const irisMat = new THREE.MeshPhysicalMaterial({ color: irisCol, roughness: 0.28, metalness: 0.35, clearcoat: 0.7, clearcoatRoughness: 0.2 });
-  const irisRimMat = new THREE.MeshStandardMaterial({ color: irisCol.clone().multiplyScalar(0.45), roughness: 0.4 });
-  const pupilMat = new THREE.MeshStandardMaterial({ color: 0x04060a, roughness: 0.06, metalness: 0.1 });
-  const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-  for (const s of [1, -1]) {
-    const zc = s * ed * widthFac(0.86) * 0.92;
-    const ew = new THREE.Mesh(new THREE.SphereGeometry(R, 20, 20), scleraMat); ew.position.set(ex, eyeY, zc); group.add(ew);
-    const rim = new THREE.Mesh(new THREE.SphereGeometry(R * 0.9, 18, 18), irisRimMat); rim.position.set(ex + 0.006, eyeY, zc + s * R * 0.30); group.add(rim);
-    const ir = new THREE.Mesh(new THREE.SphereGeometry(R * 0.78, 18, 18), irisMat); ir.position.set(ex + 0.01, eyeY, zc + s * R * 0.42); group.add(ir);
-    const pu = new THREE.Mesh(new THREE.SphereGeometry(R * 0.42, 14, 14), pupilMat); pu.position.set(ex + 0.016, eyeY, zc + s * R * 0.74); group.add(pu);
-    const hi = new THREE.Mesh(new THREE.SphereGeometry(R * 0.13, 8, 8), hiMat); hi.position.set(ex + 0.03, eyeY + R * 0.4, zc + s * R * 0.82); group.add(hi);
-  }
+  // Eyes are painted into the head texture (see bassTextures) so they are part
+  // of the body mesh and always stay attached when the fish turns — no separate
+  // eyeball geometry to disconnect.
+
   // slightly-open gape — a dark mouth cavity set into the snout, with a pale
   // lower lip below it, so the bass reads as actively feeding from any angle
   const snoutX = LEN * 0.475, jawY = -depth(0.96) * 0.18;
@@ -507,8 +503,8 @@ const Scene3D = (() => {
     arrowUp = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.4, 4), arrowMat()); arrowUp.visible = false; scene.add(arrowUp);
     arrowDn = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.4, 4), arrowMat()); arrowDn.rotation.z = Math.PI; arrowDn.visible = false; scene.add(arrowDn);
 
-    // the lure + its line
-    lureGroup = buildLure(); scene.add(lureGroup);
+    // the lure + its line (scaled up so it reads clearly underwater)
+    lureGroup = buildLure(); lureGroup.scale.setScalar(1.35); scene.add(lureGroup);
     lineMesh = new THREE.Line(
       new THREE.BufferGeometry().setFromPoints([ROD.clone(), new THREE.Vector3()]),
       new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 })
@@ -1162,11 +1158,12 @@ const Scene3D = (() => {
       }
     };
     const trebleAt = (parent, x, y, z, s) => {
-      const h = new THREE.Group(); h.position.set(x, y, z); h.scale.setScalar(s);
-      const shank = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.13, 6), M.hook); shank.position.y = -0.06; h.add(shank);
+      const h = new THREE.Group(); h.position.set(x, y, z); h.scale.setScalar(s); h.rotation.z = -0.32;   // trails back a touch
+      const shank = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.09, 6), M.hook); shank.position.y = -0.045; h.add(shank);
+      // three splayed J-bends, each curling back up to a point (reads as a treble, not a leg)
       for (let i = 0; i < 3; i++) {
-        const prong = new THREE.Mesh(new THREE.TorusGeometry(0.032, 0.007, 6, 8, Math.PI * 0.8), M.hook);
-        prong.position.y = -0.12; prong.rotation.x = Math.PI / 2; prong.rotation.z = i * 2.094; h.add(prong);
+        const prong = new THREE.Mesh(new THREE.TorusGeometry(0.026, 0.006, 6, 9, Math.PI * 0.95), M.hook);
+        prong.position.y = -0.09; prong.rotation.x = Math.PI / 2; prong.rotation.y = i * 2.094; prong.rotation.z = 0.4; h.add(prong);
       }
       parent.add(h);
     };
@@ -1375,24 +1372,29 @@ const Scene3D = (() => {
         ar.position.set(lx + 0.5, ly + (tooShallow ? -0.1 : 0.1) - 0.15 * Math.sin(t * 5) * (tooShallow ? 1 : -1), 0.4);
       }
 
-      // detailed bass swim in and close on the lure as interest builds
+      // detailed bass patrol and close on the lure as interest builds. They
+      // ALWAYS swim a lazy sweep (so they never freeze) and converge on the
+      // lure as interest climbs, instead of pinning at the frame edge.
       const it = st.interest || 0;
       const want = st.mode === "strike" ? 1 : Math.min(3, 1 + Math.round(it * 2));
+      const bandY2 = yOf(st.band);
       for (let i = 0; i < pursuers.length; i++) {
         const p = pursuers[i]; const on = i < want;
         p.visible = on; if (!on) continue;
         const lead = i === 0, side = i % 2 === 0 ? 1 : -1;
-        // the committing bass darts in fast as interest climbs
-        const reach = lead ? (1 - Math.pow(it, 0.55)) * 1.7 + 0.3 : (1 - it) * (1.6 + i * 0.5) + 0.9;
-        let tx = lx + side * reach + Math.cos(t * 0.8 + i) * 0.25;
-        tx = Math.max(-2.0, Math.min(2.0, tx));                            // keep in frame
-        const ty = yOf(st.band) + Math.sin(t * 0.9 + i * 1.7) * 0.4
-                 + (ly - yOf(st.band)) * (lead ? it : it * 0.4);          // lead rises to the lure's depth
-        const tz = -0.5 - i * 0.7 + Math.sin(t * (1.2 + i * 0.3) + i) * 0.5;
+        const conv = lead ? Math.pow(it, 0.7) : it * 0.5;                  // how committed it is to the lure
+        // lazy patrol that keeps the fish moving and on-screen at all times
+        const patrolX = side * (1.5 - 0.4 * it) + Math.sin(t * (0.6 + i * 0.25) + i * 2) * 0.55;
+        const patrolY = bandY2 + Math.sin(t * 0.8 + i * 1.7) * 0.45;
+        let tx = patrolX + (lx - patrolX) * conv;                          // drift in toward the lure
+        const ty = patrolY + (ly - patrolY) * conv;
+        tx = Math.max(-2.1, Math.min(2.1, tx));
+        const tz = -0.6 - i * 0.7 + Math.sin(t * (1.1 + i * 0.3) + i) * 0.45;
+        const prev = p.position.x;
         p.position.set(tx, ty, tz);
-        p.rotation.y = Math.atan2(tz, lx - tx);                            // head toward the lure
+        p.rotation.y = (tx < prev ? 1 : -1) * (Math.PI / 2) * 0.92;        // face the way it's swimming
         p.scale.setScalar(lead ? 0.55 + it * 0.4 : 0.5);
-        undulate(p, t * (lead ? 1.3 : 1.0) + i * 2, 0.18, lead);           // body swims (normals only for the lead — cheaper)
+        undulate(p, t * (lead ? 1.4 : 1.05) + i * 2, 0.22, true);          // body always swims
         if (p.tail) p.tail.rotation.y = Math.sin(t * (7 + it * 4) + i) * 0.5;
       }
     } else {
