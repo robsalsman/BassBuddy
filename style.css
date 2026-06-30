@@ -688,6 +688,20 @@ html, body {
 .sega-lure .sl-swatch { width: 22px; height: 6px; border-radius: 3px; border: 1px solid rgba(255,255,255,.5); }
 .sega-lure small { font-weight: 800; font-style: italic; font-size: 11px; color: #eaf3ff; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
 
+/* ---- STRIKE! flash ---- */
+.strike-flash { position: absolute; left: 50%; top: 30%; transform: translate(-50%,-50%) scale(0.4);
+  z-index: 9; pointer-events: none; opacity: 0;
+  font-weight: 900; font-style: italic; font-size: 64px; color: #fff;
+  -webkit-text-stroke: 3px #d23b2a; text-shadow: 0 0 22px rgba(255,90,40,.9), 0 4px 10px rgba(0,0,0,.6); letter-spacing: 1px; }
+.strike-flash.go { animation: strikePop 0.7s ease-out forwards; }
+@keyframes strikePop {
+  0% { opacity: 0; transform: translate(-50%,-50%) scale(0.3) rotate(-8deg); }
+  18% { opacity: 1; transform: translate(-50%,-50%) scale(1.18) rotate(3deg); }
+  35% { transform: translate(-50%,-50%) scale(0.98) rotate(0deg); }
+  75% { opacity: 1; transform: translate(-50%,-50%) scale(1.02); }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(1.25); }
+}
+
 /* ---- Hookset timing meter ---- */
 .hook-meter { position: absolute; left: 50%; top: 38%; transform: translateX(-50%);
   width: min(86%, 460px); z-index: 7; text-align: center; pointer-events: none; }
@@ -701,6 +715,9 @@ html, body {
 .hm-marker { position: absolute; top: -3px; bottom: -3px; left: 0; width: 6px; margin-left: -3px; border-radius: 3px;
   background: #fff; box-shadow: 0 0 8px rgba(255,255,255,.9); }
 .hm-hint { font-weight: 700; font-size: 13px; color: #eaf3ff; text-shadow: 0 1px 3px rgba(0,0,0,.6); margin-top: 7px; }
+
+.catch-hookset { font-weight: 800; font-size: 14px; color: #bfe0ec; margin-top: 4px; }
+.catch-hookset.perfect { color: #ffd23c; text-shadow: 0 0 10px rgba(255,200,60,.6); }
 
 .fishing-off { display: none !important; }
 .hidden { display: none !important; }

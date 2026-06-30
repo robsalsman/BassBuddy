@@ -222,7 +222,7 @@
     shopBtn: $("shopBtn"), shopModal: $("shopModal"), shopClose: $("shopClose"), shopCoins: $("shopCoins"),
     shopRods: $("shopRods"), shopLures: $("shopLures"), shopSpots: $("shopSpots"), shopDex: $("shopDex"),
     rodChip: $("rodChip"), lureChip: $("lureChip"), spotChip: $("spotChip"),
-    hookMeter: $("hookMeter"), hmMarker: $("hmMarker"),
+    hookMeter: $("hookMeter"), hmMarker: $("hmMarker"), strikeFlash: $("strikeFlash"), catchHookset: $("catchHookset"),
     lureModal: $("lureModal"), lureClose: $("lureClose"), lureList: $("lureList"), colorRow: $("colorRow"), lureCond: $("lureCond"),
     mapModal: $("mapModal"), mapClose: $("mapClose"), mapVenues: $("mapVenues"), posGrid: $("posGrid"), finder: $("finder"),
     tourneyBtn: $("tourneyBtn"), modeBtn: $("modeBtn"), modeModal: $("modeModal"), modeClose: $("modeClose"),
@@ -912,15 +912,22 @@
   function strike() {
     S.mode = "strike";
     S.hookedFish = pickFish();
-    // a forgiving timing window; a sweeping marker you tap near the middle
-    S.strikeWindow = 1700;
-    S.hook = { phase: rnd(0, 6.28), marker: 0.5, done: false };
+    // window + sweep speed scale with the fish: trophies give a tighter, faster
+    // meter for more tension; little ones are forgiving
+    const diff = clamp(S.hookedFish.difficulty || 0.4, 0, 1);
+    S.strikeWindow = 1950 - diff * 800;                       // ~1.95s easy .. ~1.15s hard
+    S.hook = { phase: rnd(0, 6.28), marker: 0.5, done: false, speed: 0.0075 + diff * 0.0075 };
     el.retrievePanel.classList.add("hidden");
     showBtn(true); setBtn("SET THE HOOK!", "hook");
     el.hookMeter.classList.remove("hidden");
+    flashStrike();
     setStatus("FISH ON!", true);
     splash(S.bobber.x, S.bobber.y); splash(S.bobber.x, S.bobber.y);
     vibrate(45);
+  }
+  function flashStrike() {
+    const fl = el.strikeFlash; if (!fl) return;
+    fl.classList.remove("go"); void fl.offsetWidth; fl.classList.add("go");   // restart the animation
   }
   function strikeMissed() {
     el.hookMeter.classList.add("hidden");
@@ -938,6 +945,7 @@
     const quality = clamp(1 - off / 0.5, 0, 1);   // full inside the green sweet zone (off<0.5 from edge)
     const perfect = off < 0.1, good = off < 0.24;
     S.hookQuality = quality;
+    S.hookRating = perfect ? "Perfect ✨" : good ? "Good" : quality > 0.12 ? "Fair" : "Weak";
     if (S.hook) S.hook.done = true;
     el.hookMeter.classList.add("hidden");
     S.mode = "fight";
@@ -1010,6 +1018,8 @@
     animateMeasure(f.weight, lenIn);
     el.catchReward.textContent = f.value;
     el.catchRewardWrap.classList.remove("hidden");
+    if (S.hookRating) { el.catchHookset.textContent = "Hookset: " + S.hookRating; el.catchHookset.classList.remove("hidden"); el.catchHookset.classList.toggle("perfect", /Perfect/.test(S.hookRating)); }
+    else el.catchHookset.classList.add("hidden");
     el.catchRecord.textContent = isRecord && prev > 0 ? "🏆 NEW PERSONAL BEST!" : isRecord ? "🏆 FIRST CATCH!" : "";
     el.catchTourney.classList.add("hidden");
     el.catchOk.textContent = "NICE! KEEP FISHING";
@@ -1468,7 +1478,7 @@
       S.strikeWindow -= dt;
       // sweep the hookset marker back and forth; the centre is the sweet spot
       if (S.hook) {
-        S.hook.phase += dt * 0.009;
+        S.hook.phase += dt * (S.hook.speed || 0.009);
         S.hook.marker = 0.5 + 0.5 * Math.sin(S.hook.phase);
         if (el.hmMarker) el.hmMarker.style.left = (S.hook.marker * 100) + "%";
       }
