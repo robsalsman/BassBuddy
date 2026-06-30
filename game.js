@@ -1257,6 +1257,7 @@
     render(now);
     drive3D(dt, now);
     updateBoatHud(now);
+    updateSegaHud();
     requestAnimationFrame(frame);
   }
 
@@ -1281,6 +1282,49 @@
     hud.classList.toggle("hidden", !show);
     if (show) drawSonar(now);
     else if (S.steer) S.steer = 0;
+  }
+
+  // ---- Sega-style status overlay (LINE OUT / W.TEMP / TOTAL WEIGHT / TENSION / lure) ----
+  let _sega = null;
+  function updateSegaHud() {
+    if (!_sega) _sega = {
+      hud: $("segaHud"), lineOut: $("segaLineOut"), temp: $("segaTemp"),
+      wlb: $("segaWeightLb"), woz: $("segaWeightOz"), cast: $("segaCast"),
+      tension: $("segaTension"), tFill: $("segaTensionFill"),
+      lure: $("segaLure"), lIco: $("segaLureIco"), lSw: $("segaLureSwatch"), lName: $("segaLureName"),
+      left: $("segaHud").querySelector(".sega-left"), right: $("segaHud").querySelector(".sega-right"),
+      menuHud: $("hud"), loadout: $("loadout"),
+    };
+    const e = _sega;
+    const fishing = ["casting", "splashdown", "retrieve", "strike", "fight", "landing"].includes(S.mode);
+    const show = fishing && !anyModalOpen();
+    e.hud.classList.toggle("hidden", !show);
+    // hide the menu chrome while fishing so the Sega overlay owns the screen
+    e.menuHud.classList.toggle("fishing-off", show);
+    e.loadout.classList.toggle("fishing-off", show);
+    if (!show) return;
+    // in a tournament the tour HUD already shows the clock + weight at the top,
+    // so suppress the Sega top blocks to avoid overlapping it
+    const inTour = !!(S.tournament && !S.tournament.ended);
+    e.left.classList.toggle("hidden", inTour);
+    e.right.classList.toggle("hidden", inTour);
+    const lu = lure(), ft = S.castFt || 60;
+    const dist = S.mode === "fight" ? (S.ft ? S.ft.dist : 0) : (S.rv ? S.rv.dist : 0);
+    e.lineOut.textContent = Math.round(dist * ft);
+    e.temp.textContent = (+((S.cond && S.cond.temp != null) ? S.cond.temp : 68)).toFixed(1);
+    let lb = 0;
+    if (S.tournament) lb = wellTotal();
+    else { const recs = Object.values(G.records || {}); lb = recs.length ? Math.max(...recs) : 0; }
+    const whole = Math.floor(lb), oz = Math.round((lb - whole) * 16);
+    e.wlb.textContent = whole; e.woz.textContent = String(Math.min(15, oz)).padStart(2, "0");
+    const showCast = S.mode === "casting" || S.mode === "splashdown";
+    e.cast.classList.toggle("hidden", !showCast);
+    if (showCast) e.cast.innerHTML = (S.castFt || 0) + "<small>ft</small>";
+    const inFight = S.mode === "fight" && S.ft;
+    e.tension.classList.toggle("hidden", !inFight);
+    if (inFight) e.tFill.style.height = Math.round(S.ft.tension * 100) + "%";
+    e.lure.classList.remove("hidden");
+    e.lIco.textContent = lu.ico; e.lSw.style.background = COLORS[G.lure.color].hex; e.lName.textContent = lu.name;
   }
 
   function drawSonar(now) {

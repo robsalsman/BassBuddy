@@ -57,6 +57,29 @@
     </div>
   </div>
 
+  <!-- Sega-style status overlay: LINE OUT / W.TEMP / TOTAL WEIGHT / TENSION / lure -->
+  <div id="segaHud" class="sega-hud hidden">
+    <div class="sega-block sega-left">
+      <div class="sega-pill">LINE OUT</div>
+      <div class="sega-readout"><b id="segaLineOut">0</b><small>ft</small></div>
+      <div class="sega-temp">W.TEMP <b id="segaTemp">68.0</b>°F</div>
+    </div>
+    <div class="sega-cast hidden" id="segaCast">0<small>ft</small></div>
+    <div class="sega-block sega-right">
+      <div class="sega-pill">TOTAL WEIGHT</div>
+      <div class="sega-readout"><b id="segaWeightLb">0</b><small>lb</small><b id="segaWeightOz">00</b><small>oz</small></div>
+    </div>
+    <div class="sega-tension hidden" id="segaTension">
+      <div class="st-label">LINE<br>TENSION</div>
+      <div class="st-track"><i id="segaTensionFill"></i></div>
+    </div>
+    <div class="sega-lure hidden" id="segaLure">
+      <span class="sl-ico" id="segaLureIco">🪱</span>
+      <i class="sl-swatch" id="segaLureSwatch"></i>
+      <small id="segaLureName">Worm</small>
+    </div>
+  </div>
+
   <!-- Center status text -->
   <div id="status" class="status"></div>
 
