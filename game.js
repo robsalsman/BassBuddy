@@ -1506,8 +1506,11 @@
     //  dive  (crankbait): digs DOWN to its running depth as you wind, floats up on a pause
     //  sink  (worm/spoon/jig): sinks/flutters DOWN on a pause, lifts on the reel
     const phys = lu.style === "top" ? "float" : lu.id === "crank" ? "dive" : "sink";
+    // the lure is always being worked back toward the boat (so it visibly tracks
+    // right-to-left across the screen); holding the reel brings it in faster
+    R.dist = clamp(R.dist - 0.0009 * step, 0, 1);
     if (S.holding) {
-      R.dist = clamp(R.dist - 0.0020 * step * (1 + rod().power * 0.10), 0, 1);
+      R.dist = clamp(R.dist - 0.0016 * step * (1 + rod().power * 0.10), 0, 1);
       if (phys === "dive") R.depth = clamp(R.depth + 0.0052 * step, 0, lu.band);
       else if (phys === "sink") R.depth = clamp(R.depth - 0.0040 * step, 0, 1);
     } else {
