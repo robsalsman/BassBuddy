@@ -40,15 +40,17 @@ html, body {
   z-index: 2; opacity: 0; pointer-events: none; transition: opacity .45s ease; }
 
 /* ---------- Boat HUD: fish finder + trolling motor ---------- */
-.boat-hud { position: absolute; left: 10px; bottom: calc(20px + env(safe-area-inset-bottom,0px));
-  z-index: 16; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.boat-hud { position: absolute; left: max(8px, env(safe-area-inset-left,0px)); bottom: calc(16px + env(safe-area-inset-bottom,0px));
+  z-index: 16; display: flex; flex-direction: column; gap: 8px; align-items: flex-start;
+  max-width: calc(100vw - 16px); box-sizing: border-box; }
 .boat-hud.hidden { display: none; }
-.sonar-wrap { background: rgba(6,24,32,.82); border: 1px solid rgba(120,200,230,.25);
+.sonar-wrap { width: max-content; max-width: 100%; box-sizing: border-box;
+  background: rgba(6,24,32,.82); border: 1px solid rgba(120,200,230,.25);
   border-radius: 12px; padding: 7px; backdrop-filter: blur(6px); box-shadow: 0 4px 14px rgba(0,0,0,.35); }
-.sonar-head { display: flex; justify-content: space-between; align-items: center; gap: 10px;
+.sonar-head { display: flex; justify-content: space-between; align-items: center; gap: 8px;
   font-size: 9px; font-weight: 800; letter-spacing: .4px; color: #8fd0e6; margin-bottom: 4px; }
-.sonar-head b { color: #5be37a; font-size: 9px; }
-.sonar { display: block; width: 130px; height: 130px; border-radius: 8px; }
+.sonar-head b { color: #5be37a; font-size: 9px; white-space: nowrap; }
+.boat-sonar { display: block; width: 140px; height: 124px; border-radius: 8px; }
 .troll { display: flex; align-items: center; gap: 6px; }
 .troll-btn { width: 50px; height: 44px; border-radius: 12px; border: 1px solid rgba(120,200,230,.3);
   background: rgba(8,32,42,.85); color: #eaf6fb; font-size: 20px; font-weight: 800; cursor: pointer;

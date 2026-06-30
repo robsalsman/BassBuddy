@@ -931,6 +931,12 @@
     const lowLight = hour < 7.5 || hour > 18 || wx === "night" || wx === "fog" || wx === "cloud";
     const deepFished = clamp((S.rv.depth - 0.32) / 0.5, -0.4, 1);     // how deep the lure was worked
     const trophyFactor = clamp(0.55 + deepFished * 1.0 + (lowLight ? 0.35 : 0) + (S.castBonus ? 0.2 : 0), 0.3, 2.4);
+    // presentation quality earned this retrieve (right lure + bite-zone time + action).
+    // Big fish are FUSSY: low credit suppresses them hard, high credit lets them commit.
+    // Ambush strikes are reaction bites from aggressive (usually big) fish, so they get a floor.
+    let present = clamp(S.rv.bigCred != null ? S.rv.bigCred : 0.4, 0, 1);
+    if (S.rv.ambush) present = Math.max(present, 0.72);
+    const bigGate = 0.18 + present * 1.7;             // ~0.18x at sloppy .. ~1.9x dialed in
 
     const table = sp.fish.map(entry => {
       const def = fishDef(entry.k);
@@ -943,7 +949,7 @@
       if (def.rarity === "junk") w *= lu.junk * Math.max(0.2, 1 - luck * 2);
       if (colorMatch && (def.rarity === "rare" || def.rarity === "legendary")) w *= 1.2;
       if (S.castBonus && (def.rarity === "rare" || def.rarity === "legendary" || def.lm)) w *= 1.25;
-      if (def.big) w *= trophyFactor;     // trophies favor deep, low-light, on-structure water
+      if (def.big) w *= trophyFactor * bigGate;     // trophies need deep/low-light water AND a dialed-in presentation
       return { def, w: Math.max(0.0001, w) };
     });
 
@@ -1052,6 +1058,7 @@
     const lu = lure();
     S.mode = "retrieve";
     S.rv.dist = 1; S.rv.interest = 0; S.rv.action = 0.5; S.rv.taps = []; S.rv.follower = 0; S.rv.bob = 0; S.rv.ambush = null;
+    S.rv.bigCred = 0.25;   // big-fish credit — earned by good presentation, drained by bad (see updateRetrieve)
     S.rv.depth = lu.style === "top" ? lu.band : 0.04;
     S.holding = false;
     // dive into the underwater view and spawn the bass holding nearby
@@ -1577,15 +1584,29 @@
     g.fillRect(0, yTop, W2, yBot - yTop);
     g.strokeStyle = quality > 0.5 ? "rgba(120,240,150,.7)" : "rgba(255,211,92,.5)"; g.lineWidth = 1;
     g.beginPath(); g.moveTo(0, yTop); g.lineTo(W2, yTop); g.moveTo(0, yBot); g.lineTo(W2, yBot); g.stroke();
-    // fish arches at the holding depth — count & brightness scale with quality
-    const n = Math.round(2 + quality * 10);
+    // fish marks reflect the ACTUAL shoal here: each mark is a fish sampled from
+    // this spot+position's table, so the SIZE MIX matches the venue (cove = lots of
+    // small marks; trophy lake = big gold arches) and the COUNT scales with how
+    // many are drawn in by a dialed-in presentation.
+    const sp = spot(), pos = position();
+    const ents = sp.fish.map(e => ({ def: F[e.k], w: e.weight * ((pos.bias && pos.bias[e.k]) || 1) }));
+    const totW = ents.reduce((s, e) => s + e.w, 0) || 1;
+    const pr = (seed) => { const x = Math.sin(seed * 127.1 + W2 * 0.7) * 43758.5453; return x - Math.floor(x); };
+    const n = Math.round(4 + (0.35 + quality * 0.95) * 9);     // ~5 scattered .. ~16 stacked
     for (let i = 0; i < n; i++) {
-      const ph = i * 1.7 + now / 700;
-      const fx = ((i * 53 + now * 0.02) % (W2 + 20)) - 10;
-      const fy = band * H2 + Math.sin(ph) * (win * H2 * 0.8);
-      const a = 0.35 + quality * 0.55;
-      g.strokeStyle = quality > 0.5 ? `rgba(120,240,150,${a})` : `rgba(255,225,150,${a})`;
-      g.lineWidth = 1.6; g.beginPath(); g.arc(fx, fy, 4, Math.PI * 1.15, Math.PI * 1.85); g.stroke();
+      // pick this mark's species (stable per index so it doesn't flicker)
+      let rr = pr(i + 1) * totW, em = ents[0];
+      for (const e of ents) { rr -= e.w; if (rr <= 0) { em = e; break; } }
+      const big = !!em.def.big;
+      const lb = (em.def.w[0] + em.def.w[1]) / 2 * (0.72 + pr(i + 9) * 0.55);   // individual size spread
+      const rad = clamp(2.4 + lb * 0.42, 2.4, Math.min(12, W2 * 0.13));         // arc size = fish size
+      const fx = ((i * 47 + now * 0.018 * (big ? 0.5 : 0.9)) % (W2 + 24)) - 12; // big fish cruise slower
+      const fy = clamp(band * H2 + (pr(i + 5) - 0.5) * (win * H2 * 2.6) + Math.sin(i * 1.7 + now / 800) * 4, 7, H2 - 12);
+      const a = 0.3 + quality * 0.5 + (big ? 0.16 : 0);
+      g.strokeStyle = big ? `rgba(255,206,110,${a + 0.1})` : quality > 0.5 ? `rgba(120,240,150,${a})` : `rgba(180,225,165,${a})`;
+      g.lineWidth = big ? 2.4 : 1.5;
+      g.beginPath(); g.arc(fx, fy, rad, Math.PI * 1.12, Math.PI * 1.88); g.stroke();
+      if (big) { g.beginPath(); g.arc(fx, fy, rad * 0.6, Math.PI * 1.04, Math.PI * 1.96); g.stroke(); }  // fuller arch = lunker
     }
     // depth ticks
     g.fillStyle = "rgba(200,225,235,.6)"; g.font = "8px system-ui"; g.textAlign = "right";
@@ -1780,6 +1801,13 @@
     const build = (R.action > 0.55 ? 1 : 0.3) * (0.25 + sc) * depthNow * struct * aimed * (S.castLuck || 1) * hot;
     R.interest = clamp(R.interest + (build * 0.012 - 0.0016) * step, 0, 1);
     R.follower = R.interest;
+
+    // big-fish credit: trophies are FAR fussier than dinks. It builds only while
+    // the lure is dialed in — right bait (sc), in the bite zone (depthNow), with
+    // proper action — and drains whenever the presentation slips. pickFish() reads
+    // this to decide how big a fish commits, so a sloppy retrieve gets only dinks.
+    const instQ = clamp(sc * depthNow * (R.action > 0.55 ? 1 : 0.4) * (hot > 1 ? 1.12 : 1), 0, 1);
+    R.bigCred = clamp(R.bigCred + (instQ - 0.5) * 0.02 * step, 0, 1);
 
     // ambush strike — a hidden bass explodes from cover at a random moment. Far
     // likelier on/near structure; once triggered it rushes the lure to a strike.
