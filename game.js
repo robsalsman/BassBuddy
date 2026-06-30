@@ -77,12 +77,15 @@
   // Fish. `art` drives the SVG. `bass:true` = black bass (counts in tournaments);
   // `lm:true` marks a largemouth specifically.
   // Black bass only — this is a bass fishing game.
+  // One species — the largemouth bass. The three internal tiers only spread the
+  // SIZE range (small fish .. trophies) and give each lake its character; the
+  // player always just catches a "Largemouth Bass". Bigger fish run a touch darker.
   const F = {
     largemouth:{ name: "Largemouth Bass", w: [1.0, 7.0],  rarity: "common", base: 12, lm: true, bass: true,
                  art: { shape: "bass", body: "#6f9e4e", belly: "#eef1d6", pat: "lateral", patColor: "#33401f", bigmouth: true } },
-    giant:     { name: "Giant Largemouth", w: [6.0, 14.0], rarity: "uncommon", base: 45, lm: true, bass: true, big: true,
+    giant:     { name: "Largemouth Bass", w: [6.0, 14.0], rarity: "uncommon", base: 45, lm: true, bass: true, big: true,
                  art: { shape: "bass", body: "#5e8f54", belly: "#e8edcf", pat: "lateral", patColor: "#2c3f22", bigmouth: true } },
-    hawg:      { name: "Trophy Largemouth", w: [10.0, 24.0], rarity: "legendary", base: 280, lm: true, bass: true, big: true,
+    hawg:      { name: "Largemouth Bass", w: [10.0, 24.0], rarity: "legendary", base: 280, lm: true, bass: true, big: true,
                  art: { shape: "bass", body: "#4f7d46", belly: "#dfe6c4", pat: "lateral", patColor: "#243a1e", bigmouth: true } },
   };
 
@@ -186,6 +189,14 @@
         if (!ATTRACTANTS[m.attractant]) m.attractant = "none";
         const lu = LURES.find(l => l.id === m.lure.id);
         if (lu && !lu.colors.includes(m.lure.color)) m.lure.color = lu.colors[0];
+        // migrate: old saves split bass into Giant/Trophy Largemouth — fold them all
+        // into a single "Largemouth Bass" record/count
+        m.records = m.records || {}; m.caught = m.caught || {};
+        const LM = "Largemouth Bass";
+        for (const old of ["Giant Largemouth", "Trophy Largemouth"]) {
+          if (m.records[old] != null) { m.records[LM] = Math.max(m.records[LM] || 0, m.records[old]); delete m.records[old]; }
+          if (m.caught[old] != null) { m.caught[LM] = (m.caught[LM] || 0) + m.caught[old]; delete m.caught[old]; }
+        }
         return m;
       }
     } catch (e) {}
@@ -795,9 +806,30 @@
   const WEATHER = {
     sun:    { ico: "☀️", name: "Sunny",    fam: "natural", warm: 6 },
     cloud:  { ico: "☁️", name: "Cloudy",   fam: "bright",  warm: 1 },
+    rain:   { ico: "🌧️", name: "Rain",     fam: "bright",  warm: -2 },
     fog:    { ico: "🌫️", name: "Foggy",    fam: "bright",  warm: -1 },
     night:  { ico: "🌙", name: "Night",    fam: "bright",  warm: -4 },
   };
+  // weather drifts during a session — a passing front. Higher rank = more overcast.
+  const WX_NEXT = { sun: [["sun", 0.55], ["cloud", 0.45]], cloud: [["cloud", 0.38], ["sun", 0.3], ["rain", 0.22], ["fog", 0.1]], rain: [["rain", 0.45], ["cloud", 0.55]], fog: [["fog", 0.32], ["sun", 0.42], ["cloud", 0.26]] };
+  const WX_RANK = { sun: 0, fog: 1, cloud: 2, rain: 3 };
+  function maybeShiftWeather() {
+    const c = S.cond;
+    if (spot().id === "deep") return;                 // Trophy Lake is always a night bite
+    c.wxT = (c.wxT || 0) + 1;
+    if (c.wxT < 2 || Math.random() > 0.3) return;     // a couple casts between fronts
+    c.wxT = 0;
+    const opts = WX_NEXT[c.weather] || WX_NEXT.sun;
+    let r = Math.random(), next = c.weather;
+    for (const [w, p] of opts) { r -= p; if (r <= 0) { next = w; break; } }
+    if (next === c.weather) return;
+    const building = (WX_RANK[next] || 0) > (WX_RANK[c.weather] || 0);   // weather worsening
+    c.front = building ? 0.2 : -0.24;                 // pre-front feed vs post-front bluebird
+    c.weather = next;
+    recomputeCond(); renderConditions();
+    const w = WEATHER[next];
+    toast(building ? `${w.ico} ${w.name} moving in — bite's firing up! 🔥` : `${w.ico} ${w.name} after the front — tougher bite 🥶`);
+  }
   // Seasonal patterns layered on the daily cycle — real bass behaviour.
   const SEASONS = {
     spring: { name: "Spring", ico: "🌱", tempBase: 60, depth: -0.14, activity: 0.22, note: "Pre-spawn — bass move shallow" },
@@ -810,7 +842,8 @@
   function rollConditions() {
     const sp = spot();
     if (sp.id === "deep") S.cond.weather = "night";
-    else { const r = Math.random(); S.cond.weather = r < 0.5 ? "sun" : r < 0.78 ? "cloud" : "fog"; }
+    else { const r = Math.random(); S.cond.weather = r < 0.45 ? "sun" : r < 0.7 ? "cloud" : r < 0.88 ? "fog" : "rain"; }
+    S.cond.front = 0; S.cond.wxT = 0;
     S.cond.timeMin = (sp.id === "deep" ? 21 * 60 : 6 * 60) + Math.random() * 120;
     if (!S.cond.season) S.cond.season = SEASON_ORDER[Math.floor(Math.random() * 4)];
     // the productive water sits at a random bearing — turn the trolling motor to find it
@@ -832,15 +865,17 @@
     // Holding depth = venue base + structure + season + time + weather + temperature.
     const base = (sp.baseDepth != null ? sp.baseDepth : 0.4) + ((pos && pos.depth) || 0) + sea.depth;
     const timeShift = (midday - 0.5) * 0.42;                       // deep midday, shallow at dawn/dusk
-    const weatherShift = wx === "sun" ? 0.08 : wx === "cloud" ? -0.04 : wx === "fog" ? -0.08 : -0.10; // night up
+    const weatherShift = wx === "sun" ? 0.08 : wx === "cloud" ? -0.04 : wx === "rain" ? -0.06 : wx === "fog" ? -0.08 : -0.10; // night up
     const tempShift = c.temp < 50 ? 0.14 : c.temp > 82 ? 0.12 : 0; // temp extremes push deep
     c.band = clamp(base + timeShift + weatherShift + tempShift, 0.05, 0.96);
 
     // Feeding window: wide & easy when fish are active, tight when conditions are tough.
+    // A passing front layers on top: building weather fires them up, a bluebird
+    // post-front shuts them down (c.front, set + decayed as weather drifts).
     const lowLight = midday < 0.45 || wx !== "sun";
     const moderate = c.temp >= 56 && c.temp <= 78;
-    let activity = 0.4 + sea.activity + (lowLight ? 0.2 : 0) + (moderate ? 0.18 : 0) + (wx === "cloud" || wx === "fog" ? 0.14 : 0);
-    c.activity = clamp(activity, 0.15, 1);
+    let activity = 0.4 + sea.activity + (lowLight ? 0.2 : 0) + (moderate ? 0.18 : 0) + (wx === "cloud" || wx === "fog" || wx === "rain" ? 0.14 : 0) + (c.front || 0);
+    c.activity = clamp(activity, 0.12, 1);
     c.window = 0.045 + c.activity * 0.095;                          // zone half-width
   }
   function preferredFam() { return WEATHER[S.cond.weather].fam; }
@@ -1259,9 +1294,14 @@
 
   function showCatch(f, isRecord, prev) {
     const lunk = f.bass && f.weight >= LUNKER_LB;
-    el.catchRarity.textContent = lunk ? "🏆 LUNKER!" : f.rarity.toUpperCase();
-    el.catchRarity.style.background = lunk ? "#ffd35c" : RARITY_COLOR[f.rarity];
-    el.catchRarity.style.color = (lunk || f.rarity === "legendary") ? "#5a3a00" : "#06222c";
+    // a size class, not a species category — they're all largemouth bass
+    const cls = f.weight >= 10 ? { t: "🏆 TROPHY", c: "#ffd35c", dark: true }
+      : f.weight >= 4 ? { t: "BIG BASS", c: "#5c9bff", dark: false }
+      : f.weight >= 2 ? { t: "QUALITY", c: "#5be37a", dark: true }
+      : { t: "KEEPER", c: "#9fb3bf", dark: true };
+    el.catchRarity.textContent = lunk ? "🏆 LUNKER!" : cls.t;
+    el.catchRarity.style.background = lunk ? "#ffd35c" : cls.c;
+    el.catchRarity.style.color = (lunk || cls.dark) ? "#06222c" : "#fff";
     el.catchRarity.classList.toggle("lunker", lunk);
     if (lunk) vibrate([30, 50, 30, 50, 60]);
     // 3D trophy if WebGL is up, else the SVG hero pose
@@ -1359,6 +1399,8 @@
       S.cond.day = (S.cond.day || 0) + 1;
       if (S.cond.day % 3 === 0) S.cond.season = SEASON_ORDER[(SEASON_ORDER.indexOf(S.cond.season) + 1) % 4];
     }
+    S.cond.front = (S.cond.front || 0) * 0.6;   // a front's effect fades as the system passes through
+    maybeShiftWeather();                         // weather may drift to a new front mid-session
     recomputeCond(); renderConditions();
   }
   function ripple(x, y) { S.ripples.push({ x, y, r: 4, a: 0.7 }); }
@@ -1562,7 +1604,7 @@
     // shift the water bed darker & calmer at night, brighter by day (only on change)
     if (S._night !== night) { S._night = night; try { Sound.setNight(night); } catch (e) {} }
     // wind gusts pick up on cloudy / foggy water
-    const wx = S.cond && S.cond.weather, windy = wx === "cloud" || wx === "fog";
+    const wx = S.cond && S.cond.weather, windy = wx === "cloud" || wx === "fog" || wx === "rain";
     if (windy) {
       S._windT = (S._windT == null ? rnd(4000, 9000) : S._windT - dt);
       if (S._windT <= 0) { S._windT = rnd(7000, 15000); try { Sound.windGust(wx === "fog" ? 0.45 : 0.7); } catch (e) {} }
@@ -1665,33 +1707,47 @@
     g.fillRect(0, yTop, W2, yBot - yTop);
     g.strokeStyle = quality > 0.5 ? "rgba(120,240,150,.7)" : "rgba(255,211,92,.5)"; g.lineWidth = 1;
     g.beginPath(); g.moveTo(0, yTop); g.lineTo(W2, yTop); g.moveTo(0, yBot); g.lineTo(W2, yBot); g.stroke();
-    // fish marks reflect the ACTUAL shoal here: each mark is a fish sampled from
-    // this spot+position's table, so the SIZE MIX matches the venue (cove = lots of
-    // small marks; trophy lake = big gold arches) and the COUNT scales with how
-    // many are drawn in by a dialed-in presentation.
+    // the shoal HOLDING here — anchored at the bite depth (not scrolling past), so
+    // the finder reads as real returns for THIS spot + position. Count reflects how
+    // many stack here, arch size reflects the fish size, depth = where they hold.
     const sp = spot(), pos = position();
     const ents = sp.fish.map(e => ({ def: F[e.k], w: e.weight * ((pos.bias && pos.bias[e.k]) || 1) }));
     const totW = ents.reduce((s, e) => s + e.w, 0) || 1;
-    const pr = (seed) => { const x = Math.sin(seed * 127.1 + W2 * 0.7) * 43758.5453; return x - Math.floor(x); };
-    const n = Math.round(4 + (0.35 + quality * 0.95) * 9);     // ~5 scattered .. ~16 stacked
-    for (let i = 0; i < n; i++) {
-      // pick this mark's species (stable per index so it doesn't flicker)
+    const avgLb = ents.reduce((s, e) => s + e.w * ((e.def.w[0] + e.def.w[1]) / 2), 0) / totW;
+    const pr = (seed) => { const x = Math.sin(seed * 127.1 + (sp.id.length + pos.id.length) * 91.7) * 43758.5453; return x - Math.floor(x); };
+    // abundance: how concentrated this position is (its bias) + how lit-up the bite is
+    const rich = clamp((((pos.bias && pos.bias.largemouth) || 1) + ((pos.bias && pos.bias.giant) || 0.6) + ((pos.bias && pos.bias.hawg) || 0.3)) / 3 - 0.5, 0, 1.4);
+    const count = Math.max(2, Math.round(3 + rich * 4 + quality * 4));    // ~3..11 marks
+    for (let i = 0; i < count; i++) {
       let rr = pr(i + 1) * totW, em = ents[0];
       for (const e of ents) { rr -= e.w; if (rr <= 0) { em = e; break; } }
       const big = !!em.def.big;
-      const lb = (em.def.w[0] + em.def.w[1]) / 2 * (0.72 + pr(i + 9) * 0.55);   // individual size spread
-      const rad = clamp(2.4 + lb * 0.42, 2.4, Math.min(12, W2 * 0.13));         // arc size = fish size
-      const fx = ((i * 47 + now * 0.018 * (big ? 0.5 : 0.9)) % (W2 + 24)) - 12; // big fish cruise slower
-      const fy = clamp(band * H2 + (pr(i + 5) - 0.5) * (win * H2 * 2.6) + Math.sin(i * 1.7 + now / 800) * 4, 7, H2 - 12);
-      const a = 0.3 + quality * 0.5 + (big ? 0.16 : 0);
+      const lb = (em.def.w[0] + em.def.w[1]) / 2 * (0.72 + pr(i + 9) * 0.55);
+      const rad = clamp(2.4 + lb * 0.42, 2.4, Math.min(12, W2 * 0.13));
+      const fx = 13 + pr(i + 3) * (W2 - 26);                              // fixed spot, gentle in-place bob
+      const fy = clamp(band * H2 + (pr(i + 5) - 0.5) * (win * H2 * 1.7) + Math.sin(now / 700 + i * 1.3) * 2.4, 7, H2 - 22);
+      const a = 0.34 + quality * 0.5 + (big ? 0.16 : 0);
       g.strokeStyle = big ? `rgba(255,206,110,${a + 0.1})` : quality > 0.5 ? `rgba(120,240,150,${a})` : `rgba(180,225,165,${a})`;
       g.lineWidth = big ? 2.4 : 1.5;
       g.beginPath(); g.arc(fx, fy, rad, Math.PI * 1.12, Math.PI * 1.88); g.stroke();
-      if (big) { g.beginPath(); g.arc(fx, fy, rad * 0.6, Math.PI * 1.04, Math.PI * 1.96); g.stroke(); }  // fuller arch = lunker
+      if (big) { g.beginPath(); g.arc(fx, fy, rad * 0.6, Math.PI * 1.04, Math.PI * 1.96); g.stroke(); }
     }
-    // depth ticks
+    // holding-depth marker right on the band
+    const holdFt = Math.round(band * 24);
+    g.fillStyle = quality > 0.5 ? "#9dffbb" : "#ffe08a"; g.textAlign = "left"; g.font = "bold 11px system-ui";
+    g.fillText("▶ " + holdFt + " ft", 5, clamp(band * H2 + 4, 13, H2 - 28));
+    // depth ticks (right)
     g.fillStyle = "rgba(200,225,235,.6)"; g.font = "8px system-ui"; g.textAlign = "right";
-    for (let d = 0; d <= 1.001; d += 0.5) g.fillText(Math.round(d * 24) + "ft", W2 - 3, clamp(d * H2, 8, H2 - 3));
+    for (let d = 0; d <= 1.001; d += 0.5) g.fillText(Math.round(d * 24) + "ft", W2 - 3, clamp(d * H2, 8, H2 - 22));
+    // specifics strip — the concrete read for THIS spot: how many, how deep, how
+    // big, and (by colour) how active. Changes the moment you switch positions.
+    const sizeWord = avgLb >= 9 ? "BIG" : avgLb >= 5 ? "QUALITY" : "SMALL";
+    const act = (S.cond.activity != null ? S.cond.activity : 0.5);
+    const actCol = act > 0.62 ? "#5be37a" : act > 0.4 ? "#ffd35c" : "#ff9b6b";
+    g.fillStyle = "rgba(2,12,18,.82)"; g.fillRect(0, H2 - 17, W2, 17);
+    g.fillStyle = actCol; g.fillRect(4, H2 - 13, 8, 8);                  // activity swatch
+    g.textAlign = "left"; g.font = "bold 9px system-ui"; g.fillStyle = "#dff0f7";
+    g.fillText(`${count} FISH · ${holdFt}FT · ${sizeWord}`, 16, H2 - 5);
   }
 
   // ---- 3D underwater layer (Three.js). The 2D scene above keeps rendering as
@@ -2876,8 +2932,10 @@
     // Dex
     el.shopDex.innerHTML = `<div class="dex-grid"></div>`;
     const grid = el.shopDex.querySelector(".dex-grid");
+    const dexSeen = new Set();
     Object.keys(F).forEach(k => {
       const def = F[k];
+      if (dexSeen.has(def.name)) return; dexSeen.add(def.name);
       const caught = G.caught[def.name], best = G.records[def.name];
       grid.insertAdjacentHTML("beforeend", `<div class="dex-cell ${caught ? "" : "locked"}">
         <div class="e">${caught ? fishSVG(def, 56) : "❓"}</div>
@@ -2910,7 +2968,8 @@
     ];
     el.recStats.innerHTML = stats.map(([i, l, v]) =>
       `<div class="rec-stat"><div class="rs-ico">${i}</div><div class="rs-v">${v}</div><div class="rs-l">${l}</div></div>`).join("");
-    const fishRows = Object.keys(F).map(k => {
+    const seenName = new Set();
+    const fishRows = Object.keys(F).filter(k => { if (seenName.has(F[k].name)) return false; seenName.add(F[k].name); return true; }).map(k => {
       const def = F[k], best = G.records[def.name], n = G.caught[def.name];
       const lunk = best && best >= LUNKER_LB;
       return `<div class="item"><div class="item-ico">${n ? fishSVG(def, 40) : "❓"}</div>
