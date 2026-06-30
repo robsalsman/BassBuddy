@@ -957,6 +957,27 @@ const Scene3D = (() => {
     scene.background.set(water1);
   }
 
+  // canvas bark texture for submerged timber — vertical grooves + cracks
+  function barkTexture() {
+    const N = 128, cv = document.createElement("canvas"); cv.width = N; cv.height = N;
+    const x = cv.getContext("2d");
+    x.fillStyle = "#6b4d2e"; x.fillRect(0, 0, N, N);
+    for (let i = 0; i < 70; i++) {                       // vertical streaks/grooves
+      const px = Math.random() * N, w = 1 + Math.random() * 3, lit = Math.random() < 0.5;
+      x.strokeStyle = lit ? `rgba(225,190,140,${0.05 + Math.random() * 0.12})` : `rgba(30,18,8,${0.06 + Math.random() * 0.16})`;
+      x.lineWidth = w; x.beginPath(); let xx = px; x.moveTo(xx, 0);
+      for (let y = 0; y <= N; y += 12) { xx += (Math.random() - 0.5) * 4; x.lineTo(xx, y); }
+      x.stroke();
+    }
+    for (let i = 0; i < 6; i++) {                         // a few horizontal cracks
+      const y = Math.random() * N; x.strokeStyle = "rgba(20,12,6,0.3)"; x.lineWidth = 1;
+      x.beginPath(); x.moveTo(0, y); x.lineTo(N, y + (Math.random() - 0.5) * 6); x.stroke();
+    }
+    const t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2, 3);
+    if (THREE.SRGBColorSpace) t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  }
+
   // ---- underwater structure sets, shown by the spot's structure group ----
   function buildTerrain() {
     const place = (m, x, y, z) => { m.position.set(x, y, z); return m; };
@@ -968,12 +989,30 @@ const Scene3D = (() => {
       place(blade, -2.6 + Math.random() * 5.2, -3.0 + Math.random() * 0.5, -0.6 - Math.random() * 2.4);
       blade.userData.sway = Math.random() * 6.28; veg.add(blade);
     }
-    // WOOD — a fallen laydown log with a branch
+    // WOOD — flooded timber: standing dead trunks (what bass relate to) plus a
+    // fallen laydown log, all bark-textured. Matches the Sega underwater shot.
     const wood = new THREE.Group();
-    const log = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.34, 4.2, 9), new THREE.MeshStandardMaterial({ color: 0x4a341f, roughness: 0.95 }));
-    log.rotation.z = Math.PI / 2; log.rotation.y = 0.3; place(log, -0.3, -2.9, -1.6); wood.add(log);
-    const branch = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 2.0, 7), new THREE.MeshStandardMaterial({ color: 0x523a23, roughness: 0.95 }));
-    branch.rotation.z = 0.7; place(branch, 0.9, -2.4, -1.7); wood.add(branch);
+    const barkMap = barkTexture();
+    const barkMat = new THREE.MeshStandardMaterial({ map: barkMap, color: 0x9a774e, roughness: 0.95 });
+    const barkDark = new THREE.MeshStandardMaterial({ map: barkMap, color: 0x6a4e2d, roughness: 0.95 });
+    const trunks = [
+      { x: -1.9, z: -1.5, h: 3.3, r: 0.20, lean: 0.07 },
+      { x: 0.5, z: -2.3, h: 4.0, r: 0.24, lean: -0.05 },
+      { x: 1.7, z: -1.1, h: 2.5, r: 0.15, lean: 0.11 },
+      { x: -0.6, z: -2.9, h: 3.0, r: 0.18, lean: 0.03 },
+    ];
+    for (const tk of trunks) {
+      const tr = new THREE.Mesh(new THREE.CylinderGeometry(tk.r * 0.62, tk.r, tk.h, 10), barkMat);
+      tr.position.set(tk.x, -3.4 + tk.h / 2, tk.z); tr.rotation.z = tk.lean; tr.rotation.x = tk.lean * 0.5; wood.add(tr);
+      const top = new THREE.Mesh(new THREE.ConeGeometry(tk.r * 0.62, tk.r * 1.6, 8), barkDark);   // broken/jagged top
+      top.position.set(tk.x + tk.lean * tk.h * 0.5, -3.4 + tk.h, tk.z); top.rotation.z = tk.lean; wood.add(top);
+      if (tk.h > 3) {                                  // a stub limb on the taller snags
+        const br = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.09, 1.0, 6), barkDark);
+        br.rotation.z = 1.0 + tk.lean; br.position.set(tk.x + 0.4, -3.4 + tk.h * 0.66, tk.z + 0.1); wood.add(br);
+      }
+    }
+    const log = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.31, 4.0, 10), barkMat);
+    log.rotation.z = Math.PI / 2; log.rotation.y = 0.3; place(log, -0.3, -3.0, -0.5); wood.add(log);
     // ROCK — boulder pile
     const rock = new THREE.Group();
     const rockMat = new THREE.MeshStandardMaterial({ color: 0x5a6066, roughness: 1, flatShading: true });
