@@ -192,6 +192,16 @@ function bassTextures(art) {
   b.beginPath(); b.moveTo(gx, H * 0.10); b.quadraticCurveTo(gx - 30, H * 0.5, gx, H * 0.90); b.stroke();
   g.strokeStyle = "rgba(150,40,40,0.30)"; g.lineWidth = 6;
   g.beginPath(); g.moveTo(gx + 2, H * 0.18); g.quadraticCurveTo(gx - 26, H * 0.5, gx + 2, H * 0.82); g.stroke();
+  // soft cheek shading + the dark gill-cover (operculum) blotch, on both flanks
+  for (const cy of [0.30, 0.70]) {
+    const yy = cy * H;
+    const cheek = g.createRadialGradient(gx + 28, yy, 4, gx + 28, yy, 90);
+    cheek.addColorStop(0, "rgba(30,40,24,0.22)"); cheek.addColorStop(1, "rgba(30,40,24,0)");
+    g.fillStyle = cheek; g.beginPath(); g.ellipse(gx + 28, yy, 90, 64, 0, 0, 6.28); g.fill();
+    // the dark spot at the rear of the gill flap
+    g.fillStyle = "rgba(18,22,14,0.5)";
+    g.beginPath(); g.ellipse(gx + 6, yy + (cy < 0.5 ? 18 : -18), 16, 22, 0, 0, 6.28); g.fill();
+  }
   // mouth + maxilla (upper-jaw) line — drawn on BOTH flanks (v≈0.30 / 0.70) so
   // it shows from the side. The defining largemouth trait: the maxilla extends
   // back PAST the eye — a big "bucket" mouth — vs smallmouth (jaw under eye).
@@ -287,8 +297,8 @@ function makeBass(art) {
   fg.strokeStyle = "rgba(90,72,40,0.32)"; fg.lineWidth = 1.3;          // fin rays fanning from the base
   for (let k = 0; k <= 14; k++) { const tx = k / 14 * 96; fg.beginPath(); fg.moveTo(48, 96); fg.lineTo(tx, 4); fg.stroke(); }
   const finTex = new THREE.CanvasTexture(finCv);
-  const finMat = new THREE.MeshPhysicalMaterial({ map: finTex, color: 0xddca97, roughness: 0.55, metalness: 0,
-    side: THREE.DoubleSide, transparent: true, opacity: 0.9, envMapIntensity: 0.7, clearcoat: 0.3 });
+  const finMat = new THREE.MeshPhysicalMaterial({ map: finTex, color: 0xd9c79a, roughness: 0.4, metalness: 0,
+    side: THREE.DoubleSide, transparent: true, opacity: 0.84, envMapIntensity: 0.85, clearcoat: 0.5, clearcoatRoughness: 0.25 });
   group.disposables.push(finTex, finMat);
 
   // broad, slightly-forked tail
@@ -351,6 +361,17 @@ function makeBass(art) {
     const pu = new THREE.Mesh(new THREE.SphereGeometry(R * 0.42, 14, 14), pupilMat); pu.position.set(ex + 0.016, eyeY, zc + s * R * 0.74); group.add(pu);
     const hi = new THREE.Mesh(new THREE.SphereGeometry(R * 0.13, 8, 8), hiMat); hi.position.set(ex + 0.03, eyeY + R * 0.4, zc + s * R * 0.82); group.add(hi);
   }
+  // slightly-open gape — a dark mouth cavity set into the snout, with a pale
+  // lower lip below it, so the bass reads as actively feeding from any angle
+  const snoutX = LEN * 0.475, jawY = -depth(0.96) * 0.18;
+  const mouthMat = new THREE.MeshStandardMaterial({ color: 0x1a120e, roughness: 0.6, side: THREE.DoubleSide });
+  const gape = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), mouthMat);
+  gape.scale.set(0.13, 0.06, 0.15); gape.position.set(snoutX, jawY + 0.03, 0); group.add(gape);
+  const lipMat = new THREE.MeshStandardMaterial({ color: 0x8a8a6a, roughness: 0.7 });
+  const lip = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), lipMat);
+  lip.scale.set(0.12, 0.045, 0.15); lip.position.set(snoutX - 0.01, jawY - 0.04, 0); group.add(lip);
+  group.disposables.push(mouthMat, lipMat);
+
   // tracked mouth point at the front of the head, so a hooked line attaches here
   group.mouth = new THREE.Object3D(); group.mouth.position.set(LEN * 0.52, -depth(0.95) * 0.1, 0); group.add(group.mouth);
   return group;
