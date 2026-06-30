@@ -870,7 +870,7 @@
   function startRetrieve() {
     const lu = lure();
     S.mode = "retrieve";
-    S.rv.dist = 1; S.rv.interest = 0; S.rv.action = 0.5; S.rv.taps = []; S.rv.follower = 0; S.rv.bob = 0;
+    S.rv.dist = 1; S.rv.interest = 0; S.rv.action = 0.5; S.rv.taps = []; S.rv.follower = 0; S.rv.bob = 0; S.rv.ambush = null;
     S.rv.depth = lu.style === "top" ? lu.band : 0.04;
     S.holding = false;
     // dive into the underwater view and spawn the bass holding nearby
@@ -1392,6 +1392,7 @@
       lureAction: S.rv.action || 0,
       inZone: Math.abs(lureDepth - band) < win,
       interest: S.rv.interest, fishSize, fishDensity,
+      ambush: S.rv.ambush ? { prog: clamp((S.rv.ambush.t || 0) / 540, 0, 1), from: S.rv.ambush.from } : null,
       daylight: dc.daylight, night: dc.night, sunX: dc.sunX, elev: dc.elev,
       skyTop: dc.top, skyBot: dc.bot, water0: sp.water[0],
       castAim: S.castAim ? { x: S.castAim.x, y: S.castAim.y } : null,
@@ -1532,6 +1533,19 @@
     const build = (R.action > 0.55 ? 1 : 0.3) * (0.25 + sc) * depthNow * struct * aimed * (S.castLuck || 1) * hot;
     R.interest = clamp(R.interest + (build * 0.012 - 0.0016) * step, 0, 1);
     R.follower = R.interest;
+
+    // ambush strike — a hidden bass explodes from cover at a random moment. Far
+    // likelier on/near structure; once triggered it rushes the lure to a strike.
+    const grp = STRUCT_GROUP[position().id] || "open";
+    if (!R.ambush && R.interest < 0.72 && R.dist > 0.12 && R.dist < 0.9) {
+      const rate = (grp === "open" || grp === "deep" ? 0.0003 : 0.0009) * (0.45 + sc);
+      if (Math.random() < rate * step) {
+        R.ambush = { t: 0, from: grp === "rock" || grp === "deep" ? 1 : grp === "wood" || grp === "veg" ? 2 : Math.floor(Math.random() * 3) };
+        vibrate(18);
+      }
+    }
+    if (R.ambush) R.interest = Math.max(R.interest, Math.min(1, (R.ambush.t += dt) / 540));   // the rush drives it to a strike
+
     if (R.interest >= 1) { strike(); return; }
     if (R.dist <= 0) { endRetrieveMiss(); return; }
 

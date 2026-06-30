@@ -383,6 +383,20 @@ function makeBass(art) {
   group.jaw = lip; group.jawY = jawY - 0.04;             // lower jaw drops when the mouth opens
   group.disposables.push(mouthMat, lipMat);
 
+  // gill covers (opercula) that flare out when the fish gasps/headshakes
+  group.gills = [];
+  const gillMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(art.body || "#6f9e4e").multiplyScalar(0.8), roughness: 0.5, side: THREE.DoubleSide });
+  group.disposables.push(gillMat);
+  for (const s of [1, -1]) {
+    const gill = new THREE.Group();
+    gill.position.set(0.66, depth(0.80) * 0.05, s * depth(0.80) * widthFac(0.80) * 0.95);
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(0.3, depth(0.80) * 1.5), gillMat);
+    plate.position.x = -0.14;                       // extends back from the front-edge hinge
+    if (s < 0) gill.rotation.y = Math.PI;           // face outward on the far flank
+    gill.add(plate); gill.userData.s = s; group.add(gill); group.gills.push(gill);
+  }
+  group.flareGills = (a) => group.gills.forEach(g => { g.rotation.y = (g.userData.s < 0 ? Math.PI : 0) + g.userData.s * a * 0.7; });
+
   // openMouth(o): 0 = closed feeding gape, 1 = wide open to engulf the bait
   group.openMouth = (o) => {
     gape.scale.set(0.13 * (1 + o * 0.5), 0.06 * (1 + o * 5), 0.15 * (1 + o * 0.7));
@@ -400,7 +414,29 @@ const Scene3D = (() => {
   let renderer, scene, camera, canvas, ready = false, visible = false;
   let surf, bottom, motes, biteSlab, biteEdgeTop, biteEdgeBot, biteLabel, zoneRing, arrowUp, arrowDn;
   let terrainSets = {}, uwHemi, uwSun;
-  let lureGroup, lineMesh, fightFish, fightArtKey = "", lureTrail, trailPts = [];
+  let lureGroup, lineMesh, fightFish, fightArtKey = "", lureTrail, trailPts = [], ambusher;
+  let bubbles = [], bubbles2 = [];   // rising-bubble pools for the under / surface scenes
+  function makeBubblePool(scn, arr, n) {
+    for (let i = 0; i < n; i++) {
+      const b = new THREE.Mesh(new THREE.SphereGeometry(0.055, 7, 7),
+        new THREE.MeshBasicMaterial({ color: 0xeaf8ff, transparent: true, opacity: 0, depthWrite: false }));
+      b.visible = false; b.userData = { life: 0, max: 1, sz: 1 }; scn.add(b); arr.push(b);
+    }
+  }
+  function emitBubble(arr, x, y, z, sz) {
+    const b = arr.find(b => !b.visible); if (!b) return;
+    b.visible = true; b.position.set(x + (Math.random() - 0.5) * 0.25, y, z + (Math.random() - 0.5) * 0.25);
+    b.userData.life = 0; b.userData.max = 0.5 + Math.random() * 0.7; b.userData.sz = (sz || 1) * (0.5 + Math.random() * 0.7);
+  }
+  function updateBubbles(arr, dt) {
+    for (const b of arr) {
+      if (!b.visible) continue;
+      b.userData.life += dt / 1000; const L = b.userData.life / b.userData.max;
+      if (L >= 1) { b.visible = false; continue; }
+      b.position.y += dt / 1000 * (1.0 + b.userData.sz);
+      b.material.opacity = 0.72 * (1 - L); b.scale.setScalar(b.userData.sz * (0.6 + L * 0.6));
+    }
+  }
   let pursuers = [], rays = [];
   const clock = { t: 0 };
 
@@ -545,6 +581,8 @@ const Scene3D = (() => {
     // pursuer pool — real detailed bass that swim in to chase the lure
     const PURSUER_ART = { body: "#5f8f4a", belly: "#dfe7c2", patColor: "#2c3a1c", pat: "lateral", eye: "#caa23a", bigmouth: true };
     for (let i = 0; i < 6; i++) { const p = makeBass(PURSUER_ART); p.visible = false; scene.add(p); pursuers.push(p); }
+    ambusher = makeBass(PURSUER_ART); ambusher.visible = false; scene.add(ambusher);   // rushes from hidden cover
+    makeBubblePool(scene, bubbles, 30);   // bubbles trailing off fast-moving fish
 
     buildSurface();
 
@@ -655,6 +693,7 @@ const Scene3D = (() => {
     // a churning "boil" disc that shows where a hooked fish is working sub-surface
     boil = new THREE.Mesh(new THREE.CircleGeometry(0.6, 24), new THREE.MeshBasicMaterial({ color: 0xcfe8f0, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
     boil.rotation.x = -Math.PI / 2; boil.visible = false; scene2.add(boil);
+    makeBubblePool(scene2, bubbles2, 24);   // bubbles off the hooked fish
   }
 
   function splashAt(x, z, size) {
@@ -1007,6 +1046,9 @@ const Scene3D = (() => {
       );
       if (fish.tail) fish.tail.rotation.y = Math.sin(t * (8 + pull * 4)) * 0.5;
       if (fish.openMouth) fish.openMouth(0.25 + Math.abs(Math.sin(t * 13)) * 0.4 * green);  // gasping/working its jaw
+      if (fish.flareGills) fish.flareGills(0.3 + Math.abs(Math.sin(t * 24)) * 0.6 * green);  // gills flare on the shake
+      // bubbles stream off a green, thrashing fish
+      if (green > 0.4 && Math.random() < 0.4) emitBubble(bubbles2, fxw + (Math.random() - 0.5) * sc, fy + 0.1, -dist3d, sc);
       undulate(fish, t, 0.16 + pull * 0.06, true);
       boil.visible = f.state !== "jump";
       boil.position.set(fxw, 0.05, -dist3d); boil.material.opacity = 0.22 + Math.sin(t * 10) * 0.1;
@@ -1050,6 +1092,7 @@ const Scene3D = (() => {
       if (!casting && !splashing) castSplashed = false;
     }
 
+    updateBubbles(bubbles2, dt);
     // animate the splash rings (expand + fade)
     for (const r of splashRings) {
       if (!r.visible) continue;
@@ -1375,8 +1418,10 @@ const Scene3D = (() => {
     }
 
     const showLure = st.mode === "retrieve" || st.mode === "strike";
-    lureGroup.visible = showLure;
-    lineMesh.visible = showLure || st.mode === "fight";
+    // on the strike the lead bass has engulfed the lure — it vanishes into the mouth
+    lureGroup.visible = showLure && st.mode !== "strike";
+    lineMesh.visible = (showLure && st.mode !== "strike") || st.mode === "fight";
+    updateBubbles(bubbles, dt);
 
     if (showLure) {
       // each lure works with its own real action
@@ -1480,9 +1525,35 @@ const Scene3D = (() => {
         undulate(p, t * (lead ? 1.4 + burst * 2.5 : 1.05) + i * 2, 0.22 + burst * 0.12, true);  // tail beats hard on the burst
         if (p.tail) p.tail.rotation.y = Math.sin(t * (7 + it * 4 + burst * 14) + i) * 0.5;
         if (p.openMouth) p.openMouth(burst);                           // mouth gapes open as it strikes
+        if (p.flareGills) p.flareGills(burst * 0.8);                   // gills flare on the lunge
+        // bubbles trail off the head when it surges fast
+        if (burst > 0.2 && Math.random() < burst * 0.5) {
+          const headX = tx + (faceLeft ? -1 : 1) * mouthReach * 0.7;
+          emitBubble(bubbles, headX, ty + 0.1, tz, scl);
+        }
       }
+
+      // AMBUSH: a hidden bass explodes from cover and nails the lure
+      if (st.ambush && ambusher) {
+        const pr = Math.min(1, st.ambush.prog || 0), ease = pr * pr * (3 - 2 * pr);
+        const ascl = (0.55 + (st.fishSize != null ? st.fishSize : 0.5) * 0.9) * 1.1;   // ambushers run big
+        let ox, oy, oz;
+        if (st.ambush.from === 1) { ox = lx + 0.4; oy = -3.0; oz = -1.0; }             // up from under the rocks
+        else if (st.ambush.from === 2) { ox = lx - 1.5; oy = ly - 0.3; oz = -2.7; }    // out from behind a tree
+        else { ox = (lx < 0 ? 2.9 : -2.9); oy = ly + 0.2; oz = -0.5; }                 // in from off-screen
+        const fl = ox > lx, mr = 1.35 * ascl, tgtX = lx + (fl ? mr : -mr);
+        const ax = ox + (tgtX - ox) * ease, ay = oy + (ly - oy) * ease, az = oz + (0 - oz) * ease;
+        ambusher.visible = true; ambusher.position.set(ax, ay, az); ambusher.scale.setScalar(ascl);
+        ambusher.rotation.set(Math.sin(t * 20) * 0.1, (fl ? Math.PI : 0) + (1 - ease) * (fl ? -0.6 : 0.6), Math.sin(t * 18) * 0.14);
+        undulate(ambusher, t * 3.2, 0.3, true);                       // thrashing hard on the rush
+        if (ambusher.tail) ambusher.tail.rotation.y = Math.sin(t * 24) * 0.6;
+        if (ambusher.openMouth) ambusher.openMouth(ease);             // gapes wide as it reaches the bait
+        if (ambusher.flareGills) ambusher.flareGills(0.4 + ease * 0.6);
+        if (Math.random() < 0.8) emitBubble(bubbles, ax + (fl ? -mr : mr) * 0.6, ay + 0.1, az, ascl);
+      } else if (ambusher) ambusher.visible = false;
     } else {
       for (const p of pursuers) p.visible = false;
+      if (ambusher) ambusher.visible = false;
       zoneRing.visible = arrowUp.visible = arrowDn.visible = false;
       if (lureTrail) lureTrail.visible = false; trailPts.length = 0;
     }
