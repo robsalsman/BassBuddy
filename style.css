@@ -688,5 +688,19 @@ html, body {
 .sega-lure .sl-swatch { width: 22px; height: 6px; border-radius: 3px; border: 1px solid rgba(255,255,255,.5); }
 .sega-lure small { font-weight: 800; font-style: italic; font-size: 11px; color: #eaf3ff; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
 
+/* ---- Hookset timing meter ---- */
+.hook-meter { position: absolute; left: 50%; top: 38%; transform: translateX(-50%);
+  width: min(86%, 460px); z-index: 7; text-align: center; pointer-events: none; }
+.hm-label { font-weight: 900; font-style: italic; font-size: 26px; color: #ffd23c;
+  -webkit-text-stroke: 1.5px #7a3d00; text-shadow: 0 2px 6px rgba(0,0,0,.6); letter-spacing: .5px; margin-bottom: 8px; }
+.hm-track { position: relative; height: 30px; border-radius: 8px; overflow: hidden;
+  background: linear-gradient(#0e2630, #06141c); border: 2px solid rgba(255,255,255,.5); box-shadow: 0 3px 10px rgba(0,0,0,.5); }
+.hm-sweet { position: absolute; left: 50%; top: 0; bottom: 0; width: 22%; transform: translateX(-50%);
+  background: linear-gradient(90deg, rgba(91,227,122,.25), rgba(91,227,122,.7), rgba(91,227,122,.25)); }
+.hm-sweet::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 8%; transform: translateX(-50%); background: rgba(255,255,255,.55); }
+.hm-marker { position: absolute; top: -3px; bottom: -3px; left: 0; width: 6px; margin-left: -3px; border-radius: 3px;
+  background: #fff; box-shadow: 0 0 8px rgba(255,255,255,.9); }
+.hm-hint { font-weight: 700; font-size: 13px; color: #eaf3ff; text-shadow: 0 1px 3px rgba(0,0,0,.6); margin-top: 7px; }
+
 .fishing-off { display: none !important; }
 .hidden { display: none !important; }

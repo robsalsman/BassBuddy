@@ -222,6 +222,7 @@
     shopBtn: $("shopBtn"), shopModal: $("shopModal"), shopClose: $("shopClose"), shopCoins: $("shopCoins"),
     shopRods: $("shopRods"), shopLures: $("shopLures"), shopSpots: $("shopSpots"), shopDex: $("shopDex"),
     rodChip: $("rodChip"), lureChip: $("lureChip"), spotChip: $("spotChip"),
+    hookMeter: $("hookMeter"), hmMarker: $("hmMarker"),
     lureModal: $("lureModal"), lureClose: $("lureClose"), lureList: $("lureList"), colorRow: $("colorRow"), lureCond: $("lureCond"),
     mapModal: $("mapModal"), mapClose: $("mapClose"), mapVenues: $("mapVenues"), posGrid: $("posGrid"), finder: $("finder"),
     tourneyBtn: $("tourneyBtn"), modeBtn: $("modeBtn"), modeModal: $("modeModal"), modeClose: $("modeClose"),
@@ -911,14 +912,18 @@
   function strike() {
     S.mode = "strike";
     S.hookedFish = pickFish();
-    S.strikeWindow = 950 - S.hookedFish.difficulty * 480;
+    // a forgiving timing window; a sweeping marker you tap near the middle
+    S.strikeWindow = 1700;
+    S.hook = { phase: rnd(0, 6.28), marker: 0.5, done: false };
     el.retrievePanel.classList.add("hidden");
     showBtn(true); setBtn("SET THE HOOK!", "hook");
+    el.hookMeter.classList.remove("hidden");
     setStatus("FISH ON!", true);
     splash(S.bobber.x, S.bobber.y); splash(S.bobber.x, S.bobber.y);
     vibrate(45);
   }
   function strikeMissed() {
+    el.hookMeter.classList.add("hidden");
     setStatus("It spat the lure!");
     advanceTime(3);
     resetToIdle();
@@ -926,19 +931,28 @@
   }
 
   function hookSet() {
-    if (S.mode !== "strike") return;
+    if (S.mode !== "strike" || (S.hook && S.hook.done)) return;
     const f = S.hookedFish, d = f.difficulty;
+    // hookset quality from how close the marker was to the centre when you tapped
+    const off = S.hook ? Math.min(1, Math.abs((S.hook.marker != null ? S.hook.marker : 0.5) - 0.5) * 2) : 0.5;
+    const quality = clamp(1 - off / 0.5, 0, 1);   // full inside the green sweet zone (off<0.5 from edge)
+    const perfect = off < 0.1, good = off < 0.24;
+    S.hookQuality = quality;
+    if (S.hook) S.hook.done = true;
+    el.hookMeter.classList.add("hidden");
     S.mode = "fight";
     // fight from the angler's point of view, up on the surface
     S.view = "surface"; S.viewT = 0;
-    setStatus(""); setBtn("HOLD TO REEL", "reel"); showBtn(true);
+    setBtn("HOLD TO REEL", "reel"); showBtn(true);
     el.fightPanel.classList.remove("hidden");
     const T = S.ft;
-    T.stamina = 1; T.tension = 0; T.dist = clamp(S.rv.dist, 0.45, 1);
-    T.state = "run"; T.stateT = rnd(500, 1100); T.pull = 0.8; T.jumpY = 0;
-    T.maxStam = 1; T.size = d;
+    // a good hookset starts the fish more worn down and pulling less = easier fight
+    T.stamina = 1 - quality * 0.32; T.tension = 0; T.dist = clamp(S.rv.dist, 0.45, 1);
+    T.state = "run"; T.stateT = rnd(500, 1100); T.pull = 0.85 - quality * 0.3; T.jumpY = 0;
+    T.maxStam = T.stamina; T.size = d;
     S.holding = false;
-    vibrate([20, 30, 40]);
+    setStatus(perfect ? "PERFECT HOOKSET!" : good ? "Solid hookset!" : "Hooked up!", true);
+    vibrate(perfect ? [20, 40, 30, 40] : [20, 30, 40]);
     el.ftHint.textContent = "Wear it down — reel when it tires!";
   }
 
@@ -964,8 +978,14 @@
     if (isRecord) G.records[f.name] = f.weight;
     advanceTime(5);
 
-    if (S.tournament) { tourLand(f, isRecord, prev); save(); return; }
-    G.coins += f.value;
+    // bonus points for a clean hookset
+    const hq = S.hookQuality || 0;
+    const hookBonus = hq > 0.55 ? Math.max(1, Math.round(f.value * (hq - 0.4) * 0.7)) : 0;
+    if (hookBonus) toast(`✨ ${hq > 0.82 ? "Perfect" : "Good"} hookset +${hookBonus} 🪙`);
+    S.hookQuality = 0;
+
+    if (S.tournament) { tourLand(f, isRecord, prev); if (hookBonus) G.coins += hookBonus; save(); updateHUD(); return; }
+    G.coins += f.value + hookBonus;
     save(); updateHUD();
     vibrate([20, 40, 30]);
     showCatch(f, isRecord, prev);
@@ -1045,6 +1065,7 @@
     if (S.view !== "surface") { S.view = "surface"; S.viewT = 0; }
     el.retrievePanel.classList.add("hidden");
     el.fightPanel.classList.add("hidden");
+    el.hookMeter.classList.add("hidden");
     el.castMeter.classList.add("hidden");
     showBtn(false);
     setStatus("Tap & hold the water to aim, release to cast 🎣");
@@ -1445,6 +1466,12 @@
     }
     if (S.mode === "strike") {
       S.strikeWindow -= dt;
+      // sweep the hookset marker back and forth; the centre is the sweet spot
+      if (S.hook) {
+        S.hook.phase += dt * 0.009;
+        S.hook.marker = 0.5 + 0.5 * Math.sin(S.hook.phase);
+        if (el.hmMarker) el.hmMarker.style.left = (S.hook.marker * 100) + "%";
+      }
       S.bobber.y += Math.sin(now / 60) * 1.4;
       if (Math.random() < 0.3) ripple(S.bobber.x, S.bobber.y);
       if (S.strikeWindow <= 0) strikeMissed();
