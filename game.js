@@ -515,16 +515,43 @@
 
   // ---- Synthesized sound effects (Web Audio — no asset files) ----
   const Sound = (() => {
-    let ctx = null, master = null, ready = false;
+    let ctx = null, master = null, ready = false, ambBed = null;
     function ensure() {
       try {
         if (!ctx) {
           const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
           ctx = new AC();
-          master = ctx.createGain(); master.gain.value = 0.45; master.connect(ctx.destination);
+          master = ctx.createGain(); master.gain.value = G.muted ? 0 : 0.45; master.connect(ctx.destination);
           ready = true;
+          ambientStart();
         }
         if (ctx.state === "suspended") ctx.resume();
+      } catch (e) {}
+    }
+    function setMuted(m) { if (master) master.gain.value = m ? 0 : 0.45; }
+    // continuous gentle-water ambience (looping filtered noise with a slow swell)
+    function ambientStart() {
+      if (!ready || ambBed) return;
+      try {
+        const len = ctx.sampleRate * 2, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+        ambBed = ctx.createBufferSource(); ambBed.buffer = buf; ambBed.loop = true;
+        const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 360;
+        const g = ctx.createGain(); g.gain.value = 0.0001;
+        ambBed.connect(f); f.connect(g); g.connect(master);
+        const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 0.11; lg.gain.value = 0.02;
+        lfo.connect(lg); lg.connect(g.gain); lfo.start();
+        ambBed.start();
+        g.gain.setValueAtTime(0.0001, ctx.currentTime); g.gain.linearRampToValueAtTime(0.05, ctx.currentTime + 2.5);
+      } catch (e) {}
+    }
+    // occasional wildlife call — birdsong by day, a loon by night
+    function ambientCall(night) {
+      if (!ready || G.muted) return;
+      try {
+        const t = ctx.currentTime;
+        if (night) { tone(720, t, 0.5, "sine", 0.05, 540); tone(560, t + 0.55, 0.75, "sine", 0.05, 430); }
+        else { const base = 1700 + Math.random() * 900; for (let i = 0; i < 3; i++) tone(base + i * 130, t + i * 0.09, 0.08, "sine", 0.035, base + i * 130 + 220); }
       } catch (e) {}
     }
     function tone(freq, t0, dur, type, peak, slideTo) {
@@ -558,6 +585,15 @@
           case "weak": tone(320, t, 0.18, "sine", 0.12, 200); break;
           case "jump": noise(t, 0.3, "lowpass", 1700, 0.26); break;
           case "snap": tone(950, t, 0.12, "sawtooth", 0.2, 120); noise(t, 0.12, "highpass", 3000, 0.18); break;
+          case "drag": {   // reel drag screaming as a big fish peels line
+            const o = ctx.createOscillator(), g = ctx.createGain(), lfo = ctx.createOscillator(), lg = ctx.createGain();
+            o.type = "sawtooth"; o.frequency.setValueAtTime(430, t); o.frequency.linearRampToValueAtTime(370, t + 0.42);
+            lfo.type = "square"; lfo.frequency.value = 34; lg.gain.value = 55; lfo.connect(lg); lg.connect(o.frequency);   // buzzy vibrato
+            g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.1, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.42);
+            o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.45); lfo.start(t); lfo.stop(t + 0.45);
+            noise(t, 0.4, "bandpass", 1300, 0.05);
+            break;
+          }
           case "land": [523, 659, 784, 1047].forEach((f, i) => tone(f, t + i * 0.08, 0.3, "triangle", 0.13)); break;
           case "lunker": [392, 523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, t + i * 0.09, 0.46, "triangle", 0.15)); break;
           case "coin": tone(988, t, 0.08, "square", 0.09); tone(1319, t + 0.05, 0.12, "square", 0.09); break;
@@ -565,7 +601,7 @@
         }
       } catch (e) {}
     }
-    return { ensure, play };
+    return { ensure, play, ambientCall, setMuted };
   })();
   const sfx = n => Sound.play(n);
   function anyModalOpen() {
@@ -1350,6 +1386,9 @@
     drive3D(dt, now);
     updateBoatHud(now);
     updateSegaHud();
+    // occasional ambient wildlife call (birdsong by day, a loon at night)
+    S._ambT = (S._ambT == null ? rnd(3000, 7000) : S._ambT - dt);
+    if (S._ambT <= 0) { S._ambT = rnd(6000, 13000); try { Sound.ambientCall(!!(dayColors(spot()).night)); } catch (e) {} }
     requestAnimationFrame(frame);
   }
 
@@ -1701,6 +1740,13 @@
       T.stamina = clamp(T.stamina - dt * 0.00003, 0, 1);
     }
     T.tension = clamp(T.tension, 0, 1);
+    // a big bass surging and peeling line: the drag screams + the rod buzzes in
+    // your hand (re-triggered while it runs — not a steady click loop)
+    const takingLine = T.state === "run" && T.size > 0.45 && (!S.holding || T.pull > 0.85);
+    if (takingLine) {
+      T._dragT = (T._dragT || 0) - dt;
+      if (T._dragT <= 0) { sfx("drag"); vibrate(70); T._dragT = 430; }
+    } else T._dragT = 0;
     if (T.state === "jump" && Math.random() < 0.06) splash(S.bobber.x, waterLine());
 
     if (T.tension >= 1) { loseFish("The line snapped!"); return; }
@@ -2603,6 +2649,7 @@
   }
   el.muteBtn.addEventListener("click", () => {
     G.muted = !G.muted; el.muteBtn.textContent = G.muted ? "🔇" : "🔊";
+    Sound.setMuted(G.muted);
     if (!G.muted) { Sound.ensure(); sfx("ui"); }
     save();
   });
