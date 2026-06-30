@@ -28,15 +28,18 @@ function loadRealModels() {
 function loadOne(key) {
   _gltfLoader.load("models/" + key + ".glb", (gltf) => {
       const root = gltf.scene || gltf.scenes[0];
-      // normalize: center at origin and scale longest axis to the game's fish length
-      const box = new THREE.Box3().setFromObject(root), size = new THREE.Vector3();
-      box.getSize(size); const c = box.getCenter(new THREE.Vector3());
-      root.position.sub(c);
+      // normalize so any dropped-in model frames the same: scale the longest axis
+      // to the game's fish length FIRST, then recenter (scaling moves the centre,
+      // so recentring after scale is what keeps it framed)
+      const size = new THREE.Vector3();
+      new THREE.Box3().setFromObject(root).getSize(size);
       const longest = Math.max(size.x, size.y, size.z) || 1;
-      root.scale.multiplyScalar(2.4 / longest);
+      root.scale.multiplyScalar(3.0 / longest);
+      const c = new THREE.Box3().setFromObject(root).getCenter(new THREE.Vector3());
+      root.position.sub(c);
       const wrap = new THREE.Group(); wrap.add(root); wrap.userData.imported = true;
       LOADED_MODELS[key] = wrap;
-    }, undefined, () => { /* no file for this species — procedural fallback */ });
+    }, undefined, () => { /* no/failed file for this species — silent procedural fallback */ });
 }
 // a clone of the loaded model for a species, or null
 function realModel(key) {
