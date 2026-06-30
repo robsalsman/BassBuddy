@@ -165,6 +165,7 @@
       records: {}, caught: {},
       tourWins: 0, bestBag: 0,
       mode: "career",   // "career" (earn & unlock) | "arcade" (everything unlocked)
+      muted: false,
     };
   }
   function load() {
@@ -219,7 +220,7 @@
     catchName: $("catchName"), catchWeight: $("catchWeight"), catchReward: $("catchReward"),
     catchRewardWrap: $("catchRewardWrap"), catchRecord: $("catchRecord"), catchTourney: $("catchTourney"), catchOk: $("catchOk"),
     failModal: $("failModal"), failMsg: $("failMsg"), failOk: $("failOk"),
-    shopBtn: $("shopBtn"), shopModal: $("shopModal"), shopClose: $("shopClose"), shopCoins: $("shopCoins"),
+    shopBtn: $("shopBtn"), muteBtn: $("muteBtn"), shopModal: $("shopModal"), shopClose: $("shopClose"), shopCoins: $("shopCoins"),
     shopRods: $("shopRods"), shopLures: $("shopLures"), shopSpots: $("shopSpots"), shopDex: $("shopDex"),
     rodChip: $("rodChip"), lureChip: $("lureChip"), spotChip: $("spotChip"),
     hookMeter: $("hookMeter"), hmMarker: $("hmMarker"), strikeFlash: $("strikeFlash"), catchHookset: $("catchHookset"),
@@ -510,7 +511,63 @@
   function showBtn(on) { el.actionBtn.classList.toggle("hidden", !on); }
   function rnd(a, b) { return a + Math.random() * (b - a); }
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
-  function vibrate(ms) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) {} }
+  function vibrate(ms) { try { if (!G.muted) navigator.vibrate && navigator.vibrate(ms); } catch (e) {} }
+
+  // ---- Synthesized sound effects (Web Audio — no asset files) ----
+  const Sound = (() => {
+    let ctx = null, master = null, ready = false;
+    function ensure() {
+      try {
+        if (!ctx) {
+          const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+          ctx = new AC();
+          master = ctx.createGain(); master.gain.value = 0.45; master.connect(ctx.destination);
+          ready = true;
+        }
+        if (ctx.state === "suspended") ctx.resume();
+      } catch (e) {}
+    }
+    function tone(freq, t0, dur, type, peak, slideTo) {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = type || "sine"; o.frequency.setValueAtTime(freq, t0);
+      if (slideTo) o.frequency.exponentialRampToValueAtTime(Math.max(20, slideTo), t0 + dur);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.exponentialRampToValueAtTime(peak, t0 + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + dur + 0.03);
+    }
+    function noise(t0, dur, filtType, filtFreq, peak) {
+      const len = Math.max(1, (ctx.sampleRate * dur) | 0), buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      const n = ctx.createBufferSource(); n.buffer = buf;
+      const f = ctx.createBiquadFilter(); f.type = filtType || "lowpass"; f.frequency.value = filtFreq || 1000;
+      const g = ctx.createGain(); g.gain.setValueAtTime(peak, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      n.connect(f); f.connect(g); g.connect(master); n.start(t0); n.stop(t0 + dur);
+    }
+    function play(name) {
+      if (!ready || G.muted) return;
+      try {
+        const t = ctx.currentTime;
+        switch (name) {
+          case "cast": noise(t, 0.3, "bandpass", 1800, 0.16); tone(900, t, 0.28, "sawtooth", 0.05, 1700); break;
+          case "splash": noise(t, 0.34, "lowpass", 1400, 0.3); noise(t + 0.02, 0.22, "highpass", 2600, 0.12); break;
+          case "twitch": tone(640, t, 0.06, "square", 0.05, 760); break;
+          case "strike": tone(150, t, 0.42, "sine", 0.32, 70); noise(t, 0.4, "lowpass", 900, 0.28); break;
+          case "perfect": [660, 880, 1320].forEach((f, i) => tone(f, t + i * 0.07, 0.26, "triangle", 0.16)); break;
+          case "good": tone(660, t, 0.16, "triangle", 0.14); tone(990, t + 0.06, 0.18, "triangle", 0.12); break;
+          case "weak": tone(320, t, 0.18, "sine", 0.12, 200); break;
+          case "jump": noise(t, 0.3, "lowpass", 1700, 0.26); break;
+          case "snap": tone(950, t, 0.12, "sawtooth", 0.2, 120); noise(t, 0.12, "highpass", 3000, 0.18); break;
+          case "land": [523, 659, 784, 1047].forEach((f, i) => tone(f, t + i * 0.08, 0.3, "triangle", 0.13)); break;
+          case "lunker": [392, 523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, t + i * 0.09, 0.46, "triangle", 0.15)); break;
+          case "coin": tone(988, t, 0.08, "square", 0.09); tone(1319, t + 0.05, 0.12, "square", 0.09); break;
+          case "ui": tone(520, t, 0.04, "sine", 0.05, 620); break;
+        }
+      } catch (e) {}
+    }
+    return { ensure, play };
+  })();
+  const sfx = n => Sound.play(n);
   function anyModalOpen() {
     return [el.catchModal, el.failModal, el.shopModal, el.lureModal, el.mapModal,
             el.tourStartModal, el.tourResultModal].some(m => !m.classList.contains("hidden"));
@@ -534,6 +591,7 @@
 
   function updateHUD() {
     el.coins.textContent = G.coins;
+    if (el.muteBtn) el.muteBtn.textContent = G.muted ? "🔇" : "🔊";
     el.rodName.textContent = rod().name;
     el.spotName.textContent = spot().name;
     el.posName.textContent = position().name;
@@ -828,6 +886,11 @@
     if (S.mode === "retrieve") { if (!holdCandidate || dur < HOLD_MS) twitch(); S.holding = false; holdCandidate = false; }
     else if (S.mode === "fight") S.holding = false;
   }
+  // unlock the audio context on the first touch (mobile policy) + a soft click on any control
+  document.addEventListener("pointerdown", (e) => {
+    Sound.ensure();
+    if (e.target.closest("button, .chip, .tab, .mode-opt, .lure-opt, .color-dot, .scent-opt, .troll-btn, .well-slot, .map-venue, .pos-cell")) sfx("ui");
+  }, true);
   canvas.addEventListener("pointerdown", (e) => { const p = ptr(e); onDown(p.x, p.y); });
   canvas.addEventListener("pointermove", (e) => { const p = ptr(e); onMove(p.x, p.y); });
   canvas.addEventListener("pointerup", onUp);
@@ -866,6 +929,7 @@
     S.castLuck = rnd(0.82, 1.28);     // real fishing varies cast-to-cast
     showBtn(false); setStatus("");
     S.aim = null;
+    sfx("cast"); vibrate(12);
   }
 
   function startRetrieve() {
@@ -900,7 +964,7 @@
     else S.rv.depth = clamp(S.rv.depth - 0.05, 0, 1);
     S.rv.bob = -13;                 // the lure jumps on the twitch, then settles
     ripple(S.bobber.x, S.bobber.y);
-    vibrate(8);
+    sfx("twitch"); vibrate(8);
   }
 
   function endRetrieveMiss() {
@@ -915,15 +979,15 @@
     // window + sweep speed scale with the fish: trophies give a tighter, faster
     // meter for more tension; little ones are forgiving
     const diff = clamp(S.hookedFish.difficulty || 0.4, 0, 1);
-    S.strikeWindow = 1950 - diff * 800;                       // ~1.95s easy .. ~1.15s hard
-    S.hook = { phase: rnd(0, 6.28), marker: 0.5, done: false, speed: 0.0075 + diff * 0.0075 };
+    S.strikeWindow = 2900 - diff * 700;                       // ~2.9s easy .. ~2.2s hard — time to react
+    S.hook = { phase: rnd(0, 6.28), marker: 0.5, done: false, speed: 0.0038 + diff * 0.0032 };  // slow, readable sweep
     el.retrievePanel.classList.add("hidden");
     showBtn(true); setBtn("SET THE HOOK!", "hook");
     el.hookMeter.classList.remove("hidden");
     flashStrike();
     setStatus("FISH ON!", true);
     splash(S.bobber.x, S.bobber.y); splash(S.bobber.x, S.bobber.y);
-    vibrate(45);
+    sfx("strike"); vibrate(45);
   }
   function flashStrike() {
     const fl = el.strikeFlash; if (!fl) return;
@@ -960,6 +1024,7 @@
     T.maxStam = T.stamina; T.size = d;
     S.holding = false;
     setStatus(perfect ? "PERFECT HOOKSET!" : good ? "Solid hookset!" : "Hooked up!", true);
+    sfx(perfect ? "perfect" : good ? "good" : "weak");
     vibrate(perfect ? [20, 40, 30, 40] : [20, 30, 40]);
     el.ftHint.textContent = "Wear it down — reel when it tires!";
   }
@@ -992,6 +1057,8 @@
     if (hookBonus) toast(`✨ ${hq > 0.82 ? "Perfect" : "Good"} hookset +${hookBonus} 🪙`);
     S.hookQuality = 0;
 
+    const lunk = f.bass && f.weight >= LUNKER_LB;
+    sfx(lunk ? "lunker" : "land"); setTimeout(() => sfx("coin"), 450);
     if (S.tournament) { tourLand(f, isRecord, prev); if (hookBonus) G.coins += hookBonus; save(); updateHUD(); return; }
     G.coins += f.value + hookBonus;
     save(); updateHUD();
@@ -1057,6 +1124,7 @@
 
   function loseFish(msg) {
     el.fightPanel.classList.add("hidden");
+    sfx("snap");
     if (S.tournament) { S.mode = "idle"; showBtn(false); vibrate(120); toast("💥 " + (msg || "It got off!")); setStatus("Tap & hold the water to cast"); return; }
     resetToIdle();
     vibrate(120);
@@ -1460,7 +1528,7 @@
       S.bobber.x = S.bobber.sx + (S.bobber.targetX - S.bobber.sx) * fp;
       const arc = Math.sin(fp * Math.PI) * (60 + S.bobber.dist * 130);
       S.bobber.y = S.bobber.sy + (S.bobber.targetY - S.bobber.sy) * fp - arc;
-      if (p >= 1) { S.bobber.y = S.bobber.targetY; S.mode = "splashdown"; S.splashT = 0; }
+      if (p >= 1) { S.bobber.y = S.bobber.targetY; S.mode = "splashdown"; S.splashT = 0; sfx("splash"); }
     }
     if (S.mode === "splashdown") {                 // brief surface beat so the splash/ripples read
       S.splashT = (S.splashT || 0) + dt;
@@ -1608,7 +1676,7 @@
     if (T.stateT <= 0) {
       const tired = T.stamina < 0.33, r = Math.random();
       if (T.state === "tire") {
-        if (!tired && r < 0.3) { T.state = "jump"; T.stateT = rnd(450, 800); }
+        if (!tired && r < 0.3) { T.state = "jump"; T.stateT = rnd(450, 800); sfx("jump"); vibrate(20); }
         else { T.state = "run"; T.stateT = rnd(650, 1500) * (0.6 + T.size * 0.8); T.latTarget = rnd(-1, 1) * (0.5 + T.size * 0.5); }
       } else { T.state = "tire"; T.stateT = rnd(700, 1400) * (1.2 - T.size * 0.5); T.latTarget = (T.latTarget || 0) * 0.3; }
     }
@@ -2533,6 +2601,11 @@
         <div class="best">${best ? "🏆 " + best + " lb" : ""}</div></div>`);
     });
   }
+  el.muteBtn.addEventListener("click", () => {
+    G.muted = !G.muted; el.muteBtn.textContent = G.muted ? "🔇" : "🔊";
+    if (!G.muted) { Sound.ensure(); sfx("ui"); }
+    save();
+  });
   el.shopBtn.addEventListener("click", openShop);
   el.shopClose.addEventListener("click", () => el.shopModal.classList.add("hidden"));
   document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => switchTab(t.dataset.tab)));
