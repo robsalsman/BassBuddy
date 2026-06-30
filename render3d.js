@@ -154,17 +154,20 @@ function bassTextures(art) {
   // species markings along the flanks (two mirrored bands: v≈0.30 and v≈0.70)
   for (const vy of [0.30, 0.70]) {
     const y = vy * H;
-    if (art.pat === "lateral") {                       // largemouth: broken blotch stripe -> dark caudal blotch
+    if (art.pat === "lateral") {                       // largemouth: ragged broken stripe -> dark caudal blotch
       g.fillStyle = pc;
-      for (let bx = 0.10; bx < 0.80; bx += 0.052) {
-        const midw = Math.sin(Math.min(1, (bx - 0.06) / 0.74) * Math.PI);   // strongest mid-body
-        g.globalAlpha = 0.30 + midw * 0.42;
-        const bw = 9 + midw * 24, bh = 9 + midw * 15 + Math.sin(bx * 40) * 4;
-        g.beginPath(); g.ellipse(W * bx + Math.sin(bx * 30) * 6, y + Math.sin(bx * 22) * 4, bw, bh, 0, 0, 6.28); g.fill();
+      // overlapping irregular blotches that merge into a torn horizontal band,
+      // strongest through the middle and fading toward the head/tail
+      for (let bx = 0.08; bx < 0.82; bx += 0.028) {
+        const midw = Math.sin(Math.min(1, (bx - 0.05) / 0.78) * Math.PI);     // strongest mid-body
+        const n = Math.sin(bx * 57.3) * Math.cos(bx * 23.7);                  // stable pseudo-noise -1..1
+        g.globalAlpha = (0.22 + midw * 0.5) * (0.7 + 0.3 * Math.abs(n));
+        const bw = Math.abs(14 + midw * 26 + n * 8), bh = Math.abs(7 + midw * (16 + n * 9));
+        g.beginPath(); g.ellipse(W * bx, y + n * 10, bw, bh, n * 0.3, 0, 6.28); g.fill();
       }
       // solid dark blotch where the stripe converges on the caudal peduncle
-      g.globalAlpha = 0.72;
-      g.beginPath(); g.ellipse(W * 0.085, y, W * 0.05, 30, 0, 0, 6.28); g.fill();
+      g.globalAlpha = 0.74;
+      g.beginPath(); g.ellipse(W * 0.085, y, W * 0.045, 28, 0, 0, 6.28); g.fill();
       g.globalAlpha = 1;
     } else if (art.pat === "bars") {                   // smallmouth: vertical bronze bars
       g.fillStyle = pc; g.globalAlpha = 0.42;
@@ -189,17 +192,25 @@ function bassTextures(art) {
   b.beginPath(); b.moveTo(gx, H * 0.10); b.quadraticCurveTo(gx - 30, H * 0.5, gx, H * 0.90); b.stroke();
   g.strokeStyle = "rgba(150,40,40,0.30)"; g.lineWidth = 6;
   g.beginPath(); g.moveTo(gx + 2, H * 0.18); g.quadraticCurveTo(gx - 26, H * 0.5, gx + 2, H * 0.82); g.stroke();
-  // mouth + jaw line. The defining largemouth trait: the maxilla (upper jaw)
-  // extends PAST the eye — a big "bucket" mouth — vs smallmouth (jaw under eye).
-  const jawBack = art.bigmouth ? 0.82 : 0.90;     // how far back the jaw hinges
-  g.strokeStyle = "rgba(15,10,8,0.85)"; g.lineWidth = art.bigmouth ? 9 : 6; g.lineCap = "round";
-  g.beginPath(); g.moveTo(W * 0.995, H * 0.55); g.quadraticCurveTo(W * 0.93, H * 0.60, W * jawBack, H * 0.60); g.stroke();
-  // matching relief on the height/normal map so the jaw seam catches light
-  b.strokeStyle = "rgba(30,30,30,0.9)"; b.lineWidth = art.bigmouth ? 8 : 5;
-  b.beginPath(); b.moveTo(W * 0.995, H * 0.55); b.quadraticCurveTo(W * 0.93, H * 0.60, W * jawBack, H * 0.60); b.stroke();
-  // open gape at the snout
-  g.fillStyle = "rgba(15,10,8,0.7)";
-  g.beginPath(); g.ellipse(W * 0.965, H * 0.625, W * 0.05, H * 0.055, 0, 0, 6.28); g.fill();
+  // mouth + maxilla (upper-jaw) line — drawn on BOTH flanks (v≈0.30 / 0.70) so
+  // it shows from the side. The defining largemouth trait: the maxilla extends
+  // back PAST the eye — a big "bucket" mouth — vs smallmouth (jaw under eye).
+  const jawEnd = art.bigmouth ? 0.80 : 0.865;     // where the jaw hinges (u)
+  g.lineCap = "round";
+  for (const sgn of [-1, 1]) {
+    const y = H * (0.5 + sgn * 0.205);            // the two visible flanks, mouth level
+    g.strokeStyle = "rgba(12,9,7,0.82)"; g.lineWidth = art.bigmouth ? 8 : 6;
+    g.beginPath(); g.moveTo(W * 0.992, y); g.quadraticCurveTo(W * 0.905, y + sgn * 9, W * jawEnd, y + sgn * 6); g.stroke();
+    // a finer lower-lip line just below it (the closed gape)
+    g.strokeStyle = "rgba(40,30,22,0.4)"; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(W * 0.985, y + sgn * 6); g.quadraticCurveTo(W * 0.93, y + sgn * 14, W * 0.90, y + sgn * 11); g.stroke();
+    // matching relief on the height map so the jaw seam catches light
+    b.strokeStyle = "rgba(30,30,30,0.9)"; b.lineWidth = 6;
+    b.beginPath(); b.moveTo(W * 0.992, y); b.quadraticCurveTo(W * 0.905, y + sgn * 9, W * jawEnd, y + sgn * 6); b.stroke();
+  }
+  // darkened lips wrapping the front of the snout (reads as the mouth from any angle)
+  g.fillStyle = "rgba(18,14,10,0.5)";
+  g.fillRect(W * 0.97, H * 0.20, W * 0.03, H * 0.60);
 
   const map = new THREE.CanvasTexture(cv); map.anisotropy = 8;
   if (THREE.SRGBColorSpace) map.colorSpace = THREE.SRGBColorSpace;
@@ -288,18 +299,27 @@ function makeBass(art) {
   const tailMesh = new THREE.Mesh(new THREE.ShapeGeometry(tail), finMat);
   tailMesh.position.x = -LEN / 2 + 0.04; tailMesh.scale.setScalar(1.05); group.add(tailMesh); group.tail = tailMesh;
 
-  // split dorsal: tall spiny sail in front, soft dorsal behind a notch
+  // Median fins lie in the body's vertical midline plane (X-Y, z=0) so they run
+  // ALONG the spine like the tail — not across the body.
+  // Spiny dorsal: stiff sail with a scalloped (spined) top edge.
   const spiny = new THREE.Shape();
-  spiny.moveTo(-0.12, 0); spiny.lineTo(0.0, 0.46); spiny.lineTo(0.22, 0.34); spiny.lineTo(0.44, 0.48); spiny.lineTo(0.64, 0.34); spiny.lineTo(0.78, 0); spiny.closePath();
+  spiny.moveTo(-0.46, 0);
+  spiny.lineTo(-0.42, 0.24); spiny.lineTo(-0.34, 0.29); spiny.lineTo(-0.27, 0.25);
+  spiny.lineTo(-0.18, 0.31); spiny.lineTo(-0.10, 0.28); spiny.lineTo(-0.02, 0.33);
+  spiny.lineTo(0.07, 0.29); spiny.lineTo(0.15, 0.32); spiny.lineTo(0.24, 0.28);
+  spiny.lineTo(0.33, 0.29); spiny.lineTo(0.40, 0.22); spiny.lineTo(0.46, 0);
+  spiny.closePath();
   const sd = new THREE.Mesh(new THREE.ShapeGeometry(spiny), finMat);
-  sd.rotation.y = Math.PI / 2; sd.position.set(LEN * 0.10, topY(0.58) - 0.02, 0); group.add(sd);
+  sd.position.set(0.18, topY(0.52) - 0.13, 0); group.add(sd); group.dorsal = sd;
+  // Soft dorsal: a single rounded lobe set behind the spiny sail.
   const soft = new THREE.Shape();
-  soft.moveTo(-0.7, 0); soft.quadraticCurveTo(-0.45, 0.42, -0.1, 0.30); soft.lineTo(-0.05, 0); soft.closePath();
+  soft.moveTo(-0.30, 0); soft.quadraticCurveTo(-0.12, 0.34, 0.12, 0.30);
+  soft.quadraticCurveTo(0.24, 0.25, 0.30, 0); soft.closePath();
   const softD = new THREE.Mesh(new THREE.ShapeGeometry(soft), finMat);
-  softD.rotation.y = Math.PI / 2; softD.position.set(-LEN * 0.16, topY(0.4) - 0.02, 0); group.add(softD);
-  // anal fin (underside, rear)
+  softD.position.set(-0.52, topY(0.34) - 0.10, 0); group.add(softD);
+  // Anal fin: a smaller rounded lobe on the underside, mirrored downward.
   const af = new THREE.Mesh(new THREE.ShapeGeometry(soft), finMat);
-  af.rotation.y = Math.PI / 2; af.scale.set(0.6, -0.6, 0.6); af.position.set(-LEN * 0.22, botY(0.34) + 0.02, 0); group.add(af);
+  af.scale.set(0.7, -0.7, 0.7); af.position.set(-0.58, botY(0.36) + 0.10, 0); group.add(af);
   // pectoral (fan, just behind the gill) + pelvic fins
   const pec = new THREE.Shape();
   pec.moveTo(0, 0); pec.quadraticCurveTo(-0.2, 0.5, -0.62, 0.5); pec.quadraticCurveTo(-0.42, 0.14, -0.5, 0); pec.closePath();
@@ -312,18 +332,24 @@ function makeBass(art) {
     pv.position.set(LEN * 0.1, botY(0.56) + 0.04, s * depth(0.56) * widthFac(0.56) * 0.6); group.add(pv);
   }
 
-  // eyes — glossy: white sclera, coloured iris, black pupil, specular dot
-  const ex = LEN * 0.36, ed = depth(0.86);
-  const scleraMat = new THREE.MeshStandardMaterial({ color: 0xf6f3e8, roughness: 0.25 });
-  const irisMat = new THREE.MeshStandardMaterial({ color: hexNum(art.eye || "#caa23a"), roughness: 0.2, metalness: 0.2 });
-  const pupilMat = new THREE.MeshStandardMaterial({ color: 0x05080a, roughness: 0.1 });
+  // eyes — sit on the side of the head; iris + pupil are pushed proud of the
+  // sclera along the outward (±z) normal so the white ball never hides them
+  const ex = LEN * 0.36, ed = depth(0.86), eyeY = ed * 0.46, R = 0.072;
+  // muted sclera (so the rear/far eye recedes instead of reading as a white
+  // ball); the eye is dominated by a big amber iris + black pupil, like a real bass
+  const scleraMat = new THREE.MeshStandardMaterial({ color: 0x74765c, roughness: 0.5 });
+  const irisCol = new THREE.Color(hexNum(art.eye || "#caa23a"));
+  const irisMat = new THREE.MeshPhysicalMaterial({ color: irisCol, roughness: 0.28, metalness: 0.35, clearcoat: 0.7, clearcoatRoughness: 0.2 });
+  const irisRimMat = new THREE.MeshStandardMaterial({ color: irisCol.clone().multiplyScalar(0.45), roughness: 0.4 });
+  const pupilMat = new THREE.MeshStandardMaterial({ color: 0x04060a, roughness: 0.06, metalness: 0.1 });
   const hiMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
   for (const s of [1, -1]) {
-    const zc = s * ed * widthFac(0.86);
-    const ew = new THREE.Mesh(new THREE.SphereGeometry(0.085, 16, 16), scleraMat); ew.position.set(ex, ed * 0.5, zc * 0.9); group.add(ew);
-    const ir = new THREE.Mesh(new THREE.SphereGeometry(0.05, 16, 16), irisMat); ir.position.set(ex + 0.04, ed * 0.5, zc * 1.0); group.add(ir);
-    const pu = new THREE.Mesh(new THREE.SphereGeometry(0.026, 12, 12), pupilMat); pu.position.set(ex + 0.06, ed * 0.5, zc * 1.05); group.add(pu);
-    const hi = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 8), hiMat); hi.position.set(ex + 0.07, ed * 0.56, zc * 1.06); group.add(hi);
+    const zc = s * ed * widthFac(0.86) * 0.92;
+    const ew = new THREE.Mesh(new THREE.SphereGeometry(R, 20, 20), scleraMat); ew.position.set(ex, eyeY, zc); group.add(ew);
+    const rim = new THREE.Mesh(new THREE.SphereGeometry(R * 0.9, 18, 18), irisRimMat); rim.position.set(ex + 0.006, eyeY, zc + s * R * 0.30); group.add(rim);
+    const ir = new THREE.Mesh(new THREE.SphereGeometry(R * 0.78, 18, 18), irisMat); ir.position.set(ex + 0.01, eyeY, zc + s * R * 0.42); group.add(ir);
+    const pu = new THREE.Mesh(new THREE.SphereGeometry(R * 0.42, 14, 14), pupilMat); pu.position.set(ex + 0.016, eyeY, zc + s * R * 0.74); group.add(pu);
+    const hi = new THREE.Mesh(new THREE.SphereGeometry(R * 0.13, 8, 8), hiMat); hi.position.set(ex + 0.03, eyeY + R * 0.4, zc + s * R * 0.82); group.add(hi);
   }
   // tracked mouth point at the front of the head, so a hooked line attaches here
   group.mouth = new THREE.Object3D(); group.mouth.position.set(LEN * 0.52, -depth(0.95) * 0.1, 0); group.add(group.mouth);
