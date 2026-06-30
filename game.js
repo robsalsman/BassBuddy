@@ -222,6 +222,7 @@
     catchRewardWrap: $("catchRewardWrap"), catchRecord: $("catchRecord"), catchTourney: $("catchTourney"), catchOk: $("catchOk"),
     failModal: $("failModal"), failMsg: $("failMsg"), failOk: $("failOk"),
     shopBtn: $("shopBtn"), muteBtn: $("muteBtn"), shopModal: $("shopModal"), shopClose: $("shopClose"),
+    xpPill: $("xpPill"), recordsModal: $("recordsModal"), recordsClose: $("recordsClose"), recStats: $("recStats"), recBody: $("recBody"),
     shopRods: $("shopRods"), shopLures: $("shopLures"), shopSpots: $("shopSpots"), shopDex: $("shopDex"),
     rodChip: $("rodChip"), lureChip: $("lureChip"), spotChip: $("spotChip"),
     hookMeter: $("hookMeter"), hmMarker: $("hmMarker"), strikeFlash: $("strikeFlash"), catchHookset: $("catchHookset"),
@@ -657,7 +658,7 @@
   const sfx = n => Sound.play(n);
   function anyModalOpen() {
     return [el.catchModal, el.failModal, el.shopModal, el.lureModal, el.mapModal,
-            el.tourStartModal, el.tourResultModal].some(m => !m.classList.contains("hidden"));
+            el.tourStartModal, el.tourResultModal, el.recordsModal].some(m => !m.classList.contains("hidden"));
   }
 
   function floatText(txt, color) {
@@ -2804,6 +2805,33 @@
     if (!G.muted) { Sound.ensure(); sfx("ui"); }
     save();
   });
+  // ---- Record book (tap the 🏆 winnings pill) ----
+  function openRecords() { renderRecords(); el.recordsModal.classList.remove("hidden"); }
+  function renderRecords() {
+    const totalCaught = Object.values(G.caught || {}).reduce((s, n) => s + n, 0);
+    const recVals = Object.values(G.records || {});
+    const biggest = recVals.length ? Math.max(...recVals) : 0;
+    const stats = [
+      ["🐟", "Bass caught", totalCaught],
+      ["🏅", "Biggest bass", biggest ? biggest.toFixed(1) + " lb" : "—"],
+      ["🪣", "Best livewell", (G.bestBag || 0) ? G.bestBag.toFixed(2) + " lb" : "—"],
+      ["🏁", "Tournament wins", G.tourWins || 0],
+      ["🏆", "Winnings", G.coins],
+    ];
+    el.recStats.innerHTML = stats.map(([i, l, v]) =>
+      `<div class="rec-stat"><div class="rs-ico">${i}</div><div class="rs-v">${v}</div><div class="rs-l">${l}</div></div>`).join("");
+    el.recBody.innerHTML = Object.keys(F).map(k => {
+      const def = F[k], best = G.records[def.name], n = G.caught[def.name];
+      const lunk = best && best >= LUNKER_LB;
+      return `<div class="item"><div class="item-ico">${n ? fishSVG(def, 40) : "❓"}</div>
+        <div class="item-info"><div class="item-name">${n ? def.name : "???"}</div>
+        <div class="item-desc">${n ? `Caught ${n} · biggest ${best ? best.toFixed(1) + " lb" : "—"}` : "Not caught yet"}</div></div>
+        <div class="item-btn ${lunk ? "equipped" : "owned"}">${best ? best.toFixed(1) + " lb" : "—"}</div></div>`;
+    }).join("");
+  }
+  el.xpPill.addEventListener("click", openRecords);
+  el.recordsClose.addEventListener("click", () => el.recordsModal.classList.add("hidden"));
+
   el.shopBtn.addEventListener("click", openShop);
   el.shopClose.addEventListener("click", () => { el.shopModal.classList.add("hidden"); if (pendingTour) refreshTourStart(); });
   document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => switchTab(t.dataset.tab)));

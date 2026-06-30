@@ -77,15 +77,25 @@ html, body {
   padding: 7px 12px;
   font-size: 14px;
   font-weight: 700;
+  color: #eaf3ff;
   display: flex;
   gap: 6px;
   align-items: center;
   backdrop-filter: blur(6px);
   white-space: nowrap;
   box-shadow: 0 3px 10px rgba(0,0,0,.25);
+  cursor: pointer;
 }
+.hud-pill:active { transform: scale(.95); }
 #coins { color: var(--gold); min-width: 14px; }
 .hud-pill .coin { filter: drop-shadow(0 0 4px rgba(255,211,92,.6)); }
+/* record book */
+.rec-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 4px 0 12px; }
+.rec-stat { background: rgba(255,255,255,.05); border-radius: 12px; padding: 10px 6px; text-align: center; }
+.rs-ico { font-size: 20px; }
+.rs-v { font-weight: 900; font-size: 17px; color: var(--gold); margin-top: 2px; }
+.rs-l { font-size: 10px; color: #a9cdd9; margin-top: 1px; letter-spacing: .2px; }
+.rec-h { font-size: 13px; font-weight: 800; color: #cfe6f0; margin: 6px 0 8px; letter-spacing: .3px; }
 .hud-spacer { flex: 1; }
 .hud-btn {
   background: var(--gold);

@@ -17,10 +17,10 @@
 
   <!-- Top HUD -->
   <div id="hud" class="hud">
-    <div class="hud-pill" title="Career winnings">
+    <button id="xpPill" class="hud-pill" title="Record book">
       <span class="coin">🏆</span>
       <span id="coins">0</span>
-    </div>
+    </button>
     <div class="hud-spacer"></div>
     <button id="tourneyBtn" class="hud-btn alt" title="Tournament circuit">🏁</button>
     <button id="muteBtn" class="hud-btn" title="Sound">🔊</button>
@@ -249,6 +249,19 @@
       <div class="shop-body hidden" id="shopLures"></div>
       <div class="shop-body hidden" id="shopSpots"></div>
       <div class="shop-body hidden" id="shopDex"></div>
+    </div>
+  </div>
+
+  <!-- Record book -->
+  <div id="recordsModal" class="modal hidden">
+    <div class="modal-card shop-card">
+      <div class="shop-head">
+        <h2>🏆 Record Book</h2>
+        <button class="close-btn" id="recordsClose">✕</button>
+      </div>
+      <div class="rec-stats" id="recStats"></div>
+      <h3 class="rec-h">Biggest of each bass</h3>
+      <div class="shop-body" id="recBody"></div>
     </div>
   </div>
 
