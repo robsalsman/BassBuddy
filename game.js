@@ -164,7 +164,7 @@
       positions: { cove: "pads", river: "riffle", deep: "weed" },
       records: {}, caught: {},
       tourWins: 0, bestBag: 0,
-      mode: "career",   // "career" (earn & unlock) | "arcade" (everything unlocked)
+      mode: "free",     // "free" fishing (default) — tournaments are entered from the circuit
       muted: false,
     };
   }
@@ -197,11 +197,12 @@
   const spot = () => SPOTS.find(s => s.id === G.spot) || SPOTS[0];
   const position = () => { const sp = spot(); return sp.positions.find(p => p.id === G.positions[sp.id]) || sp.positions[0]; };
 
-  // Arcade unlocks everything; career goes by what you've earned.
-  const isArcade = () => G.mode === "arcade";
-  const ownsRod = id => isArcade() || G.ownedRods.includes(id);
-  const ownsLure = id => isArcade() || G.ownedLures.includes(id);
-  const ownsSpot = id => isArcade() || G.ownedSpots.includes(id);
+  // No economy: every rod, lure and lake is always yours. The game is about
+  // choosing the right thing for the conditions, not buying it.
+  const isArcade = () => true;
+  const ownsRod = () => true;
+  const ownsLure = () => true;
+  const ownsSpot = () => true;
 
   // ===========================================================================
   // DOM refs
@@ -220,15 +221,15 @@
     catchName: $("catchName"), catchWeight: $("catchWeight"), catchReward: $("catchReward"),
     catchRewardWrap: $("catchRewardWrap"), catchRecord: $("catchRecord"), catchTourney: $("catchTourney"), catchOk: $("catchOk"),
     failModal: $("failModal"), failMsg: $("failMsg"), failOk: $("failOk"),
-    shopBtn: $("shopBtn"), muteBtn: $("muteBtn"), shopModal: $("shopModal"), shopClose: $("shopClose"), shopCoins: $("shopCoins"),
+    shopBtn: $("shopBtn"), muteBtn: $("muteBtn"), shopModal: $("shopModal"), shopClose: $("shopClose"),
     shopRods: $("shopRods"), shopLures: $("shopLures"), shopSpots: $("shopSpots"), shopDex: $("shopDex"),
     rodChip: $("rodChip"), lureChip: $("lureChip"), spotChip: $("spotChip"),
     hookMeter: $("hookMeter"), hmMarker: $("hmMarker"), strikeFlash: $("strikeFlash"), catchHookset: $("catchHookset"),
     lureModal: $("lureModal"), lureClose: $("lureClose"), lureList: $("lureList"), colorRow: $("colorRow"), lureCond: $("lureCond"),
     mapModal: $("mapModal"), mapClose: $("mapClose"), mapVenues: $("mapVenues"), posGrid: $("posGrid"), finder: $("finder"),
-    tourneyBtn: $("tourneyBtn"), modeBtn: $("modeBtn"), modeModal: $("modeModal"), modeClose: $("modeClose"),
+    tourneyBtn: $("tourneyBtn"), modeModal: $("modeModal"), modeClose: $("modeClose"),
     tourHud: $("tourHud"), tourClock: $("tourClock"), livewell: $("livewell"), tourTotal: $("tourTotal"), tourBig: $("tourBig"), tourQuit: $("tourQuit"),
-    tourStartModal: $("tourStartModal"), tourFee: $("tourFee"), tourField: $("tourField"), tourStartFee: $("tourStartFee"),
+    tourStartModal: $("tourStartModal"), tourField: $("tourField"),
     tourStartBtn: $("tourStartBtn"), tourStartCancel: $("tourStartCancel"), tourRules: $("tourRules"),
     tourResultModal: $("tourResultModal"), tourResultMedal: $("tourResultMedal"), tourPlace: $("tourPlace"),
     tourBag: $("tourBag"), tourResultStats: $("tourResultStats"), tourStandings: $("tourStandings"), tourResultOk: $("tourResultOk"),
@@ -516,6 +517,7 @@
   // ---- Synthesized sound effects (Web Audio — no asset files) ----
   const Sound = (() => {
     let ctx = null, master = null, ready = false, ambBed = null;
+    let bedFilter = null, bedGain = null, bedBase = 0.05, isNight = false;
     function ensure() {
       try {
         if (!ctx) {
@@ -536,13 +538,44 @@
         const len = ctx.sampleRate * 2, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
         for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
         ambBed = ctx.createBufferSource(); ambBed.buffer = buf; ambBed.loop = true;
-        const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = 360;
+        const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = isNight ? 230 : 360;
         const g = ctx.createGain(); g.gain.value = 0.0001;
         ambBed.connect(f); f.connect(g); g.connect(master);
         const lfo = ctx.createOscillator(), lg = ctx.createGain(); lfo.frequency.value = 0.11; lg.gain.value = 0.02;
         lfo.connect(lg); lg.connect(g.gain); lfo.start();
         ambBed.start();
-        g.gain.setValueAtTime(0.0001, ctx.currentTime); g.gain.linearRampToValueAtTime(0.05, ctx.currentTime + 2.5);
+        bedFilter = f; bedGain = g; bedBase = isNight ? 0.034 : 0.05;
+        g.gain.setValueAtTime(0.0001, ctx.currentTime); g.gain.linearRampToValueAtTime(bedBase, ctx.currentTime + 2.5);
+      } catch (e) {}
+    }
+    // ease the water bed darker & calmer at night, brighter & livelier by day
+    function setNight(night) {
+      isNight = !!night;
+      if (!ready || !bedFilter) return;
+      try {
+        const t = ctx.currentTime;
+        bedFilter.frequency.linearRampToValueAtTime(night ? 230 : 360, t + 2);
+        bedBase = night ? 0.034 : 0.05;
+        bedGain.gain.linearRampToValueAtTime(bedBase, t + 2);
+      } catch (e) {}
+    }
+    // a passing wind gust — a swelling, sweeping whoosh of filtered noise
+    function windGust(strength) {
+      if (!ready || G.muted) return;
+      try {
+        const t = ctx.currentTime, dur = 2.4 + Math.random() * 1.8;
+        const len = Math.max(1, (ctx.sampleRate * dur) | 0), buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+        const n = ctx.createBufferSource(); n.buffer = buf;
+        const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.Q.value = 0.55;
+        f.frequency.setValueAtTime(330, t);
+        f.frequency.linearRampToValueAtTime(640, t + dur * 0.4);
+        f.frequency.linearRampToValueAtTime(360, t + dur);
+        const g = ctx.createGain(), peak = 0.045 + clamp(strength || 0.5, 0, 1) * 0.06;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.linearRampToValueAtTime(peak, t + dur * 0.42);
+        g.gain.linearRampToValueAtTime(0.0001, t + dur);
+        n.connect(f); f.connect(g); g.connect(master); n.start(t); n.stop(t + dur);
       } catch (e) {}
     }
     // occasional wildlife call — birdsong by day, a loon by night
@@ -596,12 +629,18 @@
           }
           case "land": [523, 659, 784, 1047].forEach((f, i) => tone(f, t + i * 0.08, 0.3, "triangle", 0.13)); break;
           case "lunker": [392, 523, 659, 784, 1047, 1319].forEach((f, i) => tone(f, t + i * 0.09, 0.46, "triangle", 0.15)); break;
+          case "pb": {   // a bright rising fanfare — new personal best
+            tone(330, t, 0.6, "sine", 0.07);
+            [659, 988, 1319, 1760, 1976].forEach((f, i) => tone(f, t + 0.04 + i * 0.10, 0.42, "triangle", 0.16, f * 1.02));
+            tone(2637, t + 0.5, 0.5, "sine", 0.07);
+            break;
+          }
           case "coin": tone(988, t, 0.08, "square", 0.09); tone(1319, t + 0.05, 0.12, "square", 0.09); break;
           case "ui": tone(520, t, 0.04, "sine", 0.05, 620); break;
         }
       } catch (e) {}
     }
-    return { ensure, play, ambientCall, setMuted };
+    return { ensure, play, ambientCall, setMuted, setNight, windGust };
   })();
   const sfx = n => Sound.play(n);
   function anyModalOpen() {
@@ -635,32 +674,69 @@
     el.lureIco.textContent = lu.ico;
     el.lureName.textContent = lu.name.split(" ")[lu.name.split(" ").length - 1];
     el.lureSwatch.style.background = COLORS[G.lure.color].hex;
-    el.modeBtn.textContent = isArcade() ? "🕹️ Arcade" : "🎯 Career";
-    el.modeBtn.classList.toggle("arcade", isArcade());
     renderConditions();
   }
 
-  // ---- Game mode (career / arcade) ----
-  function reconcileOwnership() {
-    if (!G.ownedRods.includes(G.rod)) G.rod = G.ownedRods[G.ownedRods.length - 1] || "twig";
-    if (!G.ownedLures.includes(G.lure.id)) { G.lure.id = "worm"; G.lure.color = lure().colors[0]; }
-    if (!G.ownedSpots.includes(G.spot)) { G.spot = G.ownedSpots[0] || "cove"; seedFish(); rollConditions(); }
+  // ---- Tournament circuit ----
+  // A circuit of events on the three lakes. Pick one, set your tackle from the
+  // (fully unlocked) box, then fish it. No entry fee — it's all about the bag.
+  const TOURNAMENTS = [
+    { id: "cove-open",     spot: "cove",  name: "Lily Cove Open",          dur: 150000, field: 8,
+      blurb: "A numbers game in the pads — boat five solid largemouth fast." },
+    { id: "cove-shootout", spot: "cove",  name: "Cove Twilight Shootout",  dur: 150000, field: 10,
+      blurb: "Low-light bite. Big girls slide up to the cover at dusk." },
+    { id: "river-classic", spot: "river", name: "Boulder River Classic",   dur: 180000, field: 10,
+      blurb: "Clear current and hard-fighting bass on the rock." },
+    { id: "river-pro",     spot: "river", name: "Boulder River Pro-Am",    dur: 180000, field: 12,
+      blurb: "Stingy clear water — match the hatch or go home empty." },
+    { id: "trophy-champ",  spot: "deep",  name: "Trophy Lake Championship",dur: 210000, field: 12,
+      blurb: "Big-fish water. One double-digit kicker can win it all." },
+    { id: "trophy-invite", spot: "deep",  name: "Trophy Lake Invitational",dur: 210000, field: 14,
+      blurb: "The deepest, darkest water — only the giants live here." },
+  ];
+  let pendingTour = null;   // the event chosen but not yet started
+
+  function openCircuit() {
+    if (S.tournament && !S.tournament.ended) { toast("Tournament in progress ⏱️"); return; }
+    const list = document.getElementById("circuitList");
+    list.innerHTML = TOURNAMENTS.map(t => {
+      const sp = SPOTS.find(s => s.id === t.spot) || SPOTS[0];
+      const mins = Math.round(t.dur / 60000), secs = Math.round(t.dur / 1000) % 60;
+      return `<div class="item circuit" data-tour="${t.id}">
+        <div class="item-ico">${sp.ico}</div>
+        <div class="item-info">
+          <div class="item-name">${t.name}</div>
+          <div class="item-desc">${sp.name} · ${mins}:${String(secs).padStart(2, "0")} · field of ${t.field}<br>${t.blurb}</div>
+        </div>
+        <button class="item-btn owned" data-tour="${t.id}">ENTER</button>
+      </div>`;
+    }).join("");
+    el.modeModal.classList.remove("hidden");
   }
-  function setMode(m) {
-    if (G.mode === m) { el.modeModal.classList.add("hidden"); return; }
-    if (S.tournament) { toast("Finish the tournament first"); return; }
-    G.mode = m;
-    if (m === "career") reconcileOwnership();
+  function chooseTour(id) {
+    const t = TOURNAMENTS.find(x => x.id === id); if (!t) return;
+    pendingTour = t;
+    // hop to that lake so the player can read conditions & set tackle for it
+    if (G.spot !== t.spot) { G.spot = t.spot; seedFish(); rollConditions(); }
     save(); updateHUD(); resetToIdle();
     el.modeModal.classList.add("hidden");
-    toast(m === "arcade" ? "🕹️ Arcade — everything unlocked!" : "🎯 Career — back to your progress");
+    refreshTourStart();
+    el.tourStartModal.classList.remove("hidden");
   }
-  el.modeBtn.addEventListener("click", () => {
-    el.modeModal.querySelectorAll(".mode-opt").forEach(o => o.classList.toggle("sel", o.dataset.mode === G.mode));
-    el.modeModal.classList.remove("hidden");
-  });
+  function refreshTourStart() {
+    if (!pendingTour) return;
+    const t = pendingTour, sp = SPOTS.find(s => s.id === t.spot) || spot();
+    const mins = Math.round(t.dur / 60000), secs = Math.round(t.dur / 1000) % 60;
+    document.getElementById("tourTitle").textContent = t.name;
+    el.tourRules.textContent = `${sp.name} • ${mins}:${String(secs).padStart(2, "0")} on the clock.`;
+    el.tourField.textContent = t.field;
+    const lu = lure();
+    document.getElementById("tourTackle").innerHTML =
+      `<b>Your tackle:</b> ${rod().ico} ${rod().name} · ${lu.ico} ${lu.name} <i style="display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:middle;background:${COLORS[G.lure.color].hex};border:1px solid rgba(255,255,255,.5)"></i>`;
+  }
+  el.tourneyBtn.addEventListener("click", openCircuit);
   el.modeClose.addEventListener("click", () => el.modeModal.classList.add("hidden"));
-  el.modeModal.addEventListener("click", (e) => { const o = e.target.closest(".mode-opt"); if (o) setMode(o.dataset.mode); });
+  el.modeModal.addEventListener("click", (e) => { const b = e.target.closest("[data-tour]"); if (b) chooseTour(b.dataset.tour); });
 
   // ===========================================================================
   // Conditions: time of day, weather, water temperature -> fish holding depth
@@ -925,7 +1001,7 @@
   // unlock the audio context on the first touch (mobile policy) + a soft click on any control
   document.addEventListener("pointerdown", (e) => {
     Sound.ensure();
-    if (e.target.closest("button, .chip, .tab, .mode-opt, .lure-opt, .color-dot, .scent-opt, .troll-btn, .well-slot, .map-venue, .pos-cell")) sfx("ui");
+    if (e.target.closest("button, .chip, .tab, .circuit, .item-btn, .lure-opt, .color-dot, .scent-opt, .troll-btn, .well-slot, .map-venue, .pos-cell")) sfx("ui");
   }, true);
   canvas.addEventListener("pointerdown", (e) => { const p = ptr(e); onDown(p.x, p.y); });
   canvas.addEventListener("pointermove", (e) => { const p = ptr(e); onMove(p.x, p.y); });
@@ -1123,7 +1199,19 @@
     el.catchRewardWrap.classList.remove("hidden");
     if (S.hookRating) { el.catchHookset.textContent = "Hookset: " + S.hookRating; el.catchHookset.classList.remove("hidden"); el.catchHookset.classList.toggle("perfect", /Perfect/.test(S.hookRating)); }
     else el.catchHookset.classList.add("hidden");
-    el.catchRecord.textContent = isRecord && prev > 0 ? "🏆 NEW PERSONAL BEST!" : isRecord ? "🏆 FIRST CATCH!" : "";
+    el.catchRecord.classList.remove("pb");
+    if (isRecord && prev > 0) {
+      el.catchRecord.textContent = `🏆 NEW PERSONAL BEST! (beat ${prev.toFixed(1)} lb)`;
+      el.catchRecord.classList.add("pb");
+      setTimeout(() => sfx("pb"), 420);    // ring the fanfare after the landing chime
+      vibrate([18, 60, 24, 60, 40]);
+    } else if (isRecord) {
+      el.catchRecord.textContent = "🏆 FIRST CATCH!";
+    } else {
+      // not a record — say so plainly, with the mark still to beat (no false "PB!")
+      const best = G.records[f.name] || 0;
+      el.catchRecord.textContent = best ? `Your best ${f.name}: ${best.toFixed(1)} lb` : "";
+    }
     el.catchTourney.classList.add("hidden");
     el.catchOk.textContent = "NICE! KEEP FISHING";
     el.catchModal.classList.remove("hidden");
@@ -1208,35 +1296,18 @@
   // ===========================================================================
   // Tournament mode
   // ===========================================================================
-  function tourConfig() {
-    const sp = spot();
-    const dur = 150000; // 2:30
-    const fee = isArcade() ? 0 : (sp.id === "deep" ? 150 : sp.id === "river" ? 90 : 50);
-    const field = 10;
-    return { dur, fee, field };
-  }
-  function openTourStart() {
-    if (S.tournament) return;
-    const cfg = tourConfig();
-    el.tourFee.textContent = cfg.fee || "FREE";
-    el.tourStartFee.textContent = cfg.fee || "FREE";
-    el.tourField.textContent = cfg.field;
-    el.tourRules.textContent = `${spot().name} • ${Math.round(cfg.dur / 60000)}:${String(Math.round(cfg.dur / 1000) % 60).padStart(2, "0")} on the clock.`;
-    el.tourStartBtn.disabled = G.coins < cfg.fee;
-    el.tourStartBtn.style.opacity = G.coins < cfg.fee ? "0.5" : "1";
-    el.tourStartModal.classList.remove("hidden");
-  }
   function startTournament() {
-    const cfg = tourConfig();
-    if (G.coins < cfg.fee) { toast("Not enough 🪙 for entry"); return; }
-    G.coins -= cfg.fee; updateHUD();
+    const t = pendingTour; if (!t) { el.tourStartModal.classList.add("hidden"); return; }
+    if (G.spot !== t.spot) { G.spot = t.spot; seedFish(); rollConditions(); }
+    // a fee still seeds the purse maths, but the player never pays it
+    const fee = t.spot === "deep" ? 150 : t.spot === "river" ? 90 : 50;
     el.tourStartModal.classList.add("hidden");
-    S.tournament = { timeLeft: cfg.dur, dur: cfg.dur, well: [], big: 0, culls: 0, field: cfg.field, fee: cfg.fee, spotId: spot().id, ended: false };
+    S.tournament = { timeLeft: t.dur, dur: t.dur, well: [], big: 0, culls: 0, field: t.field, fee, spotId: t.spot, name: t.name, ended: false };
     el.tourHud.classList.remove("hidden");
-    document.getElementById("loadout").classList.add("hidden");
     renderWell();
+    updateHUD();
     resetToIdle();
-    toast("🏁 Lines in! Boat your best 5 black bass!");
+    toast(`🏁 ${t.name} — lines in! Boat your best 5 bass!`);
     save();
   }
   function tourLand(f, isRecord, prev) {
@@ -1357,6 +1428,7 @@
   }
   function closeTournament() {
     S.tournament = null;
+    pendingTour = null;
     el.tourHud.classList.add("hidden");
     document.getElementById("loadout").classList.remove("hidden");
     el.tourResultModal.classList.add("hidden");
@@ -1365,9 +1437,10 @@
     updateHUD();
   }
 
-  el.tourneyBtn.addEventListener("click", () => { if (S.tournament) { /* already running */ toast("Tournament in progress ⏱️"); } else openTourStart(); });
   el.tourStartBtn.addEventListener("click", startTournament);
-  el.tourStartCancel.addEventListener("click", () => el.tourStartModal.classList.add("hidden"));
+  el.tourStartCancel.addEventListener("click", () => { pendingTour = null; el.tourStartModal.classList.add("hidden"); });
+  // change tackle without losing the chosen event — pop the box, refresh on close
+  document.getElementById("tourTackleBtn").addEventListener("click", () => { openShop(); switchTab("lures"); });
   el.tourQuit.addEventListener("click", () => {
     if (!S.tournament) return;
     if (S.tournament.well.length) endTournament();   // weigh in what you have
@@ -1386,9 +1459,19 @@
     drive3D(dt, now);
     updateBoatHud(now);
     updateSegaHud();
+    // ambient soundscape: wildlife calls, day/night water tone, wind on rough days
+    const night = !!(dayColors(spot()).night);
     // occasional ambient wildlife call (birdsong by day, a loon at night)
     S._ambT = (S._ambT == null ? rnd(3000, 7000) : S._ambT - dt);
-    if (S._ambT <= 0) { S._ambT = rnd(6000, 13000); try { Sound.ambientCall(!!(dayColors(spot()).night)); } catch (e) {} }
+    if (S._ambT <= 0) { S._ambT = rnd(6000, 13000); try { Sound.ambientCall(night); } catch (e) {} }
+    // shift the water bed darker & calmer at night, brighter by day (only on change)
+    if (S._night !== night) { S._night = night; try { Sound.setNight(night); } catch (e) {} }
+    // wind gusts pick up on cloudy / foggy water
+    const wx = S.cond && S.cond.weather, windy = wx === "cloud" || wx === "fog";
+    if (windy) {
+      S._windT = (S._windT == null ? rnd(4000, 9000) : S._windT - dt);
+      if (S._windT <= 0) { S._windT = rnd(7000, 15000); try { Sound.windGust(wx === "fog" ? 0.45 : 0.7); } catch (e) {} }
+    } else S._windT = null;
     requestAnimationFrame(frame);
   }
 
@@ -2609,29 +2692,28 @@
     el.shopDex.classList.toggle("hidden", tab !== "dex");
   }
   function renderShop() {
-    el.shopCoins.textContent = G.coins;
+    const locked = !!(S.tournament && !S.tournament.ended);   // lake fixed once a tournament is live
     // Rods
     el.shopRods.innerHTML = RODS.map(r => {
-      const owned = ownsRod(r.id), eq = G.rod === r.id;
-      const btn = owned ? (eq ? `<button class="item-btn equipped" disabled>EQUIPPED</button>` : `<button class="item-btn owned" data-equip-rod="${r.id}">EQUIP</button>`)
-                        : `<button class="item-btn buy" data-buy-rod="${r.id}" ${G.coins < r.price ? "disabled" : ""}>${r.price} 🪙</button>`;
+      const eq = G.rod === r.id;
+      const btn = eq ? `<button class="item-btn equipped" disabled>EQUIPPED</button>` : `<button class="item-btn owned" data-equip-rod="${r.id}">EQUIP</button>`;
       return `<div class="item"><div class="item-ico">${r.ico}</div><div class="item-info"><div class="item-name">${r.name}</div>
         <div class="item-desc">${r.desc} · Power ${r.power.toFixed(2)}× · Luck +${Math.round(r.luck * 100)}%</div></div>${btn}</div>`;
     }).join("");
     // Lures
     el.shopLures.innerHTML = LURES.map(l => {
-      const owned = ownsLure(l.id), eq = G.lure.id === l.id;
-      const btn = owned ? (eq ? `<button class="item-btn equipped" disabled>EQUIPPED</button>` : `<button class="item-btn owned" data-equip-lure="${l.id}">EQUIP</button>`)
-                        : `<button class="item-btn buy" data-buy-lure="${l.id}" ${G.coins < l.price ? "disabled" : ""}>${l.price} 🪙</button>`;
+      const eq = G.lure.id === l.id;
+      const btn = eq ? `<button class="item-btn equipped" disabled>EQUIPPED</button>` : `<button class="item-btn owned" data-equip-lure="${l.id}">EQUIP</button>`;
       const swatches = l.colors.map(c => `<i style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${COLORS[c].hex};margin-right:3px;border:1px solid rgba(255,255,255,.4)"></i>`).join("");
       return `<div class="item"><div class="item-ico">${l.ico}</div><div class="item-info"><div class="item-name">${l.name}</div>
         <div class="item-desc">${l.desc}</div><div style="margin-top:4px">${swatches}</div></div>${btn}</div>`;
     }).join("");
-    // Spots
+    // Lakes
     el.shopSpots.innerHTML = SPOTS.map(s => {
-      const owned = ownsSpot(s.id), active = G.spot === s.id;
-      const btn = owned ? (active ? `<button class="item-btn equipped" disabled>FISHING</button>` : `<button class="item-btn owned" data-go-spot="${s.id}">GO</button>`)
-                        : `<button class="item-btn buy" data-buy-spot="${s.id}" ${G.coins < s.price ? "disabled" : ""}>${s.price} 🪙</button>`;
+      const active = G.spot === s.id;
+      const btn = active ? `<button class="item-btn equipped" disabled>FISHING</button>`
+                : locked ? `<button class="item-btn" disabled>LOCKED</button>`
+                : `<button class="item-btn owned" data-go-spot="${s.id}">GO</button>`;
       return `<div class="item"><div class="item-ico">${s.ico}</div><div class="item-info"><div class="item-name">${s.name}</div>
         <div class="item-desc">${s.desc}</div></div>${btn}</div>`;
     }).join("");
@@ -2654,17 +2736,14 @@
     save();
   });
   el.shopBtn.addEventListener("click", openShop);
-  el.shopClose.addEventListener("click", () => el.shopModal.classList.add("hidden"));
+  el.shopClose.addEventListener("click", () => { el.shopModal.classList.add("hidden"); if (pendingTour) refreshTourStart(); });
   document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => switchTab(t.dataset.tab)));
   el.shopModal.addEventListener("click", (e) => {
     const t = e.target.closest("button"); if (!t) return;
     const d = t.dataset;
-    if (d.buyRod) { const r = RODS.find(x => x.id === d.buyRod); if (G.coins >= r.price) { G.coins -= r.price; G.ownedRods.push(r.id); G.rod = r.id; } }
-    else if (d.equipRod) { G.rod = d.equipRod; }
-    else if (d.buyLure) { const l = LURES.find(x => x.id === d.buyLure); if (G.coins >= l.price) { G.coins -= l.price; G.ownedLures.push(l.id); G.lure.id = l.id; G.lure.color = l.colors[0]; } }
+    if (d.equipRod) { G.rod = d.equipRod; }
     else if (d.equipLure) { const l = LURES.find(x => x.id === d.equipLure); G.lure.id = l.id; if (!l.colors.includes(G.lure.color)) G.lure.color = l.colors[0]; }
-    else if (d.buySpot) { const s = SPOTS.find(x => x.id === d.buySpot); if (G.coins >= s.price) { G.coins -= s.price; G.ownedSpots.push(s.id); G.spot = s.id; seedFish(); rollConditions(); resetToIdle(); } }
-    else if (d.goSpot) { if (G.spot !== d.goSpot) { G.spot = d.goSpot; seedFish(); rollConditions(); resetToIdle(); } }
+    else if (d.goSpot) { if (S.tournament && !S.tournament.ended) { toast("Can't switch lakes mid-tournament"); return; } if (G.spot !== d.goSpot) { G.spot = d.goSpot; seedFish(); rollConditions(); resetToIdle(); } }
     else return;
     save(); updateHUD(); renderShop();
   });

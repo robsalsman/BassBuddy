@@ -358,7 +358,12 @@ html, body {
 .rules li { padding: 4px 0; color: #d6ecf3; }
 .tour-entry { font-size: 14px; margin-bottom: 14px; }
 .tour-entry b { color: var(--gold); }
+.tour-tackle { font-size: 13px; color: #d6ecf3; background: rgba(255,255,255,.06); border-radius: 10px; padding: 8px 10px; margin: 0 0 6px; }
+.tour-tackle b { color: var(--gold); }
 .text-btn { background: none; border: none; color: #9fc3d2; font-size: 14px; margin-top: 12px; cursor: pointer; width: 100%; }
+.text-btn.alt-btn { color: #cfe6f0; font-weight: 700; margin-top: 8px; }
+.item.circuit { cursor: pointer; }
+.item.circuit:active { transform: scale(.99); }
 .tour-bag { display: flex; gap: 5px; justify-content: center; margin: 8px 0; flex-wrap: wrap; }
 .bag-fish {
   background: rgba(255,255,255,.06); border: 1px solid var(--ui-line);
@@ -570,8 +575,18 @@ html, body {
 }
 .catch-stats .reward { color: var(--gold); }
 .catch-record {
-  font-size: 13px; font-weight: 700; color: var(--gold);
+  font-size: 13px; font-weight: 700; color: #bfe0ec;
   min-height: 18px; margin-bottom: 4px;
+}
+.catch-record.pb {
+  color: var(--gold); font-size: 15px; font-weight: 900;
+  text-shadow: 0 0 12px rgba(255,200,60,.65);
+  animation: pbPop .6s ease-out;
+}
+@keyframes pbPop {
+  0% { transform: scale(.7); opacity: 0; }
+  55% { transform: scale(1.18); }
+  100% { transform: scale(1); opacity: 1; }
 }
 .big-btn {
   margin-top: 16px;

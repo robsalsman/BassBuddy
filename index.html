@@ -17,15 +17,14 @@
 
   <!-- Top HUD -->
   <div id="hud" class="hud">
-    <div class="hud-pill">
-      <span class="coin">🪙</span>
+    <div class="hud-pill" title="Career winnings">
+      <span class="coin">🏆</span>
       <span id="coins">0</span>
     </div>
     <div class="hud-spacer"></div>
-    <button id="modeBtn" class="hud-mode">🎯 Career</button>
-    <button id="tourneyBtn" class="hud-btn alt">🏆</button>
+    <button id="tourneyBtn" class="hud-btn alt" title="Tournament circuit">🏁</button>
     <button id="muteBtn" class="hud-btn" title="Sound">🔊</button>
-    <button id="shopBtn" class="hud-btn">🛒</button>
+    <button id="shopBtn" class="hud-btn" title="Tackle box">🧰</button>
     <a id="threeDBtn" class="hud-btn three-d" href="3d.html" title="3D Preview">✨3D</a>
   </div>
 
@@ -186,23 +185,15 @@
     </div>
   </div>
 
-  <!-- Game mode picker -->
+  <!-- Tournament circuit picker -->
   <div id="modeModal" class="modal hidden">
-    <div class="modal-card">
-      <div class="catch-emoji">🎮</div>
-      <div class="catch-name">Game Mode</div>
-      <p class="muted">Switch anytime. Your unlocks and records are kept.</p>
-      <div class="mode-opts">
-        <button class="mode-opt" data-mode="career">
-          <div class="mo-h">🎯 Career</div>
-          <div class="mo-d">Start simple and earn coins to unlock rods, lures and lakes. The full progression.</div>
-        </button>
-        <button class="mode-opt" data-mode="arcade">
-          <div class="mo-h">🕹️ Arcade</div>
-          <div class="mo-d">Everything unlocked, free tournament entry. A sandbox to learn which lure-and-spot combos work in which conditions.</div>
-        </button>
+    <div class="modal-card shop-card">
+      <div class="shop-head">
+        <h2>🏁 Tournament Circuit</h2>
+        <button class="close-btn" id="modeClose">✕</button>
       </div>
-      <button class="text-btn" id="modeClose">Close</button>
+      <p class="muted" style="margin:0 0 8px">Pick a tournament, set your tackle, and fish it. Everything's unlocked — winning is about the right lure in the right place.</p>
+      <div class="shop-body" id="circuitList"></div>
     </div>
   </div>
 
@@ -210,17 +201,18 @@
   <div id="tourStartModal" class="modal hidden">
     <div class="modal-card">
       <div class="catch-emoji">🏆</div>
-      <div class="catch-name">Bass Tournament</div>
+      <div class="catch-name" id="tourTitle">Bass Tournament</div>
       <p class="muted" id="tourRules"></p>
       <ul class="rules">
         <li>⏱️ Race the clock to boat your best 5 <b>black bass</b>.</li>
         <li>🪣 5-fish live well — a 6th auto-culls your smallest.</li>
-        <li>🐟 Largemouth, smallmouth &amp; spotted count. Other fish are released.</li>
         <li>🏅 Heaviest 5-fish bag wins. Big Bass earns a bonus.</li>
       </ul>
-      <div class="tour-entry">Entry: <b id="tourFee">50</b> 🪙 · Field of <b id="tourField">10</b></div>
-      <button class="big-btn" id="tourStartBtn">START · <span id="tourStartFee">50</span> 🪙</button>
-      <button class="text-btn" id="tourStartCancel">Maybe later</button>
+      <div class="tour-entry">Field of <b id="tourField">10</b></div>
+      <div class="tour-tackle" id="tourTackle"></div>
+      <button class="big-btn" id="tourStartBtn">START</button>
+      <button class="text-btn alt-btn" id="tourTackleBtn">🧰 Change Tackle</button>
+      <button class="text-btn" id="tourStartCancel">Back</button>
     </div>
   </div>
 
@@ -240,15 +232,15 @@
   <div id="shopModal" class="modal hidden">
     <div class="modal-card shop-card">
       <div class="shop-head">
-        <h2>🛒 Tackle Shop</h2>
+        <h2>🧰 Tackle Box</h2>
         <button class="close-btn" id="shopClose">✕</button>
       </div>
-      <div class="shop-balance">Balance: <b><span id="shopCoins">0</span> 🪙</b></div>
+      <p class="muted" style="margin:0 0 6px">Everything's yours — pick the right gear for the conditions.</p>
 
       <div class="shop-tabs">
         <button class="tab active" data-tab="rods">Rods</button>
         <button class="tab" data-tab="lures">Lures</button>
-        <button class="tab" data-tab="spots">Spots</button>
+        <button class="tab" data-tab="spots">Lakes</button>
         <button class="tab" data-tab="dex">Fish-Dex</button>
       </div>
 
