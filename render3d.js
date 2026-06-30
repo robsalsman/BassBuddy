@@ -895,7 +895,8 @@ const Scene3D = (() => {
       for (let i = 0; i < n; i++) boat.rodSegs[i].rotation.x = boat._bend * (i + 1) / sum;
     }
     // reel the handle while fighting + reeling, or during the landing hoist
-    if (boat.reelHandle) boat.reelHandle.rotation.z -= ((fighting && st.fight.reeling) || landing ? dt * 0.025 : 0);
+    // reel handle spins while you hold to reel (and during the landing wind-in)
+    if (boat.reelHandle) boat.reelHandle.rotation.z -= ((fighting && st.fight.reeling) || landing ? dt * 0.045 : 0);
 
     // angler's arms: hold the rod, crank the reel, reach out to land the fish
     const armL = boat.armL, armR = boat.armR;
@@ -913,11 +914,11 @@ const Scene3D = (() => {
         armL.rotation.z = 0.2 * reach; armR.rotation.z = -0.2 * reach;
         if (boat.angler) boat.angler.rotation.x = reach * 0.4 - lift * 0.25;   // lean to reach, sit back to lift
       } else {
-        // resting hold: both arms reach forward to the rod, angled slightly inward
-        // so the hands meet on the grip (no wide splay that looks like extra limbs)
-        armL.rotation.x += (1.45 + Math.sin(t * 1.2) * 0.03 - armL.rotation.x) * 0.08;
-        armR.rotation.x += (1.45 + Math.sin(t * 1.2 + 1) * 0.03 - armR.rotation.x) * 0.08;
-        armL.rotation.z += (-0.12 - armL.rotation.z) * 0.08; armR.rotation.z += (0.12 - armR.rotation.z) * 0.08;
+        // two-handed hold: the lower (support) hand grips the foregrip, the upper
+        // hand the reel seat — staggered so BOTH hands read, not one behind the body
+        armL.rotation.x += (1.28 + Math.sin(t * 1.2) * 0.03 - armL.rotation.x) * 0.08;     // lower grip
+        armR.rotation.x += (1.6 + Math.sin(t * 1.2 + 1) * 0.03 - armR.rotation.x) * 0.08;  // up on the reel
+        armL.rotation.z += (-0.05 - armL.rotation.z) * 0.08; armR.rotation.z += (0.1 - armR.rotation.z) * 0.08;
         if (boat.angler) boat.angler.rotation.x *= 0.9;
       }
     }
@@ -989,6 +990,8 @@ const Scene3D = (() => {
       boil.position.set(fxw, 0.05, -dist3d); boil.material.opacity = 0.22 + Math.sin(t * 10) * 0.1;
       boil.scale.setScalar(0.7 + sc * 0.3 + Math.sin(t * 6) * 0.12);
       if (f.state === "jump" && Math.sin(t * 5) > 0.96) splashAt(fxw, -dist3d, 1.4);
+      // surface splash when it rolls/thrashes near the boat
+      if (f.state !== "jump" && f.dist < 0.4 && Math.sin(t * 6) > 0.93) splashAt(fxw, -dist3d, 0.8 + (0.4 - f.dist) * 2);
       fish.updateMatrixWorld(true);
       const mouth = fish.mouth.getWorldPosition(new THREE.Vector3());
       castLine.visible = true; castLine.material.color.setHex(f.tension > 0.7 ? 0xff6a6a : 0xffffff);
@@ -1429,9 +1432,11 @@ const Scene3D = (() => {
         const ty = patrolY + (ly - patrolY) * conv;
         tx = Math.max(-2.1, Math.min(2.1, tx));
         const tz = -0.6 - i * 0.7 + Math.sin(t * (1.1 + i * 0.3) + i) * 0.45;
-        const prev = p.position.x;
         p.position.set(tx, ty, tz);
-        p.rotation.y = (tx < prev ? 1 : -1) * (Math.PI / 2) * 0.92;        // face the way it's swimming
+        // BROADSIDE to the camera (flank showing, head toward the lure) — not
+        // tail-on. rotation.y 0 or PI = side view; +/-PI/2 would show head/tail.
+        const faceLeft = lx < tx;
+        p.rotation.y = (faceLeft ? Math.PI : 0) + Math.sin(t * 1.4 + i) * 0.16;
         p.scale.setScalar(lead ? 0.55 + it * 0.4 : 0.5);
         undulate(p, t * (lead ? 1.4 : 1.05) + i * 2, 0.22, true);          // body always swims
         if (p.tail) p.tail.rotation.y = Math.sin(t * (7 + it * 4) + i) * 0.5;
