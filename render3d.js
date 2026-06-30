@@ -376,10 +376,20 @@ function makeBass(art) {
   const mouthMat = new THREE.MeshStandardMaterial({ color: 0x1a120e, roughness: 0.6, side: THREE.DoubleSide });
   const gape = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), mouthMat);
   gape.scale.set(0.13, 0.06, 0.15); gape.position.set(snoutX, jawY + 0.03, 0); group.add(gape);
+  group.gape = gape; group.gapeY = jawY + 0.03;          // for the open-mouth bite animation
   const lipMat = new THREE.MeshStandardMaterial({ color: 0x8a8a6a, roughness: 0.7 });
   const lip = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), lipMat);
   lip.scale.set(0.12, 0.045, 0.15); lip.position.set(snoutX - 0.01, jawY - 0.04, 0); group.add(lip);
+  group.jaw = lip; group.jawY = jawY - 0.04;             // lower jaw drops when the mouth opens
   group.disposables.push(mouthMat, lipMat);
+
+  // openMouth(o): 0 = closed feeding gape, 1 = wide open to engulf the bait
+  group.openMouth = (o) => {
+    gape.scale.set(0.13 * (1 + o * 0.5), 0.06 * (1 + o * 5), 0.15 * (1 + o * 0.7));
+    gape.position.y = group.gapeY + o * 0.05;
+    lip.position.y = group.jawY - o * 0.12;              // jaw drops open
+    lip.scale.set(0.12, 0.045 * (1 + o * 1.5), 0.15);
+  };
 
   // tracked mouth point at the front of the head, so a hooked line attaches here
   group.mouth = new THREE.Object3D(); group.mouth.position.set(LEN * 0.52, -depth(0.95) * 0.1, 0); group.add(group.mouth);
@@ -534,7 +544,7 @@ const Scene3D = (() => {
 
     // pursuer pool — real detailed bass that swim in to chase the lure
     const PURSUER_ART = { body: "#5f8f4a", belly: "#dfe7c2", patColor: "#2c3a1c", pat: "lateral", eye: "#caa23a", bigmouth: true };
-    for (let i = 0; i < 3; i++) { const p = makeBass(PURSUER_ART); p.visible = false; scene.add(p); pursuers.push(p); }
+    for (let i = 0; i < 6; i++) { const p = makeBass(PURSUER_ART); p.visible = false; scene.add(p); pursuers.push(p); }
 
     buildSurface();
 
@@ -810,6 +820,10 @@ const Scene3D = (() => {
     camS.userData.look.x += (camLook.x - camS.userData.look.x) * k;
     camS.userData.look.y += (camLook.y - camS.userData.look.y) * k;
     camS.userData.look.z += (camLook.z - camS.userData.look.z) * k;
+    // camera shake when a green fish headshakes at the boat (impact)
+    let camShake = 0;
+    if (st.mode === "fight" && st.fight && st.fight.state === "run") camShake = (0.6 + (st.fight.pull || 0) * 0.5) * (1 - st.fight.dist * 0.5);
+    if (camShake > 0.02) { camS.position.x += Math.sin(t * 27) * 0.05 * camShake; camS.position.y += Math.sin(t * 31) * 0.04 * camShake; }
     camS.lookAt(camS.userData.look);
 
     // sky / sun / light by time of day
@@ -876,9 +890,13 @@ const Scene3D = (() => {
     } else if (fighting) {
       const f = st.fight, load = 0.4 + f.tension * 0.9 + f.pull * 0.25;
       const pump = f.reeling ? Math.sin(t * 7) * 0.13 : 0;          // reeling pumps the rod
-      rod.rotation.x = -0.5 - load * 0.12 + pump;                   // held up high, dips with load
-      rod.rotation.z = 0.12 + Math.sin(t * 5) * f.tension * 0.06;
-      bend = -(0.45 + load * 0.75) - Math.abs(Math.sin(t * 9)) * 0.05;  // tip bows forward toward the fish
+      // HEADSHAKE: when the fish is green (running, not tiring) it shakes its head
+      // and the rod tip jerks sharply side to side
+      const green = f.state === "run" ? 1 : f.state === "jump" ? 0.5 : 0.15;
+      const shake = green * (0.6 + f.pull * 0.5);
+      rod.rotation.x = -0.5 - load * 0.12 + pump + Math.sin(t * 26) * 0.05 * shake;
+      rod.rotation.z = 0.12 + Math.sin(t * 5) * f.tension * 0.06 + Math.sin(t * 24) * 0.07 * shake;  // tip snaps L-R
+      bend = -(0.45 + load * 0.75) - Math.abs(Math.sin(t * 9)) * 0.05 + Math.sin(t * 25) * 0.12 * shake;
     } else if (landing) {
       const e = landing.t;
       rod.rotation.x = lerp(-0.6, 0.25, e); rod.rotation.z = 0.12;  // hoist up
@@ -979,13 +997,16 @@ const Scene3D = (() => {
       // present a 3/4 BROADSIDE view (flank to the camera) so the whole bass
       // reads as one fish — head-on it looked like loose eyes and fins. It
       // thrashes (roll), sways, and turns into its lateral runs.
+      const green = f.state === "run" ? 1 : f.state === "jump" ? 0.5 : 0.15;
+      const shake = green * (0.6 + pull * 0.5);
       const yawBase = f.state === "jump" ? -0.55 : -0.78;
       fish.rotation.set(
-        f.state === "jump" ? -0.4 : Math.sin(t * 3) * 0.1,
-        yawBase + Math.sin(t * 1.3) * 0.3 + (f.lat || 0) * 0.5,
-        Math.sin(t * 5) * 0.16
+        (f.state === "jump" ? -0.4 : Math.sin(t * 3) * 0.1) + Math.sin(t * 25) * 0.06 * shake,
+        yawBase + Math.sin(t * 1.3) * 0.3 + (f.lat || 0) * 0.5 + Math.sin(t * 26) * 0.22 * shake,  // headshake yaw
+        Math.sin(t * 5) * 0.16 + Math.sin(t * 24) * 0.12 * shake
       );
       if (fish.tail) fish.tail.rotation.y = Math.sin(t * (8 + pull * 4)) * 0.5;
+      if (fish.openMouth) fish.openMouth(0.25 + Math.abs(Math.sin(t * 13)) * 0.4 * green);  // gasping/working its jaw
       undulate(fish, t, 0.16 + pull * 0.06, true);
       boil.visible = f.state !== "jump";
       boil.position.set(fxw, 0.05, -dist3d); boil.material.opacity = 0.22 + Math.sin(t * 10) * 0.1;
@@ -1425,31 +1446,40 @@ const Scene3D = (() => {
       // ALWAYS swim a lazy sweep (so they never freeze) and converge on the
       // lure as interest climbs, instead of pinning at the frame edge.
       const it = st.interest || 0;
-      const want = st.mode === "strike" ? 1 : Math.min(3, 1 + Math.round(it * 2));
+      // how many fish are here = spot quality (good spot -> a real shoal), and how
+      // big they run = the spot's typical fish size — both passed by the game
+      const density = st.fishDensity != null ? st.fishDensity : 0.4;
+      const fishSize = st.fishSize != null ? st.fishSize : 0.4;       // 0..1 typical size here
+      const want = st.mode === "strike" ? 1 : Math.max(1, Math.round(1 + density * (pursuers.length - 1)));
       const bandY2 = yOf(st.band);
       for (let i = 0; i < pursuers.length; i++) {
         const p = pursuers[i]; const on = i < want;
         p.visible = on; if (!on) continue;
         const lead = i === 0, side = i % 2 === 0 ? 1 : -1;
-        // a quick chase-burst: the lead bass surges onto the lure right before
-        // a strike (interest near full, or already in the strike window)
-        const burst = lead ? Math.min(1, st.mode === "strike" ? 1 : Math.max(0, (it - 0.8) / 0.2)) : 0;
+        // per-fish size: scaled to the spot's typical fish, the lead a bit bigger
+        // (it's the one that'll commit), each varying so they differ from each other
+        const sizeVar = 0.78 + ((i * 37) % 11) / 11 * 0.5;             // stable 0.78..1.28 spread
+        const scl = (0.4 + fishSize * 0.85) * sizeVar * (lead ? 1.12 : 1);
+        // a quick chase-burst: the lead bass surges onto the lure and OPENS UP to
+        // bite right before a strike (interest near full, or in the strike window)
+        const burst = lead ? Math.min(1, st.mode === "strike" ? 1 : Math.max(0, (it - 0.78) / 0.22)) : 0;
         const conv = lead ? Math.min(1, Math.pow(it, 0.7) + burst * 0.5) : it * 0.5;
-        // lazy patrol that keeps the fish moving and on-screen at all times
         const patrolX = side * (1.5 - 0.4 * it) + Math.sin(t * (0.6 + i * 0.25) + i * 2) * 0.55;
         const patrolY = bandY2 + Math.sin(t * 0.8 + i * 1.7) * 0.45;
-        let tx = patrolX + (lx - patrolX) * conv;                          // drift in toward the lure
+        // approach the lure HEAD-FIRST: aim the mouth (not the mid-body) at the lure
+        const faceLeft = lx < patrolX;
+        const mouthReach = 1.35 * scl;                                 // half a body-length to the snout
+        const centerTargetX = lx + (faceLeft ? mouthReach : -mouthReach);
+        let tx = patrolX + (centerTargetX - patrolX) * conv;
         const ty = patrolY + (ly - patrolY) * conv;
-        tx = Math.max(-2.1, Math.min(2.1, tx));
-        const tz = (-0.6 - i * 0.7 + Math.sin(t * (1.1 + i * 0.3) + i) * 0.45) * (1 - burst * 0.7);  // surges toward the camera/lure plane
+        tx = Math.max(-2.3, Math.min(2.3, tx));
+        const tz = (-0.6 - i * 0.7 + Math.sin(t * (1.1 + i * 0.3) + i) * 0.45) * (1 - burst * 0.7);
         p.position.set(tx, ty, tz);
-        // BROADSIDE to the camera (flank showing, head toward the lure) — not
-        // tail-on. rotation.y 0 or PI = side view; +/-PI/2 would show head/tail.
-        const faceLeft = lx < tx;
-        p.rotation.y = (faceLeft ? Math.PI : 0) + Math.sin(t * 1.4 + i) * 0.16;
-        p.scale.setScalar((lead ? 0.55 + it * 0.4 : 0.5) * (1 + burst * 0.12));
+        p.rotation.y = (faceLeft ? Math.PI : 0) + Math.sin(t * 1.4 + i) * 0.14;   // broadside, head toward the lure
+        p.scale.setScalar(scl * (1 + burst * 0.1));
         undulate(p, t * (lead ? 1.4 + burst * 2.5 : 1.05) + i * 2, 0.22 + burst * 0.12, true);  // tail beats hard on the burst
         if (p.tail) p.tail.rotation.y = Math.sin(t * (7 + it * 4 + burst * 14) + i) * 0.5;
+        if (p.openMouth) p.openMouth(burst);                           // mouth gapes open as it strikes
       }
     } else {
       for (const p of pursuers) p.visible = false;
