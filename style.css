@@ -301,6 +301,24 @@ html, body {
 .scent-opt b { font-weight: 700; }
 .scent-opt i { font-style: normal; font-weight: 800; margin-left: 2px; }
 .scent-opt.sel { border-color: #5be37a; background: rgba(91,227,122,.14); }
+/* lure / rod category breakdown */
+.lure-cats { background: rgba(255,255,255,.05); border: 1px solid var(--ui-line); border-radius: 14px; padding: 10px 12px; margin-top: 10px; }
+.cats-head { font-size: 11px; font-weight: 800; letter-spacing: .6px; color: #bfe0ec; text-transform: uppercase; margin-bottom: 8px; }
+.cats { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 14px; }
+.cat { display: flex; align-items: center; gap: 6px; font-size: 11px; }
+.cat span { flex: 0 0 52px; color: #cfe6f0; font-weight: 700; }
+.cat-bar { flex: 1; height: 6px; border-radius: 999px; background: rgba(0,0,0,.35); overflow: hidden; }
+.cat-bar i { display: block; height: 100%; border-radius: 999px; }
+.cat b { flex: 0 0 22px; text-align: right; font-weight: 800; }
+.cats-tip { font-size: 12px; color: #9fc3d2; margin-top: 8px; font-style: italic; }
+/* size row */
+.size-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.size-opt { display: flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px;
+  background: rgba(255,255,255,.05); border: 1px solid var(--ui-line); cursor: pointer; }
+.size-opt .scent-ico { font-size: 15px; }
+.size-opt b { font-weight: 700; }
+.size-opt i { font-style: normal; font-weight: 800; margin-left: 2px; }
+.size-opt.sel { border-color: var(--gold); background: rgba(255,211,92,.14); }
 
 /* ---------- Map / positions ---------- */
 .map-venues { display: flex; flex-direction: column; gap: 8px; margin-bottom: 6px; }

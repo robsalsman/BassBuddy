@@ -9,12 +9,49 @@
   // ===========================================================================
   // Data
   // ===========================================================================
+  // Real rod selection. power = fight muscle (line/backbone); lurePow = the bait
+  // weight/power it's built for; cover = backbone to pull fish from structure;
+  // finesse = soft-tip delicacy for clear water & light line.
   const RODS = [
-    { id: "twig",   name: "Twig Rod",      ico: "🎣", price: 0,    power: 1.0,  luck: 0,    desc: "A humble start. Gets the job done." },
-    { id: "carbon", name: "Carbon Caster", ico: "🪶", price: 120,  power: 1.25, luck: 0.08, desc: "Lighter line, bigger bass, longer casts." },
-    { id: "pro",    name: "Pro Angler",    ico: "⚙️", price: 450,  power: 1.55, luck: 0.16, desc: "Tournament-grade. Lands the lunkers." },
-    { id: "legend", name: "Legend Reel",   ico: "🌟", price: 1400, power: 1.9,  luck: 0.28, desc: "Whispered about on every dock." },
+    { id: "ultralight", name: "Ultralight Spin", ico: "🪶", type: "spin", power: 0.85, luck: 0.06, lurePow: 0.15, cover: 0.2, finesse: 1.0,
+      desc: "Whippy spinning rod, light line. Tiny finesse baits in clear, open water — numbers, not giants." },
+    { id: "spin",       name: "Spinning Rod",    ico: "🎣", type: "spin", power: 1.1,  luck: 0.1,  lurePow: 0.42, cover: 0.45, finesse: 0.82,
+      desc: "Versatile medium spinner — worms, inline & light cranks in clear to stained water." },
+    { id: "baitcast",   name: "Baitcaster",      ico: "⚙️", type: "cast", power: 1.45, luck: 0.16, lurePow: 0.72, cover: 0.78, finesse: 0.5,
+      desc: "The all-around bass stick — accurate casts, moving baits, fish near cover." },
+    { id: "heavy",      name: "Flipping Stick",  ico: "🪵", type: "cast", power: 1.85, luck: 0.22, lurePow: 0.95, cover: 1.0, finesse: 0.25,
+      desc: "Broomstick power — big baits, heavy cover, hauls giants out of the slop." },
   ];
+  const COVER_HEAVY = { veg: 0.9, wood: 0.85, rock: 0.5, deep: 0.6, open: 0.2 };
+
+  // Rate a rod for the chosen lure + where you're fishing: Lure Fit, Cover Power, Finesse.
+  function rodScore(rd, lu) {
+    lu = lu || lure();
+    const sz = G.lure.size || "med";
+    const sp = spot(), pos = position(), clarity = sp.clarity || "stained";
+    const grp = STRUCT_GROUP[pos.id] || "open";
+    // the bait's effective weight/power from its aggressiveness + size + style
+    const luPow = clamp((lu.aggr != null ? lu.aggr : 0.5) * 0.6 + (SIZES[sz].axis + 1) / 2 * 0.45 + (lu.style === "top" ? 0.08 : 0), 0, 1);
+    const fit = clamp(1 - Math.abs(rd.lurePow - luPow) * 1.3, 0.1, 1);
+    // power needed = how heavy the cover is + how big the fish run here
+    const need = clamp((COVER_HEAVY[grp] != null ? COVER_HEAVY[grp] : 0.4) * 0.85 + (sp.id === "deep" ? 0.3 : sp.id === "river" ? 0.1 : 0), 0, 1);
+    const power = clamp(1 - Math.max(0, need - rd.cover) * 1.7, 0.12, 1);   // too little backbone hurts; extra is fine
+    const needFin = clarity === "clear" ? 0.85 : clarity === "stained" ? 0.45 : 0.2;
+    const finesse = clamp(1 - Math.abs(rd.finesse - needFin) * 1.05, 0.18, 1);
+    const score = fit * 0.42 + power * 0.34 + finesse * 0.24;
+    const cats = [
+      { key: "fit", label: "Lure Fit", pct: Math.round(fit * 100) },
+      { key: "power", label: "Cover Power", pct: Math.round(power * 100) },
+      { key: "finesse", label: "Finesse", pct: Math.round(finesse * 100) },
+    ];
+    const weak = cats.slice().sort((a, b) => a.pct - b.pct)[0];
+    let tip;
+    if (weak.pct >= 62) tip = "✓ Right rod for the job";
+    else if (weak.key === "fit") tip = luPow > rd.lurePow ? "Underpowered for this bait — step up" : "Too stout for a finesse bait — go lighter";
+    else if (weak.key === "power") tip = "Not enough backbone to pull them from this cover";
+    else tip = clarity === "clear" ? "Clear water — a softer finesse rod draws more bites" : "Heavier water — power matters more than finesse here";
+    return { score, pct: Math.round(score * 100), stars: clamp(Math.round(score * 5), 1, 5), cats, tip, good: weak.pct >= 62 };
+  }
 
   // Lures: type changes how/what bites. Colors are tuned to water clarity.
   // fam: "natural" (clear water) or "bright" (stained/dark water).
@@ -34,31 +71,48 @@
   // style: "top" works the surface, "sink" sinks & dives on the retrieve.
   // band: depth this lure presents to (0 surface .. 1 bottom).
   // cadence: ideal twitch rhythm — "fast" rapid taps, "med" steady, "slow" big spaced sweeps.
+  // aggr = finesse(0)..power(1): how aggressive the presentation is, used by the
+  // Action rating. viz = which built-in model to draw for it (visual stand-in).
   const LURES = [
     { id: "worm",     name: "Plastic Worm", ico: "🪱", price: 0,    desc: "All-purpose soft plastic. Slow bottom hops; bass can't resist.",
       colors: ["green","black","red","brown"], bite: 1.0, bassBias: 1.35, lmBias: 1.2, junk: 1.0, rareBias: 1.0, sizeBias: 1.0,
-      style: "sink", band: 0.9, cadence: "slow", motion: "Slow bottom hops" },
+      style: "sink", band: 0.9, cadence: "slow", aggr: 0.2, motion: "Slow bottom hops" },
+    { id: "carolina", name: "Carolina Rig", ico: "⛓️", price: 0,   desc: "Heavy weight, long leader — drags a plastic across deep structure.",
+      colors: ["green","brown","red","black"], bite: 1.0, bassBias: 1.4, lmBias: 1.3, junk: 0.45, rareBias: 1.4, sizeBias: 1.3, viz: "worm",
+      style: "sink", band: 0.92, cadence: "slow", aggr: 0.28, motion: "Slow deep drag" },
+    { id: "inline",   name: "Inline Spinner",ico: "🌀", price: 0,  desc: "Small spinning blade — steady flash that picks off numbers in clear water.",
+      colors: ["shad","gold","white","chartreuse"], bite: 1.15, bassBias: 1.15, lmBias: 1.1, junk: 0.6, rareBias: 1.1, sizeBias: 0.9, viz: "spoon",
+      style: "sink", band: 0.35, cadence: "med", aggr: 0.6, motion: "Steady blade spin" },
     { id: "torpedo",  name: "Torpedo",      ico: "🚀", price: 130,  desc: "Prop topwater that kicks up the surface. Short sweeps; quick strikes.",
       colors: ["shad","white","chartreuse","black"], bite: 1.3, bassBias: 1.2, lmBias: 1.4, junk: 0.5, rareBias: 1.05, sizeBias: 1.0,
-      style: "top", band: 0.08, cadence: "med", motion: "Short sweeps" },
+      style: "top", band: 0.08, cadence: "med", aggr: 0.7, motion: "Short sweeps" },
+    { id: "buzz",     name: "Buzzbait",     ico: "🪺", price: 0,    desc: "Blades churn a wake across the top — a reaction strike from active bass.",
+      colors: ["white","black","chartreuse","shad"], bite: 1.35, bassBias: 1.2, lmBias: 1.5, junk: 0.4, rareBias: 1.15, sizeBias: 1.15, viz: "torpedo",
+      style: "top", band: 0.06, cadence: "med", aggr: 0.85, motion: "Buzzing wake" },
     { id: "jitterbug",name: "Jitterbug",    ico: "🐞", price: 200,  desc: "Wobbles wildly across the top. Tiny twitches draw active fish.",
       colors: ["black","white","red","green"], bite: 1.45, bassBias: 1.15, lmBias: 1.35, junk: 0.5, rareBias: 1.1, sizeBias: 1.0,
-      style: "top", band: 0.05, cadence: "fast", motion: "Tiny twitches" },
+      style: "top", band: 0.05, cadence: "fast", aggr: 0.82, motion: "Tiny twitches" },
     { id: "pencil",   name: "Pencil Bait",  ico: "✏️", price: 320,  desc: "Walk-the-dog plug. Big sweeping motions call up bigger surface bass.",
       colors: ["shad","gold","white","chartreuse"], bite: 1.05, bassBias: 1.25, lmBias: 1.5, junk: 0.4, rareBias: 1.15, sizeBias: 1.15,
-      style: "top", band: 0.06, cadence: "slow", motion: "Big sweeps" },
+      style: "top", band: 0.06, cadence: "slow", aggr: 0.5, motion: "Big sweeps" },
     { id: "frog",     name: "Frog",         ico: "🐸", price: 470,  desc: "Weedless over cover. Short skitters — largemouth explode on it.",
       colors: ["green","black","white","brown"], bite: 1.0, bassBias: 1.25, lmBias: 1.9, junk: 0.35, rareBias: 1.15, sizeBias: 1.2,
-      style: "top", band: 0.07, cadence: "fast", motion: "Short skitters" },
+      style: "top", band: 0.07, cadence: "fast", aggr: 0.55, motion: "Short skitters" },
+    { id: "spinner",  name: "Spinnerbait",  ico: "🎐", price: 0,    desc: "Wire bait with a flashing blade and skirt — covers water around cover.",
+      colors: ["white","chartreuse","shad","firetiger"], bite: 1.2, bassBias: 1.3, lmBias: 1.35, junk: 0.5, rareBias: 1.2, sizeBias: 1.2, viz: "spoon",
+      style: "sink", band: 0.42, cadence: "med", aggr: 0.75, motion: "Flash & thump" },
+    { id: "trap",     name: "Rattle Trap",  ico: "📿", price: 0,    desc: "Lipless crankbait — tight rattling vibration rips through grass and flats.",
+      colors: ["firetiger","red","shad","chartreuse"], bite: 1.2, bassBias: 1.2, lmBias: 1.2, junk: 0.55, rareBias: 1.25, sizeBias: 1.25, viz: "crank",
+      style: "sink", band: 0.6, cadence: "med", aggr: 0.8, motion: "Rattling vibration" },
     { id: "spoon",    name: "Spoon",        ico: "🥄", price: 620,  desc: "Flutters down, then darts up on the reel. Flashy and versatile.",
       colors: ["gold","shad","chartreuse","white"], bite: 1.1, bassBias: 1.15, lmBias: 1.1, junk: 0.6, rareBias: 1.3, sizeBias: 1.2,
-      style: "sink", band: 0.55, cadence: "med", motion: "Flutter & dart" },
+      style: "sink", band: 0.55, cadence: "med", aggr: 0.62, motion: "Flutter & dart" },
     { id: "crank",    name: "Crankbait",    ico: "🎏", price: 820,  desc: "Dives deep and rises on the reel — pulls mudders off the bottom.",
       colors: ["firetiger","shad","red","chartreuse"], bite: 1.1, bassBias: 1.15, lmBias: 1.1, junk: 0.55, rareBias: 1.3, sizeBias: 1.3,
-      style: "sink", band: 0.72, cadence: "med", motion: "Steady deep wind" },
+      style: "sink", band: 0.72, cadence: "med", aggr: 0.7, motion: "Steady deep wind" },
     { id: "furry",    name: "Furry Sinker", ico: "🧶", price: 1200, desc: "Hair-dressed bottom bait. Slow and big — filters out the small stuff.",
       colors: ["brown","black","green","red"], bite: 0.85, bassBias: 1.45, lmBias: 1.5, junk: 0.4, rareBias: 1.55, sizeBias: 1.5, minSize: 1.2,
-      style: "sink", band: 0.82, cadence: "slow", motion: "Slow bottom drag" },
+      style: "sink", band: 0.82, cadence: "slow", aggr: 0.2, motion: "Slow bottom drag" },
   ];
 
   // Fish-attractant scents/flavors. A scent gives a small all-round bump, plus
@@ -73,6 +127,16 @@
     night: { name: "Nightcrawler", ico: "🪱", base: 0.55, fav: "slow",   note: "Worm scent — pairs with slow finesse baits" },
     anise: { name: "Anise",        ico: "🌿", base: 0.58, fav: null,     cold: true, note: "Sweet cover scent — steady producer in cold water" },
   };
+
+  // Lure SIZE — a real selection axis. Small/finesse shines in clear, tough,
+  // pressured water and draws MORE but smaller bites; large/magnum shines in
+  // stained water & active fish, drawing FEWER but BIGGER ones. axis: -1..+1.
+  const SIZES = {
+    small: { name: "Finesse", ico: "🤏", axis: -1, bite: 1.12, sizePush: -0.16, bigGate: -0.18 },
+    med:   { name: "Standard", ico: "✋", axis: 0,  bite: 1.0,  sizePush: 0,     bigGate: 0 },
+    large: { name: "Magnum",  ico: "🖐️", axis: 1,  bite: 0.9,  sizePush: 0.18,  bigGate: 0.22 },
+  };
+  const SIZE_ORDER = ["small", "med", "large"];
 
   // Fish. `art` drives the SVG. `bass:true` = black bass (counts in tournaments);
   // `lm:true` marks a largemouth specifically.
@@ -161,8 +225,8 @@
   function defaultSave() {
     return {
       coins: 0,
-      rod: "twig", ownedRods: ["twig"],
-      lure: { id: "worm", color: "green" }, ownedLures: ["worm"], attractant: "none",
+      rod: "spin", ownedRods: ["spin"],
+      lure: { id: "worm", color: "green", size: "med" }, ownedLures: ["worm"], attractant: "none",
       spot: "cove", ownedSpots: ["cove"],
       positions: { cove: "pads", river: "riffle", deep: "weed" },
       records: {}, caught: {},
@@ -189,6 +253,11 @@
         if (!ATTRACTANTS[m.attractant]) m.attractant = "none";
         const lu = LURES.find(l => l.id === m.lure.id);
         if (lu && !lu.colors.includes(m.lure.color)) m.lure.color = lu.colors[0];
+        if (!SIZES[m.lure.size]) m.lure.size = "med";
+        // migrate old rod ids (twig/carbon/pro/legend) → new real rod types
+        const ROD_MAP = { twig: "spin", carbon: "spin", pro: "baitcast", legend: "heavy" };
+        if (ROD_MAP[m.rod]) m.rod = ROD_MAP[m.rod];
+        if (!RODS.find(r => r.id === m.rod)) m.rod = "spin";
         // migrate: old saves split bass into Giant/Trophy Largemouth — fold them all
         // into a single "Largemouth Bass" record/count
         m.records = m.records || {}; m.caught = m.caught || {};
@@ -239,7 +308,8 @@
     shopRods: $("shopRods"), shopLures: $("shopLures"), shopSpots: $("shopSpots"), shopDex: $("shopDex"),
     rodChip: $("rodChip"), lureChip: $("lureChip"), spotChip: $("spotChip"),
     hookMeter: $("hookMeter"), hmMarker: $("hmMarker"), strikeFlash: $("strikeFlash"), catchHookset: $("catchHookset"),
-    lureModal: $("lureModal"), lureClose: $("lureClose"), lureList: $("lureList"), colorRow: $("colorRow"), lureCond: $("lureCond"),
+    lureModal: $("lureModal"), lureClose: $("lureClose"), lureList: $("lureList"), colorRow: $("colorRow"), lureCond: $("lureCond"), lureCats: $("lureCats"), sizeRow: $("sizeRow"),
+    rodModal: $("rodModal"), rodClose: $("rodClose"), rodList: $("rodList"), rodCond: $("rodCond"), rodCats: $("rodCats"),
     mapModal: $("mapModal"), mapClose: $("mapClose"), mapVenues: $("mapVenues"), posGrid: $("posGrid"), finder: $("finder"),
     tourneyBtn: $("tourneyBtn"), modeModal: $("modeModal"), modeClose: $("modeClose"),
     tourHud: $("tourHud"), tourClock: $("tourClock"), livewell: $("livewell"), tourTotal: $("tourTotal"), tourBig: $("tourBig"), tourQuit: $("tourQuit"),
@@ -699,7 +769,7 @@
   const sfx = n => Sound.play(n);
   function anyModalOpen() {
     return [el.catchModal, el.failModal, el.shopModal, el.lureModal, el.mapModal,
-            el.tourStartModal, el.tourResultModal, el.recordsModal].some(m => !m.classList.contains("hidden"));
+            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal].some(m => !m.classList.contains("hidden"));
   }
 
   function floatText(txt, color) {
@@ -907,85 +977,91 @@
     pencil:    { veg: 0.7, wood: 0.6, rock: 0.6, deep: 0.35, open: 0.95 },
     torpedo:   { veg: 0.75, wood: 0.6, rock: 0.6, deep: 0.35, open: 0.95 },
     jitterbug: { veg: 0.85, wood: 0.7, rock: 0.5, deep: 0.3, open: 0.75 },
+    buzz:      { veg: 0.9, wood: 0.8, rock: 0.5, deep: 0.25, open: 0.85 },
     worm:      { veg: 0.85, wood: 1.0, rock: 0.7, deep: 0.8, open: 0.6 },
+    carolina:  { veg: 0.7, wood: 0.85, rock: 0.9, deep: 1.0, open: 0.7 },
     furry:     { veg: 0.6, wood: 1.0, rock: 0.85, deep: 0.95, open: 0.6 },
     spoon:     { veg: 0.45, wood: 0.6, rock: 0.85, deep: 0.9, open: 0.9 },
     crank:     { veg: 0.35, wood: 0.6, rock: 1.0, deep: 0.95, open: 0.85 },
+    spinner:   { veg: 0.75, wood: 1.0, rock: 0.7, deep: 0.55, open: 0.85 },
+    trap:      { veg: 0.9, wood: 0.55, rock: 0.8, deep: 0.8, open: 0.95 },
+    inline:    { veg: 0.65, wood: 0.65, rock: 0.85, deep: 0.6, open: 0.95 },
   };
 
   // score a lure for the current conditions; returns {score 0..1, pct, stars, tip, good}
-  function lureScore(lu, colorId) {
+  // Rate a lure across the real factors an angler weighs: Depth, Action (speed),
+  // Profile (size), Color (visibility), Cover, Scent — returns each category plus
+  // a weighted overall. colorId / sizeId let the UI preview options.
+  function lureScore(lu, colorId, sizeId) {
     const c = S.cond, band = c.band, hour = c.timeMin / 60, temp = c.temp;
-    const pos = position();
-    const lowLight = hour < 8 || hour > 18 || c.weather === "night" || c.weather === "fog";
-    const overcast = c.weather === "cloud" || c.weather === "fog" || c.weather === "night";
+    const pos = position(), sp = spot();
+    const clarity = sp.clarity || "stained";
+    const activity = c.activity != null ? c.activity : 0.5;
+    const lowLight = hour < 8 || hour > 18 || c.weather === "night" || c.weather === "fog" || c.weather === "rain";
+    const overcast = c.weather === "cloud" || c.weather === "fog" || c.weather === "night" || c.weather === "rain";
     const bright = c.weather === "sun";
     const top = lu.style === "top";
+    const sz = sizeId || G.lure.size || "med";
 
-    // 1) depth — can the lure present where the fish are holding?
+    // 1) DEPTH — can it present where the fish are holding?
     let depth;
     if (top) depth = clamp(1 - Math.max(0, band - 0.12) / 0.4, 0.05, 1);
     else if (band > lu.band + 0.08) depth = clamp(1 - (band - lu.band) / 0.5, 0.1, 0.6);
     else depth = clamp(1 - Math.abs(band - lu.band) * 0.7, 0.55, 1);
 
-    // 2) color vs available light
+    // 2) ACTION — does the bait's aggressiveness suit the fish's mood (temp, light,
+    //    activity)? Cold/clear/tough water wants finesse; warm/active/overcast wants power.
+    let want = clamp((temp - 50) / 42 * 0.5 + activity * 0.4 + (overcast ? 0.14 : bright ? -0.12 : 0), 0, 1);
+    let action = clamp(1 - Math.abs((lu.aggr != null ? lu.aggr : 0.5) - want) * 1.05, 0.18, 1);
+    if (top) action *= lowLight ? 1 : (hour >= 10 && hour <= 16 ? 0.5 : 0.82);   // topwater wants low light
+
+    // 3) PROFILE — does the lure SIZE match the water? Clear/calm → small finesse;
+    //    stained/muddy & active → bigger profile. axis -1(small)..+1(large).
+    const clarityIdeal = clarity === "clear" ? -0.6 : clarity === "murky" ? 0.7 : 0.1;
+    const ideal = clamp((clarityIdeal + (activity - 0.5) * 1.2) / 1.35, -1, 1);
+    const profile = clamp(1 - Math.abs(SIZES[sz].axis - ideal) * 0.55, 0.15, 1);
+
+    // 4) COLOR — visibility for the light/water
     const col = COLORS[colorId || G.lure.color];
-    const color = col.fam === preferredFam() ? 1 : 0.58;
+    let color = col.fam === preferredFam() ? 1 : 0.55;
+    if (clarity === "murky") color *= (col.fam === "bright") ? 1 : 0.85;   // muddy water rewards bright/flash
 
-    // 3) time of day
-    let time;
-    if (top) time = lowLight ? 1 : (hour >= 10 && hour <= 16 ? 0.35 : 0.72);
-    else if (lu.id === "crank" || lu.id === "spoon") time = (hour >= 8 && hour <= 18) ? 0.95 : 0.7;
-    else time = 0.85;
-
-    // 4) water temperature
-    const slow = lu.id === "worm" || lu.id === "furry";
-    let tempS;
-    if (temp < 55) tempS = slow ? 1 : (top ? 0.4 : 0.7);
-    else if (temp > 72) tempS = top ? 1 : (slow ? 0.72 : 0.9);
-    else tempS = 0.9;
-
-    // 5) weather / activity
-    const moving = ["torpedo", "jitterbug", "crank", "spoon"].includes(lu.id);
-    let weath;
-    if (moving) weath = overcast ? 1 : 0.72;
-    else if (slow) weath = bright ? 1 : 0.78;
-    else weath = overcast ? 0.85 : 0.95;
-
-    // 6) structure / position
+    // 5) COVER — does it work this position's structure?
     const grp = STRUCT_GROUP[pos.id] || "open";
-    const structS = (STRUCT_PREF[lu.id] && STRUCT_PREF[lu.id][grp]) != null ? STRUCT_PREF[lu.id][grp] : 0.6;
+    const cover = (STRUCT_PREF[lu.id] && STRUCT_PREF[lu.id][grp]) != null ? STRUCT_PREF[lu.id][grp] : 0.6;
 
-    // 7) fish-attractant scent/flavor — pairs with lure style + temperature
+    // 6) SCENT — attractant pairing
     const scent = scentScore(lu, temp);
 
-    const score = depth * 0.27 + color * 0.14 + time * 0.13 + tempS * 0.11 + weath * 0.11 + structS * 0.14 + scent * 0.10;
-
-    // educational tip — call out the limiting factor (or the strength)
-    const factors = [
-      ["depth", depth], ["color", color], ["time", time], ["temp", tempS], ["weather", weath], ["struct", structS], ["scent", scent],
-    ].sort((a, b) => a[1] - b[1]);
-    const weak = factors[0];
+    const score = depth * 0.24 + action * 0.18 + profile * 0.14 + color * 0.14 + cover * 0.16 + scent * 0.14;
+    const cats = [
+      { key: "depth", label: "Depth", pct: Math.round(depth * 100) },
+      { key: "action", label: "Action", pct: Math.round(action * 100) },
+      { key: "profile", label: "Profile", pct: Math.round(profile * 100) },
+      { key: "color", label: "Color", pct: Math.round(color * 100) },
+      { key: "cover", label: "Cover", pct: Math.round(cover * 100) },
+      { key: "scent", label: "Scent", pct: Math.round(scent * 100) },
+    ];
+    // tip = call out the weakest link
+    const weak = cats.slice().sort((a, b) => a.pct - b.pct)[0];
     let tip;
-    if (weak[1] >= 0.62) tip = "✓ Dialed in for these conditions";
-    else if (weak[0] === "depth") tip = top ? "Fish are deep — a topwater won't reach" : "Wrong depth for where they're holding";
-    else if (weak[0] === "color") tip = bright ? "Too flashy — go natural in bright light" : "Too dull — go bright in low visibility";
-    else if (weak[0] === "time") tip = "Topwater fades in midday sun — save it for low light";
-    else if (weak[0] === "temp") tip = temp < 55 ? "Cold water — fish want a slow bait" : "Warm & active — a faster bait shines";
-    else if (weak[0] === "weather") tip = moving ? "Calm & clear — finesse beats flash" : "Active, overcast day — try a moving bait";
-    else if (weak[0] === "scent") tip = "Add a matching scent for an edge";
+    if (weak.pct >= 62) tip = "✓ Dialed in for these conditions";
+    else if (weak.key === "depth") tip = top ? "Fish are deep — a topwater won't reach" : "Won't get to the holding depth";
+    else if (weak.key === "action") tip = want > (lu.aggr || 0.5) ? "Too sluggish — they want a faster bait" : "Too aggressive — slow down & finesse";
+    else if (weak.key === "profile") tip = SIZES[sz].axis > ideal ? "Downsize — too big for this water" : "Upsize — they want a bigger profile";
+    else if (weak.key === "color") tip = bright ? "Too flashy — go natural in bright light" : "Too dull — go bright in low/dirty water";
+    else if (weak.key === "scent") tip = "Add a matching scent for an edge";
     else tip = "Not the cover this lure loves";
 
-    return { score, pct: Math.round(score * 100), stars: clamp(Math.round(score * 5), 1, 5), tip, good: weak[1] >= 0.62 };
+    return { score, pct: Math.round(score * 100), stars: clamp(Math.round(score * 5), 1, 5), cats, tip, good: weak.pct >= 62 };
   }
 
   // attractant suitability 0..1 — base presence + combos with lure style & temp
   function scentScore(lu, temp) {
     const a = ATTRACTANTS[G.attractant] || ATTRACTANTS.none;
     let s = a.base;
-    const moving = ["torpedo", "jitterbug", "crank", "spoon", "pencil"].includes(lu.id);
-    const slow = lu.id === "worm" || lu.id === "furry";
-    const bottom = lu.style === "sink";
+    const ag = lu.aggr != null ? lu.aggr : 0.5;
+    const moving = ag >= 0.55, slow = ag <= 0.3, bottom = lu.style === "sink";
     if (a.fav === "moving" && moving) s += 0.30;
     else if (a.fav === "slow" && slow) s += 0.30;
     else if (a.fav === "bottom" && bottom) s += 0.26;
@@ -1022,7 +1098,8 @@
     // Ambush strikes are reaction bites from aggressive (usually big) fish, so they get a floor.
     let present = clamp(S.rv.bigCred != null ? S.rv.bigCred : 0.4, 0, 1);
     if (S.rv.ambush) present = Math.max(present, 0.72);
-    const bigGate = 0.18 + present * 1.7;             // ~0.18x at sloppy .. ~1.9x dialed in
+    const sz = SIZES[G.lure.size] || SIZES.med;       // lure size: magnum draws bigger, finesse draws smaller
+    const bigGate = clamp(0.18 + present * 1.7 + sz.bigGate, 0.1, 2.2);
 
     const table = sp.fish.map(entry => {
       const def = fishDef(entry.k);
@@ -1046,8 +1123,8 @@
     let lo = chosen.w[0], hi = chosen.w[1];
     if (lu.minSize) lo = lo + (hi - lo) * (lu.minSize - 1) * 0.4;
     // presenting on the money (depth + color + clean action) earns bigger fish
-    const sizePush = clamp((rod().power - 1) * 0.4 + (lu.sizeBias - 1) * 0.5
-      + depthMatch * 0.18 + (colorMatch ? 0.08 : 0) + (goodAction ? 0.08 : 0) + (S.castBonus ? 0.08 : 0), 0, 0.85);
+    const sizePush = clamp((rod().power - 1) * 0.4 + (lu.sizeBias - 1) * 0.5 + sz.sizePush
+      + depthMatch * 0.18 + (colorMatch ? 0.08 : 0) + (goodAction ? 0.08 : 0) + (S.castBonus ? 0.08 : 0), 0, 0.9);
     const roll = Math.pow(Math.random(), 1.7 - sizePush);
     const weight = +(lo + (hi - lo) * roll).toFixed(1);
 
@@ -1094,7 +1171,7 @@
   // unlock the audio context on the first touch (mobile policy) + a soft click on any control
   document.addEventListener("pointerdown", (e) => {
     Sound.ensure();
-    if (e.target.closest("button, .chip, .tab, .circuit, .item-btn, .lure-opt, .color-dot, .scent-opt, .troll-btn, .well-slot, .map-venue, .pos-cell")) sfx("ui");
+    if (e.target.closest("button, .chip, .tab, .circuit, .item-btn, .lure-opt, .color-dot, .scent-opt, .size-opt, .troll-btn, .well-slot, .map-venue, .pos-cell")) sfx("ui");
   }, true);
   canvas.addEventListener("pointerdown", (e) => { const p = ptr(e); onDown(p.x, p.y); });
   canvas.addEventListener("pointermove", (e) => { const p = ptr(e); onMove(p.x, p.y); });
@@ -1779,7 +1856,7 @@
     const st = {
       view: S.view, mode: S.mode, band, win,
       lureDepth, lureDist: S.rv.dist, lureHex: COLORS[G.lure.color].hex, lureStyle: lu.style,
-      lureId: lu.id, lurePhys: S.rv.phys || (lu.style === "top" ? "float" : lu.id === "crank" ? "dive" : "sink"),
+      lureId: lu.viz || lu.id, lurePhys: S.rv.phys || (lu.style === "top" ? "float" : lu.id === "crank" ? "dive" : "sink"),
       lureAction: S.rv.action || 0,
       inZone: Math.abs(lureDepth - band) < win,
       interest: S.rv.interest, fishSize, fishDensity,
@@ -1935,7 +2012,8 @@
     const struct = 0.8 + (S.castAccuracy != null ? S.castAccuracy : 0.5) * 0.5;   // pitched tight to cover = more bites
     const aimed = 0.55 + 0.45 * (S.castFacing != null ? S.castFacing : 1);   // faced the fish when you cast?
     const hot = lu.id === S.cond.hotLure ? 1.45 : 1;                          // matched the day's pattern
-    const build = (R.action > 0.55 ? 1 : 0.3) * (0.25 + sc) * depthNow * struct * aimed * (S.castLuck || 1) * hot;
+    const szBite = (SIZES[G.lure.size] || SIZES.med).bite;   // finesse = more bites, magnum = fewer
+    const build = (R.action > 0.55 ? 1 : 0.3) * (0.25 + sc) * depthNow * struct * aimed * (S.castLuck || 1) * hot * szBite;
     R.interest = clamp(R.interest + (build * 0.012 - 0.0016) * step, 0, 1);
     R.follower = R.interest;
 
@@ -2023,7 +2101,8 @@
     // a big bass bolts for the cover on its runs: horsing it (holding) drives it
     // INTO the structure; giving line turns it out. Wrap up and you're broken off.
     if (T.state === "run" && bigFish && hasCover) {
-      if (S.holding) T.cover = clamp((T.cover || 0) + dt * 0.00072 * (0.55 + T.size), 0, 1);
+      // a powerful rod muscles the fish out of cover; a finesse stick gets wrapped
+      if (S.holding) T.cover = clamp((T.cover || 0) + dt * 0.00072 * (0.55 + T.size) * (1.25 - rod().cover * 0.85), 0, 1);
       else T.cover = clamp((T.cover || 0) - dt * 0.0013, 0, 1);
       if ((T.cover || 0) > 0.5 && !T._coverBuzz) { vibrate(45); T._coverBuzz = 1; }
       if ((T.cover || 0) < 0.3) T._coverBuzz = 0;
@@ -2323,7 +2402,7 @@
       const tip = rodTip();
       ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 1.2;
       ctx.beginPath(); ctx.moveTo(tip.x, tip.y); ctx.lineTo(S.bobber.x, S.bobber.y); ctx.stroke();
-      drawLure(S.bobber.x, S.bobber.y, G.lure.id, COLORS[G.lure.color].hex, now / 90, 0.7, -1);
+      drawLure(S.bobber.x, S.bobber.y, lure().viz || G.lure.id, COLORS[G.lure.color].hex, now / 90, 0.7, -1);
     }
     drawVignette();
   }
@@ -2486,7 +2565,7 @@
       // line + lure
       ctx.strokeStyle = "rgba(255,255,255,0.45)"; ctx.lineWidth = 1.2;
       ctx.beginPath(); ctx.moveTo(rodEntry.x, rodEntry.y); ctx.lineTo(lureX, lureY); ctx.stroke();
-      drawLure(lureX, lureY, G.lure.id, COLORS[G.lure.color].hex, now / (lure().cadence === "fast" ? 70 : lure().cadence === "slow" ? 150 : 100), 1, -1);
+      drawLure(lureX, lureY, lure().viz || G.lure.id, COLORS[G.lure.color].hex, now / (lure().cadence === "fast" ? 70 : lure().cadence === "slow" ? 150 : 100), 1, -1);
       // zone coaching arrow by the lure
       if (S.mode === "retrieve") {
         if (lure().style === "top") {
@@ -2522,7 +2601,7 @@
       const len = 46 + 46 * S.ft.size;
       drawBass(fx, fy, len, f && f.art, dir, 1);
       // the lure in its mouth
-      drawLure(fx + dir * len * 0.52, fy + len * 0.05, G.lure.id, COLORS[G.lure.color].hex, now / 120, 0.55, dir);
+      drawLure(fx + dir * len * 0.52, fy + len * 0.05, lure().viz || G.lure.id, COLORS[G.lure.color].hex, now / 120, 0.55, dir);
       if (S.ft.state === "jump" && Math.random() < 0.2) sprayBurst(fx + rnd(-8, 8), UW_TOP + 2, 7, 1);
     }
 
@@ -2759,7 +2838,27 @@
         </div>
         <div class="tag">${tag}</div></div>`;
     }).join("");
+    renderCats();
+    renderSizes();
     renderColors();
+  }
+  // a row of mini category bars (shared by lure + rod breakdowns)
+  function catBars(cats) {
+    return `<div class="cats">` + cats.map(c =>
+      `<div class="cat"><span>${c.label}</span><div class="cat-bar"><i style="width:${c.pct}%;background:${ratingColor(c.pct)}"></i></div><b style="color:${ratingColor(c.pct)}">${c.pct}</b></div>`
+    ).join("") + `</div>`;
+  }
+  function renderCats() {
+    const l = lure(), r = lureScore(l);
+    el.lureCats.innerHTML = `<div class="cats-head">Why — ${l.ico} ${l.name}</div>` + catBars(r.cats) + `<div class="cats-tip">${r.tip}</div>`;
+  }
+  function renderSizes() {
+    el.sizeRow.innerHTML = SIZE_ORDER.map(k => {
+      const s = SIZES[k], sel = (G.lure.size || "med") === k;
+      const r = lureScore(lure(), null, k).pct;
+      return `<div class="size-opt ${sel ? "sel" : ""}" data-size="${k}">
+        <span class="scent-ico">${s.ico}</span><b>${s.name}</b><i style="color:${ratingColor(r)}">${r}%</i></div>`;
+    }).join("");
   }
   function renderColors() {
     const l = lure();
@@ -2802,11 +2901,39 @@
         toast("Buy this lure in the 🛒 shop");
       }
     } else if (dot) {
-      G.lure.color = dot.dataset.color; save(); updateHUD(); renderColors();
+      G.lure.color = dot.dataset.color; save(); updateHUD(); renderColors(); renderCats();
     } else {
+      const szEl = e.target.closest(".size-opt");
       const sc = e.target.closest(".scent-opt");
-      if (sc) { G.attractant = sc.dataset.scent; save(); updateHUD(); renderLures(); }
+      if (szEl) { G.lure.size = szEl.dataset.size; save(); updateHUD(); renderLures(); }
+      else if (sc) { G.attractant = sc.dataset.scent; save(); updateHUD(); renderLures(); }
     }
+  });
+
+  // ---- Rod picker ----
+  function openRods() { renderRods(); el.rodModal.classList.remove("hidden"); }
+  function renderRods() {
+    const lu = lure(), sp = spot(), pos = position();
+    el.rodCond.innerHTML = `${lu.ico} ${lu.name} · ${SIZES[G.lure.size || "med"].name} · ${sp.ico} ${sp.name} — ${pos.name} · <b>${sp.clarity}</b> water`;
+    const rated = RODS.map(rd => ({ rd, r: rodScore(rd, lu) })).sort((a, b) => b.r.score - a.r.score);
+    el.rodList.innerHTML = rated.map(({ rd, r }) => {
+      const sel = G.rod === rd.id;
+      return `<div class="lure-opt ${sel ? "sel" : ""}" data-rod="${rd.id}">
+        <div class="ico">${rd.ico}</div>
+        <div class="info">
+          <div class="nm">${rd.name} <span class="stars" style="color:${ratingColor(r.pct)}">${starStr(r.stars)}</span></div>
+          <div class="rate"><div class="rate-bar"><i style="width:${r.pct}%;background:${ratingColor(r.pct)}"></i></div><b style="color:${ratingColor(r.pct)}">${r.pct}</b></div>
+          <div class="ds">${rd.desc}</div>
+        </div>
+        <div class="tag">${sel ? "✓ ON" : "TAP"}</div></div>`;
+    }).join("");
+    const cur = rodScore(rod(), lu);
+    el.rodCats.innerHTML = `<div class="cats-head">Why — ${rod().ico} ${rod().name}</div>` + catBars(cur.cats) + `<div class="cats-tip">${cur.tip}</div>`;
+  }
+  el.rodClose.addEventListener("click", () => el.rodModal.classList.add("hidden"));
+  el.rodModal.addEventListener("click", (e) => {
+    const opt = e.target.closest(".lure-opt"); if (!opt) return;
+    G.rod = opt.dataset.rod; save(); updateHUD(); renderRods();
   });
 
   // ===========================================================================
@@ -2894,7 +3021,7 @@
   // ===========================================================================
   // Shop
   // ===========================================================================
-  el.rodChip.addEventListener("click", () => { openShop(); switchTab("rods"); });
+  el.rodChip.addEventListener("click", openRods);
   function openShop() { el.shopModal.classList.remove("hidden"); renderShop(); }
   function switchTab(tab) {
     document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x.dataset.tab === tab));
