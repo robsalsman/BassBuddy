@@ -724,27 +724,49 @@ const Scene3D = (() => {
     ang.add(armL); ang.add(armR);
     g.add(ang);
     g.angler = ang; g.armL = armL; g.armR = armR;
-    // fishing rod — a chain of segments so it bends in a smooth continuous
-    // curve under load (not a single hinge point).
-    const rodMat = new THREE.MeshStandardMaterial({ color: 0x241a12, roughness: 0.4, metalness: 0.3 });
+    // fishing rod — a chain of many short segments so it bends in a smooth,
+    // continuous parabolic curve under load (not a single hinge), with real
+    // line-guide eyelets running the line up to the tip.
+    const rodMat = new THREE.MeshStandardMaterial({ color: 0x1c140d, roughness: 0.35, metalness: 0.35 });
+    const gripMat = new THREE.MeshStandardMaterial({ color: 0x322318, roughness: 0.9 });   // EVA foam grip
+    const guideMat = new THREE.MeshStandardMaterial({ color: 0xcdd2d6, roughness: 0.3, metalness: 0.7 });
     const rod = new THREE.Group(); rod.position.set(0.22, 1.06, 0.2);
-    const NSEG = 6, segLen = 0.62, segs = [];
+    const NSEG = 11, segLen = 0.34, segs = [], guides = [];
     let parent = rod;
     for (let i = 0; i < NSEG; i++) {
       const seg = new THREE.Group(); if (i > 0) seg.position.y = segLen;
-      const r0 = 0.05 - i * 0.0065, r1 = 0.05 - (i + 1) * 0.0065;
-      const cyl = new THREE.Mesh(new THREE.CylinderGeometry(Math.max(0.01, r1), Math.max(0.012, r0), segLen, 8), rodMat);
+      const f0 = i / NSEG, f1 = (i + 1) / NSEG;
+      const r0 = 0.05 * (1 - f0) + 0.011, r1 = 0.05 * (1 - f1) + 0.011;   // smooth taper to the tip
+      const cyl = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, segLen, 8), rodMat);
       cyl.position.y = segLen / 2; seg.add(cyl);
+      // a line-guide eyelet near the top of each segment (from the 2nd up),
+      // standing off the +z side; the line threads through the ring
+      if (i >= 1) {
+        const gsz = 0.045 * (1 - f1) + 0.016, stand = r1 + gsz + 0.012;
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.008, stand, 6), guideMat);
+        post.rotation.x = Math.PI / 2; post.position.set(0, segLen - 0.03, stand / 2); seg.add(post);
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(gsz, 0.008, 6, 14), guideMat);
+        ring.rotation.x = Math.PI / 2; ring.position.set(0, segLen - 0.03, stand); seg.add(ring);
+        const center = new THREE.Object3D(); center.position.copy(ring.position); seg.add(center); guides.push(center);
+      }
       parent.add(seg); parent = seg; segs.push(seg);
     }
     const tip = new THREE.Object3D(); tip.position.y = segLen; parent.add(tip);
-    g.rodSegs = segs;
-    // spinning reel with a crank handle
+    g.rodSegs = segs; g.rodGuides = guides;
+    // EVA grip + reel seat at the butt
+    const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.058, 0.07, 0.52, 12), gripMat); grip.position.y = 0.24; rod.add(grip);
+    // spinning reel with a crank handle, hung under the seat
     const reel = new THREE.Mesh(new THREE.CylinderGeometry(0.085, 0.085, 0.06, 14), trimMat);
-    reel.rotation.x = Math.PI / 2; reel.position.set(0, 0.5, 0.12); rod.add(reel);
-    const handle = new THREE.Group(); handle.position.set(0, 0.5, 0.18); rod.add(handle); g.reelHandle = handle;
+    reel.rotation.x = Math.PI / 2; reel.position.set(0, 0.5, 0.14); rod.add(reel);
+    const spool = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.09, 12), gripMat); spool.rotation.x = Math.PI / 2; spool.position.set(0, 0.5, 0.2); rod.add(spool);
+    const handle = new THREE.Group(); handle.position.set(0, 0.5, 0.2); rod.add(handle); g.reelHandle = handle;
     const crank = new THREE.Mesh(new THREE.CylinderGeometry(0.011, 0.011, 0.16, 6), trimMat); crank.position.set(0.07, 0, 0); crank.rotation.z = Math.PI / 2; handle.add(crank);
     const knob = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 8), deckMat); knob.position.set(0.14, 0, 0); handle.add(knob);
+    // the line running up the rod through the guides (updated each frame)
+    const rodLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]),
+      new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
+    g.add(rodLine); g.rodLine = rodLine;
+    const reelExit = new THREE.Object3D(); reelExit.position.set(0, 0.56, 0.18); rod.add(reelExit); g.reelExit = reelExit;
     rod.rotation.x = -0.95; rod.rotation.z = 0.12;
     g.add(rod); g.rod = rod; g.rodTip = tip;
     return g;
@@ -884,6 +906,14 @@ const Scene3D = (() => {
     boat.updateMatrixWorld(true);
     const tip = boat.rodTip.getWorldPosition(new THREE.Vector3());
 
+    // thread the line up the rod through the guide eyelets to the tip
+    if (boat.rodLine) {
+      const pts = [boat.reelExit.getWorldPosition(new THREE.Vector3())];
+      for (const gd of boat.rodGuides) pts.push(gd.getWorldPosition(new THREE.Vector3()));
+      pts.push(tip.clone());
+      boat.rodLine.geometry.setFromPoints(pts);
+    }
+
     // the cast lure shows the chosen lure model + colour
     if (castLure.setType) { castLure.setType(st.lureId); castLure.body.material.color.set(st.lureHex || 0xff5a2a); }
 
@@ -921,11 +951,20 @@ const Scene3D = (() => {
       let fy;
       if (f.state === "jump") fy = 0.35 + Math.abs(Math.sin(t * 5)) * 1.7;
       else fy = f.dist < 0.22 ? -0.12 : -0.55;
-      const sc = 0.6 + f.size * 0.9;
+      const sz = isFinite(f.size) ? f.size : 0.5, pull = isFinite(f.pull) ? f.pull : 0;
+      const sc = 0.6 + sz * 0.9;
       fish.visible = true; fish.scale.setScalar(sc); fish.position.set(fxw, fy, -dist3d);
-      fish.rotation.set(f.state === "jump" ? 0.5 : 0.12 * Math.sin(t * 3), -Math.PI / 2 + Math.sin(t * 1.5) * 0.25, Math.sin(t * 4) * 0.12);
-      if (fish.tail) fish.tail.rotation.y = Math.sin(t * (8 + f.pull * 4)) * 0.5;
-      undulate(fish, t, 0.16 + f.pull * 0.06, true);
+      // present a 3/4 BROADSIDE view (flank to the camera) so the whole bass
+      // reads as one fish — head-on it looked like loose eyes and fins. It
+      // thrashes (roll), sways, and turns into its lateral runs.
+      const yawBase = f.state === "jump" ? -0.55 : -0.78;
+      fish.rotation.set(
+        f.state === "jump" ? -0.4 : Math.sin(t * 3) * 0.1,
+        yawBase + Math.sin(t * 1.3) * 0.3 + (f.lat || 0) * 0.5,
+        Math.sin(t * 5) * 0.16
+      );
+      if (fish.tail) fish.tail.rotation.y = Math.sin(t * (8 + pull * 4)) * 0.5;
+      undulate(fish, t, 0.16 + pull * 0.06, true);
       boil.visible = f.state !== "jump";
       boil.position.set(fxw, 0.05, -dist3d); boil.material.opacity = 0.22 + Math.sin(t * 10) * 0.1;
       boil.scale.setScalar(0.7 + sc * 0.3 + Math.sin(t * 6) * 0.12);
