@@ -169,17 +169,30 @@ function bassTextures(art) {
       g.globalAlpha = 0.74;
       g.beginPath(); g.ellipse(W * 0.085, y, W * 0.045, 28, 0, 0, 6.28); g.fill();
       g.globalAlpha = 1;
-    } else if (art.pat === "bars") {                   // smallmouth: vertical bronze bars
-      g.fillStyle = pc; g.globalAlpha = 0.42;
-      for (let x = W * 0.16; x < W * 0.82; x += W * 0.085) {
-        const bw = 10 + Math.sin(x) * 3; g.fillRect(x - bw / 2, vy < 0.5 ? y - 40 : y, bw, 64);
+    } else if (art.pat === "bars") {                   // smallmouth: dark vertical tiger bars
+      g.fillStyle = pc;
+      const top = vy < 0.5, y0 = top ? H * 0.13 : H * 0.52, y1 = top ? H * 0.48 : H * 0.87;
+      for (let i = 0; i < 9; i++) {
+        const x = W * (0.17 + i * 0.072) + Math.sin(i * 2.3) * 6;
+        g.globalAlpha = 0.34 + 0.2 * Math.abs(Math.sin(i * 1.7));     // irregular intensity
+        g.beginPath();                                                // tapered bar (wider at the back)
+        g.moveTo(x - 15, y0); g.lineTo(x + 15, y0); g.lineTo(x + 7, y1); g.lineTo(x - 7, y1);
+        g.closePath(); g.fill();
       }
-    } else if (art.pat === "spots") {                  // spotted: rows of small dark spots
-      g.fillStyle = pc; g.globalAlpha = 0.5;
-      for (let x = W * 0.12; x < W * 0.84; x += 26) {
-        g.beginPath(); g.arc(x, y + 18, 4.5, 0, 6.28); g.fill();
-        g.beginPath(); g.arc(x + 13, y + 38, 4, 0, 6.28); g.fill();
+      g.globalAlpha = 1;
+    } else if (art.pat === "spots") {                  // spotted bass: lateral blotch row + spot rows below
+      g.fillStyle = pc;
+      for (let bx = 0.1; bx < 0.8; bx += 0.05) {       // broken lateral blotch line
+        g.globalAlpha = 0.42; g.beginPath(); g.ellipse(W * bx, y, 11, 9, 0, 0, 6.28); g.fill();
       }
+      const dirn = vy < 0.5 ? 1 : -1;                  // rows of spots toward the belly
+      for (let row = 1; row <= 3; row++) {
+        for (let x = 0.12; x < 0.82; x += 0.05) {
+          g.globalAlpha = 0.36 - row * 0.04;
+          g.beginPath(); g.arc(W * (x + row * 0.012), y + dirn * row * 22, 6 - row, 0, 6.28); g.fill();
+        }
+      }
+      g.globalAlpha = 1;
     }
     g.globalAlpha = 1;
   }
@@ -377,7 +390,7 @@ const Scene3D = (() => {
   let renderer, scene, camera, canvas, ready = false, visible = false;
   let surf, bottom, motes, biteSlab, biteEdgeTop, biteEdgeBot, biteLabel, zoneRing, arrowUp, arrowDn;
   let terrainSets = {}, uwHemi, uwSun;
-  let lureGroup, lineMesh, fightFish, fightArtKey = "";
+  let lureGroup, lineMesh, fightFish, fightArtKey = "", lureTrail, trailPts = [];
   let pursuers = [], rays = [];
   const clock = { t: 0 };
 
@@ -505,6 +518,14 @@ const Scene3D = (() => {
 
     // the lure + its line (scaled up so it reads clearly underwater)
     lureGroup = buildLure(); lureGroup.scale.setScalar(1.35); scene.add(lureGroup);
+    // a fading wobble trail tracing the lure's recent path through the water
+    { const TN = 18, ta = new Float32Array(TN * 3), tc = new Float32Array(TN * 3);
+      const tg = new THREE.BufferGeometry();
+      tg.setAttribute("position", new THREE.BufferAttribute(ta, 3));
+      tg.setAttribute("color", new THREE.BufferAttribute(tc, 3));
+      lureTrail = new THREE.Line(tg, new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.5, depthWrite: false }));
+      lureTrail.frustumCulled = false; lureTrail.visible = false; scene.add(lureTrail);
+    }
     lineMesh = new THREE.Line(
       new THREE.BufferGeometry().setFromPoints([ROD.clone(), new THREE.Vector3()]),
       new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 })
@@ -948,7 +969,9 @@ const Scene3D = (() => {
       if (f.state === "jump") fy = 0.35 + Math.abs(Math.sin(t * 5)) * 1.7;
       else fy = f.dist < 0.22 ? -0.12 : -0.55;
       const sz = isFinite(f.size) ? f.size : 0.5, pull = isFinite(f.pull) ? f.pull : 0;
-      const sc = 0.6 + sz * 0.9;
+      // grows as it's worked closer to the boat so it fills the frame at landing
+      const near = 1 - Math.min(1, isFinite(f.dist) ? f.dist : 1);
+      const sc = (0.6 + sz * 0.9) * (1 + near * 0.9);
       fish.visible = true; fish.scale.setScalar(sc); fish.position.set(fxw, fy, -dist3d);
       // present a 3/4 BROADSIDE view (flank to the camera) so the whole bass
       // reads as one fish — head-on it looked like loose eyes and fins. It
@@ -1354,6 +1377,21 @@ const Scene3D = (() => {
       if (am.spin) am.spin.rotation.x = t * 22;                       // torpedo prop
       if (am.skirt) am.skirt.rotation.z = Math.sin(t * 6) * 0.12;     // jig skirt breathes
       if (am.legs) { am.legs.children.forEach((l, i) => l.rotation.y = (i ? -1 : 1) * (0.45 + Math.sin(t * 7) * 0.25)); }
+      // record the lure's path into the fading wobble trail
+      if (lureTrail) {
+        trailPts.unshift([lx, ly, -0.05]);
+        const TN = lureTrail.geometry.attributes.position.count;
+        if (trailPts.length > TN) trailPts.length = TN;
+        const pa = lureTrail.geometry.attributes.position.array, ca = lureTrail.geometry.attributes.color.array;
+        for (let i = 0; i < TN; i++) {
+          const pt = trailPts[Math.min(i, trailPts.length - 1)];
+          pa[i * 3] = pt[0]; pa[i * 3 + 1] = pt[1]; pa[i * 3 + 2] = pt[2];
+          const fade = 1 - i / TN; ca[i * 3] = 0.8 * fade; ca[i * 3 + 1] = 0.95 * fade; ca[i * 3 + 2] = fade;  // cyan-white, fading to tail
+        }
+        lureTrail.geometry.attributes.position.needsUpdate = true;
+        lureTrail.geometry.attributes.color.needsUpdate = true;
+        lureTrail.visible = true;
+      }
       lineMesh.geometry.setFromPoints([ROD.clone(), new THREE.Vector3(lx, ly, 0)]);
       lineMesh.material.opacity = 0.5; lineMesh.material.color.setHex(0xffffff);
 
@@ -1400,6 +1438,7 @@ const Scene3D = (() => {
     } else {
       for (const p of pursuers) p.visible = false;
       zoneRing.visible = arrowUp.visible = arrowDn.visible = false;
+      if (lureTrail) lureTrail.visible = false; trailPts.length = 0;
     }
 
     // the fight — full procedural bass
