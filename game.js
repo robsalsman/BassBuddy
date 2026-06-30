@@ -602,6 +602,7 @@
       lure: G.lure.id, color: G.lure.color, size: G.lure.size || "med", rod: G.rod,
       spot: G.spot, pos: position().id,
       timeMin: Math.round(S.cond.timeMin), weather: S.cond.weather, season: S.cond.season, temp: S.cond.temp,
+      moon: ((S.cond.moon || 0) % 8 + 8) % 8,
       tour: !!S.tournament,
     });
     if (G.catchLog.length > 300) G.catchLog.shift();   // keep the log bounded
@@ -935,6 +936,21 @@
   };
   const SEASON_ORDER = ["spring", "summer", "fall", "winter"];
 
+  // Moon phase — real solunar effect: bass feed hardest around the new & full
+  // moon, slack on the quarters. The phase is the same at every lake (it's the
+  // sky), drifts a phase per in-game day, and is logged with every catch.
+  const MOON = [
+    { ico: "🌑", name: "New Moon", feed: 0.12 },
+    { ico: "🌒", name: "Waxing Crescent", feed: 0.0 },
+    { ico: "🌓", name: "First Quarter", feed: -0.05 },
+    { ico: "🌔", name: "Waxing Gibbous", feed: 0.05 },
+    { ico: "🌕", name: "Full Moon", feed: 0.12 },
+    { ico: "🌖", name: "Waning Gibbous", feed: 0.05 },
+    { ico: "🌗", name: "Last Quarter", feed: -0.05 },
+    { ico: "🌘", name: "Waning Crescent", feed: 0.0 },
+  ];
+  function moonNow() { return MOON[(((S.cond.moon || 0) % 8) + 8) % 8]; }
+
   function rollConditions() {
     const sp = spot();
     if (sp.id === "deep") S.cond.weather = "night";
@@ -942,6 +958,7 @@
     S.cond.front = 0; S.cond.wxT = 0;
     S.cond.timeMin = (sp.id === "deep" ? 21 * 60 : 6 * 60) + Math.random() * 120;
     if (!S.cond.season) S.cond.season = SEASON_ORDER[Math.floor(Math.random() * 4)];
+    if (S.cond.moon == null) S.cond.moon = Math.floor(Math.random() * 8);   // same moon across lakes, set once
     // the productive water sits at a random bearing — turn the trolling motor to find it
     S.holdBearing = rnd(-1.0, 1.0);
     S.heading = 0; S.headingTarget = 0;
@@ -970,7 +987,7 @@
     // post-front shuts them down (c.front, set + decayed as weather drifts).
     const lowLight = midday < 0.45 || wx !== "sun";
     const moderate = c.temp >= 56 && c.temp <= 78;
-    let activity = 0.4 + sea.activity + (lowLight ? 0.2 : 0) + (moderate ? 0.18 : 0) + (wx === "cloud" || wx === "fog" || wx === "rain" ? 0.14 : 0) + (c.front || 0);
+    let activity = 0.4 + sea.activity + (lowLight ? 0.2 : 0) + (moderate ? 0.18 : 0) + (wx === "cloud" || wx === "fog" || wx === "rain" ? 0.14 : 0) + (c.front || 0) + moonNow().feed;
     c.activity = clamp(activity, 0.12, 1);
     c.window = 0.045 + c.activity * 0.095;                          // zone half-width
   }
@@ -1503,6 +1520,7 @@
       S.cond.timeMin -= 24 * 60;
       S.cond.day = (S.cond.day || 0) + 1;
       if (S.cond.day % 3 === 0) S.cond.season = SEASON_ORDER[(SEASON_ORDER.indexOf(S.cond.season) + 1) % 4];
+      S.cond.moon = (((S.cond.moon || 0) + 1) % 8);   // the moon drifts a phase each day
     }
     S.cond.front = (S.cond.front || 0) * 0.6;   // a front's effect fades as the system passes through
     maybeShiftWeather();                         // weather may drift to a new front mid-session
@@ -2850,7 +2868,7 @@
   function renderLures() {
     const c = S.cond, w = WEATHER[c.weather], band = c.band;
     const zone = band < 0.34 ? "shallow" : band < 0.67 ? "mid-depth" : "deep";
-    el.lureCond.innerHTML = `${(SEASONS[c.season] || SEASONS.summer).ico} ${(SEASONS[c.season] || SEASONS.summer).name} · ${w.ico} ${w.name} · ${c.temp}° · ${fmtClock(c.timeMin)} · bass holding <b>${zone}</b> (~${Math.round(band * 24)}ft)`;
+    el.lureCond.innerHTML = `${(SEASONS[c.season] || SEASONS.summer).ico} ${(SEASONS[c.season] || SEASONS.summer).name} · ${w.ico} ${w.name} · ${c.temp}° · ${moonNow().ico} ${moonNow().name} · ${fmtClock(c.timeMin)} · bass holding <b>${zone}</b> (~${Math.round(band * 24)}ft)`;
     // rate every lure for right now, best first
     const rated = LURES.map(l => ({ l, owned: ownsLure(l.id), r: lureScore(l) }))
       .sort((a, b) => b.r.score - a.r.score);
@@ -3194,7 +3212,7 @@
         <div class="clog-meta">
           <div>${l ? l.ico + " " + l.name : e.lure}${sz ? " · " + sz.name : ""}${col ? ` <i class="cdot" style="background:${col.hex}"></i>` : ""}</div>
           <div>${r ? r.ico + " " + r.name : e.rod} · ${sp ? sp.ico + " " + sp.name : e.spot}${pos ? " — " + pos.name : ""}</div>
-          <div>${wx.ico || ""} ${wx.name || e.weather} · ${e.temp}° · ${fmtClock(e.timeMin)} · ${sea.ico || ""}${e.tour ? " · 🏁" : ""}</div>
+          <div>${wx.ico || ""} ${wx.name || e.weather} · ${e.temp}° · ${fmtClock(e.timeMin)} · ${sea.ico || ""}${e.moon != null ? " " + MOON[((e.moon % 8) + 8) % 8].ico : ""}${e.tour ? " · 🏁" : ""}</div>
         </div><div class="clog-chev">›</div></div>`;
     }).join("");
   }
@@ -3234,12 +3252,15 @@
     const fish = { name: "Largemouth Bass", art: logArt(e.w), weight: e.w, lengthIn: e.len };
     let dateStr = "";
     try { if (e.ts > 1e12) dateStr = new Date(e.ts).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }); } catch (x) {}
+    const mn = e.moon != null ? MOON[((e.moon % 8) + 8) % 8] : null;
     const rows = [
-      ["🎣", "Lure", `${l ? l.ico + " " + l.name : e.lure} · ${sz ? sz.name : e.size}${col ? ` <i class="cdot" style="background:${col.hex}"></i> ${col.name}` : ""}`],
+      ["🎣", "Lure", `${l ? l.ico + " " + l.name : e.lure}${col ? ` <i class="cdot" style="background:${col.hex}"></i> ${col.name}` : ""}`],
+      ["📐", "Lure size", `${sz ? sz.ico + " " + sz.name : e.size}`],
       ["🪝", "Rod", r ? r.ico + " " + r.name : e.rod],
       ["📍", "Location", `${sp ? sp.ico + " " + sp.name : e.spot}${pos ? " — " + pos.name : ""}`],
       ["🌊", "Depth", e.depth != null ? e.depth + " ft" : "—"],
       ["🌡️", "Conditions", `${wx.ico || ""} ${wx.name || e.weather} · ${e.temp}°F · ${sea.ico || ""} ${sea.name || e.season}`],
+      ...(mn ? [["🌙", "Moon", mn.ico + " " + mn.name]] : []),
       ["⏰", "Time of day", `${fmtClock(e.timeMin)} (${todBucket(e.timeMin).label})`],
     ];
     if (dateStr) rows.push(["📅", "Date", dateStr]);
@@ -3311,6 +3332,7 @@
       bars("By Size", group(e => e.size, k => { const s = SIZES[k]; return s ? s.ico + " " + s.name : k; })) +
       bars("By Time of Day", group(e => todBucket(e.timeMin).k, k => TOD[k] || k)) +
       bars("By Weather", group(e => e.weather, k => { const w = WEATHER[k]; return w ? w.ico + " " + w.name : k; })) +
+      bars("By Moon", group(e => e.moon != null ? e.moon : null, k => { const m = MOON[((+k % 8) + 8) % 8]; return m ? m.ico + " " + m.name : k; })) +
       histo("Depth caught", depths, [0, 5, 10, 15, 20], " ft") +
       histo("Weight", log.map(e => e.w), [0, 2, 4, 6, 8, 10], " lb");
   }
