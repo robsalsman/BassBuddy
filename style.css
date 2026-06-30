@@ -271,7 +271,7 @@ html, body {
 }
 .lure-cond b { color: var(--gold); }
 .color-head { font-size: 12px; font-weight: 800; letter-spacing: 1px; color: #bfe0ec; margin: 14px 0 8px; text-transform: uppercase; }
-.color-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.color-row { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 20px; }
 .color-dot {
   width: 38px; height: 38px; border-radius: 50%;
   border: 3px solid transparent; cursor: pointer;

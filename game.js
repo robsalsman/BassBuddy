@@ -2302,8 +2302,10 @@
       const sel = G.lure.color === c;
       const good = col.fam === preferredFam();
       const r = lureScore(l, c).pct;
-      return `<div class="color-dot ${sel ? "sel" : ""}" data-color="${c}" style="background:${col.hex}">
-        <small>${col.name}${good ? " ⭐" : ""} · ${r}</small></div>`;
+      // no color name (they overflow the swatch) — just the bite rating + a star
+      // when the colour matches the day's pattern. The swatch shows the colour.
+      return `<div class="color-dot ${sel ? "sel" : ""}" data-color="${c}" title="${col.name}" style="background:${col.hex}">
+        <small>${good ? "⭐" : ""}${r}</small></div>`;
     }).join("");
     renderScents();
   }
