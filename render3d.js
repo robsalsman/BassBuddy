@@ -884,6 +884,9 @@ const Scene3D = (() => {
     boat.updateMatrixWorld(true);
     const tip = boat.rodTip.getWorldPosition(new THREE.Vector3());
 
+    // the cast lure shows the chosen lure model + colour
+    if (castLure.setType) { castLure.setType(st.lureId); castLure.body.material.color.set(st.lureHex || 0xff5a2a); }
+
     const land = st.castAim ? screenToWater(st.castAim.x, st.castAim.y) : null;
 
     // ---- cast: lure rides the tip through the whip, then arcs out & splashes ----
@@ -1100,12 +1103,112 @@ const Scene3D = (() => {
   }
 
   // ---- small tinted lure ----
+  // a distinct, recognisable 3D model for every lure type. Nose points -x
+  // (where the line ties); the tail/blades trail +x.
   function buildLure() {
     const g = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 12), new THREE.MeshStandardMaterial({ color: 0xff5a2a, roughness: 0.4, metalness: 0.3 }));
-    body.scale.set(1.6, 0.8, 0.8); g.add(body); g.body = body;
-    const bib = new THREE.Mesh(new THREE.CircleGeometry(0.12, 12), new THREE.MeshStandardMaterial({ color: 0xbfdce8, transparent: true, opacity: 0.8, side: THREE.DoubleSide }));
-    bib.position.set(-0.26, -0.05, 0); bib.rotation.y = Math.PI / 2; bib.rotation.x = 0.5; g.add(bib);
+    const M = {
+      hook: new THREE.MeshStandardMaterial({ color: 0xbcc0c4, roughness: 0.3, metalness: 0.85 }),
+      blade: new THREE.MeshStandardMaterial({ color: 0xe9e2c4, roughness: 0.18, metalness: 0.95 }),
+      clear: new THREE.MeshPhysicalMaterial({ color: 0xcfe6f0, roughness: 0.08, metalness: 0, transparent: true, opacity: 0.5, side: THREE.DoubleSide }),
+      eyeW: new THREE.MeshStandardMaterial({ color: 0xf3efde, roughness: 0.3 }),
+      eyeB: new THREE.MeshBasicMaterial({ color: 0x141414 }),
+    };
+    const tintBody = hex => new THREE.MeshStandardMaterial({ color: hex, roughness: 0.34, metalness: 0.25, envMapIntensity: 1.1 });
+    const softBody = hex => new THREE.MeshStandardMaterial({ color: hex, roughness: 0.72, metalness: 0 });
+    const eyes = (parent, x, z, y, r) => {
+      for (const s of [1, -1]) {
+        const e = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 8), M.eyeW); e.position.set(x, y, s * z); parent.add(e);
+        const p = new THREE.Mesh(new THREE.SphereGeometry(r * 0.5, 6, 6), M.eyeB); p.position.set(x + 0.005, y, s * (z + r * 0.45)); parent.add(p);
+      }
+    };
+    const trebleAt = (parent, x, y, z, s) => {
+      const h = new THREE.Group(); h.position.set(x, y, z); h.scale.setScalar(s);
+      const shank = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.13, 6), M.hook); shank.position.y = -0.06; h.add(shank);
+      for (let i = 0; i < 3; i++) {
+        const prong = new THREE.Mesh(new THREE.TorusGeometry(0.032, 0.007, 6, 8, Math.PI * 0.8), M.hook);
+        prong.position.y = -0.12; prong.rotation.x = Math.PI / 2; prong.rotation.z = i * 2.094; h.add(prong);
+      }
+      parent.add(h);
+    };
+    const models = {};
+
+    // CRANKBAIT — fat diving plug with a clear lip at the nose
+    { const m = new THREE.Group();
+      const b = new THREE.Mesh(new THREE.SphereGeometry(0.16, 18, 14), tintBody(0xff7a2a)); b.scale.set(1.5, 0.96, 0.9); m.add(b); m.body = b;
+      const lip = new THREE.Mesh(new THREE.CircleGeometry(0.13, 16), M.clear); lip.position.set(-0.25, -0.07, 0); lip.rotation.y = Math.PI / 2; lip.rotation.x = -0.7; m.add(lip);
+      eyes(m, -0.17, 0.07, 0.06, 0.03); trebleAt(m, 0.0, -0.13, 0, 0.95); trebleAt(m, 0.22, -0.1, 0, 0.85);
+      models.crank = m;
+    }
+    // SPOON — concave metal blade that flashes; treble at the tail
+    { const m = new THREE.Group();
+      const b = new THREE.Mesh(new THREE.SphereGeometry(0.14, 18, 12), new THREE.MeshStandardMaterial({ color: 0xd9c37a, roughness: 0.16, metalness: 0.96, envMapIntensity: 1.3 }));
+      b.scale.set(1.7, 0.28, 0.7); m.add(b); m.body = b;
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.02, 0.006, 6, 10), M.hook); ring.position.x = -0.22; ring.rotation.y = Math.PI / 2; m.add(ring);
+      trebleAt(m, 0.2, 0, 0, 0.9); models.spoon = m;
+    }
+    // PLASTIC WORM — curved soft body with a curl tail, on a worm hook
+    { const m = new THREE.Group();
+      const curve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(-0.24, 0.02, 0), new THREE.Vector3(-0.07, -0.02, 0.02),
+        new THREE.Vector3(0.1, 0.0, -0.03), new THREE.Vector3(0.24, 0.03, 0.03), new THREE.Vector3(0.31, 0.0, -0.04)]);
+      const bMat = softBody(0x3f8f3a);
+      const b = new THREE.Mesh(new THREE.TubeGeometry(curve, 44, 0.034, 8), bMat); m.add(b); m.body = b;
+      const tcurve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0.31, 0.0, -0.04), new THREE.Vector3(0.37, 0.05, 0.0),
+        new THREE.Vector3(0.35, 0.11, 0.05), new THREE.Vector3(0.28, 0.12, 0.02)]);
+      m.add(new THREE.Mesh(new THREE.TubeGeometry(tcurve, 22, 0.022, 6), bMat));
+      trebleAt(m, -0.06, -0.05, 0, 0.8); models.worm = m;
+    }
+    // FURRY SINKER — hair jig: painted head + flowing skirt
+    { const m = new THREE.Group();
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.075, 14, 12), tintBody(0x6a4e2d)); head.position.x = -0.13; head.scale.set(1.2, 1, 1); m.add(head); m.body = head;
+      eyes(m, -0.16, 0.04, 0.02, 0.018);
+      const skirt = new THREE.Group(); skirt.position.set(-0.09, 0, 0);
+      const sMat = head.material;
+      for (let i = 0; i < 16; i++) {
+        const a = i / 16 * 6.28, str = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.0015, 0.34, 4), sMat);
+        str.rotation.z = Math.PI / 2; str.position.set(0.17, Math.cos(a) * 0.045, Math.sin(a) * 0.045); skirt.add(str);
+      }
+      m.add(skirt); m.skirt = skirt; trebleAt(m, 0.04, -0.03, 0, 0.8); models.furry = m;
+    }
+    // TORPEDO — slim prop topwater
+    { const m = new THREE.Group();
+      const b = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.052, 0.34, 14), tintBody(0xdcdcdc)); b.rotation.z = Math.PI / 2; m.add(b); m.body = b;
+      eyes(m, -0.13, 0.05, 0.03, 0.022);
+      const prop = new THREE.Group(); prop.position.x = 0.2;
+      for (let i = 0; i < 2; i++) { const bl = new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.1, 0.03), M.blade); bl.rotation.x = i * Math.PI / 2; prop.add(bl); }
+      m.add(prop); m.spin = prop; trebleAt(m, 0.06, -0.07, 0, 0.8); trebleAt(m, -0.08, -0.07, 0, 0.8); models.torpedo = m;
+    }
+    // PENCIL — tapered walk-the-dog plug
+    { const m = new THREE.Group();
+      const b = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.072, 0.42, 14), tintBody(0xe2e2e2)); b.rotation.z = -Math.PI / 2; m.add(b); m.body = b;
+      eyes(m, -0.15, 0.05, 0.04, 0.022); trebleAt(m, 0.09, -0.05, 0, 0.8); trebleAt(m, -0.06, -0.06, 0, 0.8); models.pencil = m;
+    }
+    // JITTERBUG — fat body with the signature double-cup metal lip
+    { const m = new THREE.Group();
+      const b = new THREE.Mesh(new THREE.SphereGeometry(0.15, 16, 12), tintBody(0x222222)); b.scale.set(1.3, 0.96, 0.96); m.add(b); m.body = b;
+      const lip = new THREE.Group(); lip.position.set(-0.18, -0.02, 0);
+      for (const s of [1, -1]) { const cup = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 10, 0, Math.PI), M.blade); cup.scale.set(0.55, 0.95, 1); cup.position.z = s * 0.065; cup.rotation.y = -Math.PI / 2 + s * 0.5; lip.add(cup); }
+      m.add(lip); eyes(m, 0.05, 0.08, 0.08, 0.028); trebleAt(m, -0.04, -0.13, 0, 0.9); trebleAt(m, 0.17, -0.1, 0, 0.9); models.jitterbug = m;
+    }
+    // FROG — rounded weedless body with trailing legs
+    { const m = new THREE.Group();
+      const bMat = softBody(0x4f8f3a);
+      const b = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 12), bMat); b.scale.set(1.3, 0.78, 1.0); m.add(b); m.body = b;
+      const legs = new THREE.Group();
+      for (const s of [1, -1]) { const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.007, 0.24, 6), bMat); leg.position.set(0.2, -0.02, s * 0.06); leg.rotation.z = Math.PI / 2; leg.rotation.y = s * 0.45; legs.add(leg); }
+      m.add(legs); m.legs = legs; eyes(m, -0.07, 0.055, 0.1, 0.03); models.frog = m;
+    }
+
+    for (const k in models) { models[k].visible = false; g.add(models[k]); }
+    g.models = models;
+    g.setType = id => {
+      const m = models[id] || models.worm;
+      for (const k in models) models[k].visible = (models[k] === m);
+      g.body = m.body; g.active = m;
+    };
+    g.setType("worm");
     return g;
   }
 
@@ -1206,9 +1309,15 @@ const Scene3D = (() => {
         }
       }
       const lx = xOf(st.lureDist) + wig, ly = yOf(st.lureDepth) + jig;
+      lureGroup.setType(st.lureId);
       lureGroup.position.set(lx, ly, 0);
       lureGroup.rotation.set(pitch, yaw, roll);
       lureGroup.body.material.color.set(st.lureHex || 0xff5a2a);
+      // animate the moving parts of the active lure
+      const am = lureGroup.active;
+      if (am.spin) am.spin.rotation.x = t * 22;                       // torpedo prop
+      if (am.skirt) am.skirt.rotation.z = Math.sin(t * 6) * 0.12;     // jig skirt breathes
+      if (am.legs) { am.legs.children.forEach((l, i) => l.rotation.y = (i ? -1 : 1) * (0.45 + Math.sin(t * 7) * 0.25)); }
       lineMesh.geometry.setFromPoints([ROD.clone(), new THREE.Vector3(lx, ly, 0)]);
       lineMesh.material.opacity = 0.5; lineMesh.material.color.setHex(0xffffff);
 
