@@ -80,10 +80,6 @@
   const F = {
     largemouth:{ name: "Largemouth Bass", w: [1.0, 7.0],  rarity: "common", base: 12, lm: true, bass: true,
                  art: { shape: "bass", body: "#6f9e4e", belly: "#eef1d6", pat: "lateral", patColor: "#33401f", bigmouth: true } },
-    smallmouth:{ name: "Smallmouth Bass", w: [0.8, 5.5],  rarity: "common", base: 15, bass: true,
-                 art: { shape: "bass", body: "#a07b46", belly: "#efe6cf", pat: "bars", patColor: "#6e4f28", eye: "#c23a2a" } },
-    spotted:   { name: "Spotted Bass",    w: [0.6, 4.8],  rarity: "common", base: 14, bass: true,
-                 art: { shape: "bass", body: "#6f8a3e", belly: "#eef0d2", pat: "spots", patColor: "#2f3d1c", eye: "#c23a2a" } },
     giant:     { name: "Giant Largemouth", w: [6.0, 14.0], rarity: "uncommon", base: 45, lm: true, bass: true, big: true,
                  art: { shape: "bass", body: "#5e8f54", belly: "#e8edcf", pat: "lateral", patColor: "#2c3f22", bigmouth: true } },
     hawg:      { name: "Trophy Largemouth", w: [10.0, 24.0], rarity: "legendary", base: 280, lm: true, bass: true, big: true,
@@ -97,15 +93,14 @@
       sky: ["#7fd4e8", "#bff0f7"], water: ["#2a93b8", "#0a3a4a"],
       desc: "Calm, clear largemouth water — lily pads and laydowns.",
       fish: [
-        { k: "largemouth", weight: 56 }, { k: "spotted", weight: 16 }, { k: "smallmouth", weight: 14 },
-        { k: "giant", weight: 10 }, { k: "hawg", weight: 2 },
+        { k: "largemouth", weight: 84 }, { k: "giant", weight: 13 }, { k: "hawg", weight: 3 },
       ],
       positions: [
         { id: "pads", name: "Lily Pads", ico: "🪷", desc: "Prime largemouth ambush cover.", depth: -0.14,
           zone: [0.30, 0.32, 0.18, 0.16], bias: { largemouth: 1.9, spotted: 1.1, giant: 1.3, smallmouth: 0.6 } },
         { id: "dock", name: "Boat Dock", ico: "🛶", desc: "Shade-loving bass stack up.", depth: -0.1,
           zone: [0.70, 0.30, 0.16, 0.14], bias: { largemouth: 1.6, smallmouth: 1.3, spotted: 1.3 } },
-        { id: "open", name: "Open Water", ico: "🌊", desc: "Roaming smallmouth & spots.", depth: 0.0,
+        { id: "open", name: "Open Water", ico: "🌊", desc: "Cruising largemouth bass.", depth: 0.0,
           zone: [0.50, 0.62, 0.22, 0.16], bias: { smallmouth: 1.7, spotted: 1.5 } },
         { id: "drop", name: "The Drop-off", ico: "📉", desc: "Deeper edge — the big girls.", depth: 0.26,
           zone: [0.50, 0.84, 0.26, 0.14], bias: { giant: 2.4, hawg: 2.8, largemouth: 1.3, spotted: 1.2 } },
@@ -114,19 +109,18 @@
     {
       id: "river", name: "Boulder River", ico: "🏞️", price: 200, clarity: "clear", baseDepth: 0.46,
       sky: ["#9fdcc0", "#d7f3e6"], water: ["#2fae8e", "#0c4438"],
-      desc: "Clear rocky current — smallmouth and spotted bass country.",
+      desc: "Clear rocky current — largemouth on the boulders.",
       fish: [
-        { k: "smallmouth", weight: 44 }, { k: "spotted", weight: 30 }, { k: "largemouth", weight: 18 },
-        { k: "giant", weight: 7 }, { k: "hawg", weight: 1 },
+        { k: "largemouth", weight: 84 }, { k: "giant", weight: 13 }, { k: "hawg", weight: 3 },
       ],
       positions: [
-        { id: "riffle", name: "Rocky Riffles", ico: "💨", desc: "Oxygen-rich — smallmouth feed.", depth: -0.14,
+        { id: "riffle", name: "Rocky Riffles", ico: "💨", desc: "Oxygen-rich — active bass feed.", depth: -0.14,
           zone: [0.32, 0.42, 0.18, 0.14], bias: { smallmouth: 1.9, spotted: 1.4, giant: 0.8 } },
         { id: "pool", name: "Deep Pool", ico: "🌀", desc: "Big bass and toothy muskie.", depth: 0.2,
           zone: [0.68, 0.66, 0.20, 0.18], bias: { largemouth: 1.6, spotted: 1.2, giant: 1.6 } },
         { id: "bank", name: "Undercut Bank", ico: "🪵", desc: "Largemouth tuck under wood.", depth: -0.08,
           zone: [0.22, 0.70, 0.18, 0.16], bias: { largemouth: 1.9, spotted: 1.3, smallmouth: 1.1 } },
-        { id: "tailout", name: "Current Seam", ico: "🏞️", desc: "Smallmouth & spots stage here.", depth: 0.04,
+        { id: "tailout", name: "Current Seam", ico: "🏞️", desc: "Bass stage in the current seam.", depth: 0.04,
           zone: [0.55, 0.84, 0.26, 0.13], bias: { smallmouth: 1.5, spotted: 1.5, largemouth: 1.2 } },
       ],
     },
@@ -135,17 +129,16 @@
       sky: ["#3a4b7a", "#1b2447"], water: ["#243a78", "#070d2a"],
       desc: "Deep, low-light trophy lake — where giant bass live.",
       fish: [
-        { k: "largemouth", weight: 32 }, { k: "giant", weight: 30 }, { k: "spotted", weight: 18 },
-        { k: "smallmouth", weight: 16 }, { k: "hawg", weight: 4 },
+        { k: "largemouth", weight: 46 }, { k: "giant", weight: 44 }, { k: "hawg", weight: 10 },
       ],
       positions: [
         { id: "weed", name: "Weed Edge", ico: "🌿", desc: "Giant largemouth prowl the grass.", depth: -0.1,
           zone: [0.30, 0.44, 0.18, 0.16], bias: { giant: 2.1, largemouth: 1.5, spotted: 1.1 } },
-        { id: "point", name: "Main-Lake Point", ico: "📍", desc: "Smallmouth, spots & old sturgeon.", depth: 0.02,
+        { id: "point", name: "Main-Lake Point", ico: "📍", desc: "Cruising largemouth on the point.", depth: 0.02,
           zone: [0.70, 0.58, 0.18, 0.16], bias: { smallmouth: 1.7, spotted: 1.6, giant: 1.3 } },
         { id: "hole", name: "Deep Hole", ico: "🕳️", desc: "Where the true giants lurk.", depth: 0.24,
           zone: [0.50, 0.84, 0.24, 0.14], bias: { giant: 2.2, hawg: 3.0, largemouth: 1.4, spotted: 1.0 } },
-        { id: "flat", name: "Moonlit Flat", ico: "🌙", desc: "Spots & smallmouth roam the flat.", depth: -0.2,
+        { id: "flat", name: "Moonlit Flat", ico: "🌙", desc: "Largemouth roam the moonlit flat.", depth: -0.2,
           zone: [0.50, 0.40, 0.26, 0.14], bias: { spotted: 1.8, smallmouth: 1.5, largemouth: 1.2 } },
       ],
     },
@@ -1378,8 +1371,18 @@
     }
     if (!S3.isReady()) return;
     S3.setVisible(true);   // 3D now drives both surface & underwater; 2D stays as fallback beneath
-    const sp = spot(), lu = lure(), dc = dayColors(sp);
+    const sp = spot(), lu = lure(), dc = dayColors(sp), pos = position();
     if (_3dVenue !== sp.id) { _3dVenue = sp.id; S3.setVenue(sp.water[0], sp.water[1], sp.clarity); }
+    // typical fish SIZE and ABUNDANCE at this spot, so the underwater shoal reflects
+    // it: big-fish spots show big bass, a good combo/spot shows more of them
+    let sBig = 0, sTot = 0;
+    for (const e of sp.fish) {
+      const def = F[e.k], b = (pos.bias && pos.bias[e.k]) || 1, w = e.weight * b;
+      sBig += w * (def.w[0] + def.w[1]) / 2; sTot += w;
+    }
+    const avgLb = sTot ? sBig / sTot : 4;
+    const fishSize = clamp((avgLb - 2) / 12, 0.12, 1);          // ~2..14 lb -> 0.12..1
+    const fishDensity = clamp(0.18 + lureScore(lu).score * 0.82, 0.1, 1);
     const band = S.cond.band, win = S.cond.window || 0.085;
     const lureDepth = S.mode === "fight" ? (S.bobberDepth != null ? S.bobberDepth : band) : S.rv.depth;
     const st = {
@@ -1388,7 +1391,7 @@
       lureId: lu.id, lurePhys: S.rv.phys || (lu.style === "top" ? "float" : lu.id === "crank" ? "dive" : "sink"),
       lureAction: S.rv.action || 0,
       inZone: Math.abs(lureDepth - band) < win,
-      interest: S.rv.interest,
+      interest: S.rv.interest, fishSize, fishDensity,
       daylight: dc.daylight, night: dc.night, sunX: dc.sunX, elev: dc.elev,
       skyTop: dc.top, skyBot: dc.bot, water0: sp.water[0],
       castAim: S.castAim ? { x: S.castAim.x, y: S.castAim.y } : null,
