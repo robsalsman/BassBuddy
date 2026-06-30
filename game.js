@@ -229,7 +229,7 @@
       lure: { id: "worm", color: "green", size: "med" }, ownedLures: ["worm"], attractant: "none",
       spot: "cove", ownedSpots: ["cove"],
       positions: { cove: "pads", river: "riffle", deep: "weed" },
-      records: {}, caught: {},
+      records: {}, caught: {}, catchLog: [],
       tourWins: 0, bestBag: 0,
       season: { best: {}, titles: 0 },   // circuit season: best points per event + championships won
       challenges: {}, lakes: {},          // unlocked achievements + lakes you've caught a bass in
@@ -305,6 +305,8 @@
     failModal: $("failModal"), failMsg: $("failMsg"), failOk: $("failOk"),
     shopBtn: $("shopBtn"), muteBtn: $("muteBtn"), shopModal: $("shopModal"), shopClose: $("shopClose"),
     xpPill: $("xpPill"), recordsModal: $("recordsModal"), recordsClose: $("recordsClose"), recStats: $("recStats"), recBody: $("recBody"),
+    catchLogModal: $("catchLogModal"), catchLogClose: $("catchLogClose"), clogList: $("clogList"), clogCount: $("clogCount"),
+    fLake: $("fLake"), fLure: $("fLure"), fRod: $("fRod"), fTime: $("fTime"), fWx: $("fWx"),
     shopRods: $("shopRods"), shopLures: $("shopLures"), shopSpots: $("shopSpots"), shopDex: $("shopDex"),
     rodChip: $("rodChip"), lureChip: $("lureChip"), spotChip: $("spotChip"),
     hookMeter: $("hookMeter"), hmMarker: $("hmMarker"), strikeFlash: $("strikeFlash"), catchHookset: $("catchHookset"),
@@ -587,6 +589,27 @@
     if (f.weight >= 10) unlock("trophy");
     if ((S.tournament ? wellTotal() : bagTotal()) >= 15) unlock("bag15");
     if (SPOTS.every(sp => G.lakes[sp.id])) unlock("slam");
+    logCatch(f);
+  }
+  // record every bass with the full conditions/gear so the Catch Log can sort & filter
+  function logCatch(f) {
+    if (!G.catchLog) G.catchLog = [];
+    G.catchLog.push({
+      ts: Date.now(), w: f.weight, len: f.lengthIn || +Math.cbrt(f.weight * 1600).toFixed(1),
+      lure: G.lure.id, color: G.lure.color, size: G.lure.size || "med", rod: G.rod,
+      spot: G.spot, pos: position().id,
+      timeMin: Math.round(S.cond.timeMin), weather: S.cond.weather, season: S.cond.season, temp: S.cond.temp,
+      tour: !!S.tournament,
+    });
+    if (G.catchLog.length > 300) G.catchLog.shift();   // keep the log bounded
+  }
+  // time-of-day bucket for filtering
+  function todBucket(timeMin) {
+    const h = (timeMin / 60) % 24;
+    if (h >= 5 && h < 8) return { k: "dawn", label: "Dawn" };
+    if (h >= 8 && h < 17) return { k: "day", label: "Day" };
+    if (h >= 17 && h < 20) return { k: "dusk", label: "Dusk" };
+    return { k: "night", label: "Night" };
   }
 
   // add a bass to the session livewell, keeping only the 5 heaviest
@@ -769,7 +792,7 @@
   const sfx = n => Sound.play(n);
   function anyModalOpen() {
     return [el.catchModal, el.failModal, el.shopModal, el.lureModal, el.mapModal,
-            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal].some(m => !m.classList.contains("hidden"));
+            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal].some(m => !m.classList.contains("hidden"));
   }
 
   function floatText(txt, color) {
@@ -3093,8 +3116,10 @@
       ["👑", "Circuit titles", season.titles || 0],
       ["📋", "Season", `${seasonPts} pts · ${seasonEvents}/${TOURNAMENTS.length}`],
     ];
-    el.recStats.innerHTML = stats.map(([i, l, v]) =>
-      `<div class="rec-stat"><div class="rs-ico">${i}</div><div class="rs-v">${v}</div><div class="rs-l">${l}</div></div>`).join("");
+    el.recStats.innerHTML = stats.map(([i, l, v]) => {
+      const tap = l === "Bass caught" && totalCaught > 0;   // tap to open the full catch log
+      return `<div class="rec-stat ${tap ? "tap" : ""}" ${tap ? 'data-act="log"' : ""}><div class="rs-ico">${i}</div><div class="rs-v">${v}${tap ? " ›" : ""}</div><div class="rs-l">${l}</div></div>`;
+    }).join("");
     const seenName = new Set();
     const fishRows = Object.keys(F).filter(k => { if (seenName.has(F[k].name)) return false; seenName.add(F[k].name); return true; }).map(k => {
       const def = F[k], best = G.records[def.name], n = G.caught[def.name];
@@ -3114,6 +3139,65 @@
     }).join("");
     el.recBody.innerHTML = fishRows + `<h3 class="rec-h" style="margin-top:14px">Challenges</h3>` + chRows;
   }
+  el.recordsClose && el.recStats.addEventListener("click", (e) => {
+    if (e.target.closest('[data-act="log"]')) openCatchLog();
+  });
+
+  // ---- Catch Log — every bass, sortable & filterable ----
+  let clogSort = "recent";
+  const clogFilters = { spot: "", lure: "", rod: "", time: "", weather: "" };
+  function openCatchLog() {
+    clogSort = "recent";
+    clogFilters.spot = clogFilters.lure = clogFilters.rod = clogFilters.time = clogFilters.weather = "";
+    buildClogFilters();
+    renderCatchLog();
+    el.catchLogModal.classList.remove("hidden");
+  }
+  // populate the filter dropdowns from the values actually present in the log
+  function buildClogFilters() {
+    const log = G.catchLog || [];
+    const opt = (val, label, cur) => `<option value="${val}" ${cur === val ? "selected" : ""}>${label}</option>`;
+    const distinct = key => Array.from(new Set(log.map(e => e[key])));
+    el.fLake.innerHTML = opt("", "All lakes", clogFilters.spot) + distinct("spot").map(id => { const s = SPOTS.find(x => x.id === id); return s ? opt(id, s.ico + " " + s.name, clogFilters.spot) : ""; }).join("");
+    el.fLure.innerHTML = opt("", "All lures", clogFilters.lure) + distinct("lure").map(id => { const l = LURES.find(x => x.id === id); return l ? opt(id, l.ico + " " + l.name, clogFilters.lure) : ""; }).join("");
+    el.fRod.innerHTML = opt("", "All rods", clogFilters.rod) + distinct("rod").map(id => { const r = RODS.find(x => x.id === id); return r ? opt(id, r.ico + " " + r.name, clogFilters.rod) : ""; }).join("");
+    el.fTime.innerHTML = opt("", "Any time", clogFilters.time) + [["dawn", "Dawn"], ["day", "Day"], ["dusk", "Dusk"], ["night", "Night"]].map(([k, l]) => opt(k, l, clogFilters.time)).join("");
+    el.fWx.innerHTML = opt("", "Any weather", clogFilters.weather) + distinct("weather").map(w => WEATHER[w] ? opt(w, WEATHER[w].ico + " " + WEATHER[w].name, clogFilters.weather) : "").join("");
+  }
+  function renderCatchLog() {
+    let rows = (G.catchLog || []).slice();
+    rows = rows.filter(e =>
+      (!clogFilters.spot || e.spot === clogFilters.spot) &&
+      (!clogFilters.lure || e.lure === clogFilters.lure) &&
+      (!clogFilters.rod || e.rod === clogFilters.rod) &&
+      (!clogFilters.time || todBucket(e.timeMin).k === clogFilters.time) &&
+      (!clogFilters.weather || e.weather === clogFilters.weather));
+    if (clogSort === "weight") rows.sort((a, b) => b.w - a.w);
+    else if (clogSort === "length") rows.sort((a, b) => b.len - a.len);
+    else rows.sort((a, b) => b.ts - a.ts);
+    el.clogCount.textContent = `${rows.length} bass`;
+    if (!rows.length) { el.clogList.innerHTML = `<p class="muted" style="text-align:center;padding:18px">No catches match those filters.</p>`; return; }
+    el.clogList.innerHTML = rows.map(e => {
+      const l = LURES.find(x => x.id === e.lure), r = RODS.find(x => x.id === e.rod), sp = SPOTS.find(x => x.id === e.spot);
+      const pos = sp && sp.positions.find(p => p.id === e.pos), col = COLORS[e.color], sz = SIZES[e.size];
+      const wx = WEATHER[e.weather] || {}, sea = SEASONS[e.season] || {};
+      const lunk = e.w >= LUNKER_LB;
+      return `<div class="clog-row">
+        <div class="clog-w ${lunk ? "lunk" : ""}"><b>${e.w.toFixed(1)}</b><small>lb</small><span>${e.len.toFixed(1)}"</span></div>
+        <div class="clog-meta">
+          <div>${l ? l.ico + " " + l.name : e.lure}${sz ? " · " + sz.name : ""}${col ? ` <i class="cdot" style="background:${col.hex}"></i>` : ""}</div>
+          <div>${r ? r.ico + " " + r.name : e.rod} · ${sp ? sp.ico + " " + sp.name : e.spot}${pos ? " — " + pos.name : ""}</div>
+          <div>${wx.ico || ""} ${wx.name || e.weather} · ${e.temp}° · ${fmtClock(e.timeMin)} · ${sea.ico || ""}${e.tour ? " · 🏁" : ""}</div>
+        </div></div>`;
+    }).join("");
+  }
+  el.catchLogClose.addEventListener("click", () => el.catchLogModal.classList.add("hidden"));
+  el.catchLogModal.addEventListener("click", (e) => {
+    const sb = e.target.closest(".clog-sbtn");
+    if (sb) { clogSort = sb.dataset.sort; el.catchLogModal.querySelectorAll(".clog-sbtn").forEach(b => b.classList.toggle("active", b === sb)); renderCatchLog(); }
+  });
+  [["fLake", "spot"], ["fLure", "lure"], ["fRod", "rod"], ["fTime", "time"], ["fWx", "weather"]].forEach(([id, key]) =>
+    el[id].addEventListener("change", () => { clogFilters[key] = el[id].value; renderCatchLog(); }));
   el.xpPill.addEventListener("click", openRecords);
   el.recordsClose.addEventListener("click", () => el.recordsModal.classList.add("hidden"));
 

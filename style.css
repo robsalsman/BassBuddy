@@ -96,6 +96,28 @@ html, body {
 .rs-v { font-weight: 900; font-size: 17px; color: var(--gold); margin-top: 2px; }
 .rs-l { font-size: 10px; color: #a9cdd9; margin-top: 1px; letter-spacing: .2px; }
 .rec-h { font-size: 13px; font-weight: 800; color: #cfe6f0; margin: 6px 0 8px; letter-spacing: .3px; }
+.rec-stat.tap { cursor: pointer; border: 1px solid rgba(255,211,92,.4); }
+.rec-stat.tap:active { transform: scale(.97); }
+/* catch log */
+.clog-sort { display: flex; gap: 6px; margin-bottom: 8px; }
+.clog-sbtn { flex: 1; padding: 8px; border-radius: 10px; border: 1px solid var(--ui-line);
+  background: rgba(255,255,255,.05); color: #cfe6f0; font-weight: 800; font-size: 12px; cursor: pointer; }
+.clog-sbtn.active { background: var(--gold); color: #5a3a00; border-color: var(--gold); }
+.clog-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.clog-sel { flex: 1 1 auto; min-width: 0; padding: 7px 8px; border-radius: 10px; font-size: 12px; font-weight: 700;
+  background: rgba(255,255,255,.07); color: #eaf3ff; border: 1px solid var(--ui-line); }
+.clog-count { font-size: 12px; font-weight: 800; color: #9fc3d2; margin-bottom: 8px; letter-spacing: .3px; }
+.clog-list { display: flex; flex-direction: column; gap: 7px; }
+.clog-row { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,.05);
+  border: 1px solid var(--ui-line); border-radius: 12px; padding: 9px 11px; text-align: left; }
+.clog-w { flex: 0 0 58px; text-align: center; line-height: 1.05; }
+.clog-w b { font-size: 21px; font-weight: 900; color: var(--gold); }
+.clog-w small { font-size: 10px; color: #a9cdd9; margin-left: 1px; }
+.clog-w span { display: block; font-size: 11px; color: #cfe6f0; font-weight: 700; }
+.clog-w.lunk b { color: #ffd23c; text-shadow: 0 0 8px rgba(255,210,60,.5); }
+.clog-meta { flex: 1; min-width: 0; font-size: 11.5px; color: #cfe6f0; line-height: 1.5; }
+.clog-meta div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cdot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; vertical-align: middle; border: 1px solid rgba(255,255,255,.4); }
 .hud-spacer { flex: 1; }
 .hud-btn {
   background: var(--gold);

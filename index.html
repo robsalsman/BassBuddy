@@ -284,6 +284,30 @@
     </div>
   </div>
 
+  <!-- Catch log — every bass, sortable & filterable -->
+  <div id="catchLogModal" class="modal hidden">
+    <div class="modal-card shop-card">
+      <div class="shop-head">
+        <h2>🐟 Catch Log</h2>
+        <button class="close-btn" id="catchLogClose">✕</button>
+      </div>
+      <div class="clog-sort">
+        <button class="clog-sbtn active" data-sort="recent">Recent</button>
+        <button class="clog-sbtn" data-sort="weight">Heaviest</button>
+        <button class="clog-sbtn" data-sort="length">Longest</button>
+      </div>
+      <div class="clog-filters">
+        <select id="fLake" class="clog-sel"></select>
+        <select id="fLure" class="clog-sel"></select>
+        <select id="fRod" class="clog-sel"></select>
+        <select id="fTime" class="clog-sel"></select>
+        <select id="fWx" class="clog-sel"></select>
+      </div>
+      <div class="clog-count" id="clogCount"></div>
+      <div class="clog-list" id="clogList"></div>
+    </div>
+  </div>
+
   <!-- Floating coin/score popups get injected here -->
   <div id="fx"></div>
 </div>
