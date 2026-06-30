@@ -1255,11 +1255,13 @@ const Scene3D = (() => {
     const barkMap = barkTexture();
     const barkMat = new THREE.MeshStandardMaterial({ map: barkMap, color: 0x9a774e, roughness: 0.95 });
     const barkDark = new THREE.MeshStandardMaterial({ map: barkMap, color: 0x6a4e2d, roughness: 0.95 });
+    // some trunks run tall enough to break the surface (~y 2.9) so the timber
+    // visibly carries up out of the water, like the Sega flooded-tree spots
     const trunks = [
-      { x: -1.9, z: -1.5, h: 3.3, r: 0.20, lean: 0.07 },
-      { x: 0.5, z: -2.3, h: 4.0, r: 0.24, lean: -0.05 },
-      { x: 1.7, z: -1.1, h: 2.5, r: 0.15, lean: 0.11 },
-      { x: -0.6, z: -2.9, h: 3.0, r: 0.18, lean: 0.03 },
+      { x: -1.9, z: -1.7, h: 5.6, r: 0.20, lean: 0.06 },
+      { x: 0.5, z: -2.4, h: 6.6, r: 0.24, lean: -0.04 },
+      { x: 1.7, z: -1.3, h: 4.2, r: 0.15, lean: 0.10 },
+      { x: -0.6, z: -2.9, h: 6.2, r: 0.18, lean: 0.03 },
     ];
     for (const tk of trunks) {
       const tr = new THREE.Mesh(new THREE.CylinderGeometry(tk.r * 0.62, tk.r, tk.h, 10), barkMat);
@@ -1277,11 +1279,15 @@ const Scene3D = (() => {
     // sits on, where bass tuck into the shade. Straight, squared-off posts.
     const pileMat = new THREE.MeshStandardMaterial({ map: barkMap, color: 0x4f3a22, roughness: 0.95 });
     for (const px of [-2.3, -1.4, 1.2, 2.1]) {
-      const pile = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 5.6, 8), pileMat);
-      pile.position.set(px, -0.7, -1.0 - Math.abs(px) * 0.3); wood.add(pile);
-      const cross = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.14, 0.14), pileMat);   // a cross-brace
-      cross.position.set(px, -2.4, -1.0 - Math.abs(px) * 0.3); wood.add(cross);
+      const pz = -1.2 - Math.abs(px) * 0.3;
+      const pile = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 7.6, 8), pileMat);
+      pile.position.set(px, 0.3, pz); wood.add(pile);          // bottom -3.5, top +4.1 (well above the surface)
+      const cross = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.14, 0.14), pileMat);
+      cross.position.set(px, -2.4, pz); wood.add(cross);       // a low cross-brace
     }
+    // a horizontal dock stringer tying the pilings together at the waterline
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(5.0, 0.2, 0.2), pileMat);
+    beam.position.set(-0.1, 2.5, -1.5); wood.add(beam);
     // ROCK — boulder pile
     const rock = new THREE.Group();
     const rockMat = new THREE.MeshStandardMaterial({ color: 0x5a6066, roughness: 1, flatShading: true });
@@ -1298,6 +1304,13 @@ const Scene3D = (() => {
       const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.32 + Math.random() * 0.6, 0), deepRock);
       place(b, -3.2 + i * 0.6 + Math.random() * 0.3, -3.05 + Math.random() * 0.45, -1.2 - Math.random() * 1.8);
       b.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3); b.scale.y = 0.6 + Math.random() * 0.4; deep.add(b);
+    }
+    // standing posts on the break that run from the rubble up through the surface,
+    // so deep structure also visibly carries up out of the water
+    const postMat = new THREE.MeshStandardMaterial({ color: 0x49504f, roughness: 1, flatShading: true });
+    for (const px of [-1.6, 1.4]) {
+      const post = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.26, 7.2, 8), postMat);
+      post.position.set(px, 0.2, -1.6 - Math.abs(px) * 0.2); post.rotation.z = (px < 0 ? 1 : -1) * 0.05; deep.add(post);
     }
     // OPEN — bare; nothing to add
     const open = new THREE.Group();

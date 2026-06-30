@@ -473,7 +473,19 @@
     heading: 0, headingTarget: 0, steer: 0, holdBearing: 0, castFacing: 1,
     cond: { timeMin: 6.5 * 60, weather: "sun", temp: 64, band: 0.3 },
     tournament: null,
+    bag: [],   // free-play livewell: your 5 biggest bass this session (weights, desc)
   };
+  // total of the session's best-5 free-play bag
+  function bagTotal() { return S.bag.reduce((s, w) => s + w, 0); }
+  // add a bass to the session livewell, keeping only the 5 heaviest
+  function bagAdd(weight) {
+    S.bag.push(weight);
+    S.bag.sort((a, b) => b - a);
+    if (S.bag.length > 5) S.bag.length = 5;
+    const tot = +bagTotal().toFixed(2);
+    if (tot > (G.bestBag || 0)) { G.bestBag = tot; return true; }   // new personal-best livewell
+    return false;
+  }
 
   function seedFish() {
     S.fishes = [];
@@ -1192,8 +1204,12 @@
     sfx(lunk ? "lunker" : "land"); setTimeout(() => sfx("coin"), 450);
     if (S.tournament) { tourLand(f, isRecord, prev); if (hookBonus) G.coins += hookBonus; save(); updateHUD(); return; }
     G.coins += f.value + hookBonus;
+    // free-play livewell: every bass updates your session best-5 bag
+    let bagPB = false;
+    if (f.bass) bagPB = bagAdd(f.weight);
     save(); updateHUD();
     vibrate([20, 40, 30]);
+    if (bagPB && S.bag.length >= 2) setTimeout(() => toast(`🪣 New personal-best livewell: ${bagTotal().toFixed(2)} lb`), 700);
     showCatch(f, isRecord, prev);
   }
 
@@ -1522,7 +1538,7 @@
   function updateSegaHud() {
     if (!_sega) _sega = {
       hud: $("segaHud"), lineOut: $("segaLineOut"), temp: $("segaTemp"),
-      wlb: $("segaWeightLb"), woz: $("segaWeightOz"), cast: $("segaCast"),
+      wlb: $("segaWeightLb"), woz: $("segaWeightOz"), cast: $("segaCast"), best: $("segaBest"),
       tension: $("segaTension"), tFill: $("segaTensionFill"),
       lure: $("segaLure"), lIco: $("segaLureIco"), lSw: $("segaLureSwatch"), lName: $("segaLureName"),
       left: $("segaHud").querySelector(".sega-left"), right: $("segaHud").querySelector(".sega-right"),
@@ -1545,11 +1561,16 @@
     const dist = S.mode === "fight" ? (S.ft ? S.ft.dist : 0) : (S.rv ? S.rv.dist : 0);
     e.lineOut.textContent = Math.round(dist * ft);
     e.temp.textContent = (+((S.cond && S.cond.temp != null) ? S.cond.temp : 68)).toFixed(1);
-    let lb = 0;
-    if (S.tournament) lb = wellTotal();
-    else { const recs = Object.values(G.records || {}); lb = recs.length ? Math.max(...recs) : 0; }
+    // TOTAL WEIGHT = your live 5-fish bag (tournament livewell, or the free-play
+    // session livewell — the 5 biggest bass you've boated this session)
+    let lb = S.tournament ? wellTotal() : bagTotal();
     const whole = Math.floor(lb), oz = Math.round((lb - whole) * 16);
     e.wlb.textContent = whole; e.woz.textContent = String(Math.min(15, oz)).padStart(2, "0");
+    // personal-best livewell under the total (free play only)
+    if (e.best) {
+      if (!S.tournament && (G.bestBag || 0) > 0) { e.best.textContent = `BEST ${(G.bestBag).toFixed(1)} lb`; e.best.classList.remove("hidden"); }
+      else e.best.classList.add("hidden");
+    }
     const showCast = S.mode === "casting" || S.mode === "splashdown";
     e.cast.classList.toggle("hidden", !showCast);
     if (showCast) e.cast.innerHTML = (S.castFt || 0) + "<small>ft</small>";

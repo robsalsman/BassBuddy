@@ -684,6 +684,8 @@ html, body {
 .sega-readout small { font-size: 14px; margin: 0 2px 0 1px; opacity: .9; }
 .sega-temp { font-weight: 700; font-size: 13px; color: #dcecff; text-shadow: 0 1px 2px rgba(0,0,0,.6); margin-top: 2px; }
 .sega-temp b { color: #fff; }
+.sega-best { font-weight: 800; font-size: 12px; letter-spacing: .4px; color: #ffd23c; text-shadow: 0 1px 2px rgba(0,0,0,.7); margin-top: 2px; }
+.sega-best.hidden { display: none; }
 /* big glowing yellow cast-distance counter, center-top */
 .sega-cast { position: absolute; top: calc(6px + env(safe-area-inset-top,0px)); left: 50%; transform: translateX(-50%);
   font-weight: 900; font-style: italic; font-size: 52px; line-height: 1;
