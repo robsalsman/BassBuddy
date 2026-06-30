@@ -443,7 +443,7 @@ const Scene3D = (() => {
 
   // surface world (above the water — idle / aim / cast)
   let scene2, camS, water, sunS, sunMesh, sunGlow, boat, aimRing, castLine, castLure;
-  let fishShadows = [], hills, structProps, world;
+  let fishShadows = [], hills, structProps, world, venueStructs = null;
   let splashRings = [], surfFish = null, surfFishKey = "", boil, castSplashed = false;
   let skyKey = "", envMap = null;
   const waterPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -619,6 +619,57 @@ const Scene3D = (() => {
     return tx;
   }
 
+  // Per-venue man-made structure (above + below the waterline) you cast toward.
+  // Built once, parented to structProps (which rides the productive bearing), and
+  // toggled by spot. Fronts face +z so they face the boat when you turn to them.
+  function buildVenueStructures(parent) {
+    const wood = new THREE.MeshStandardMaterial({ color: 0x8a6a44, roughness: 0.9 });
+    const woodDark = new THREE.MeshStandardMaterial({ color: 0x5f472c, roughness: 0.95 });
+    const roofMat = new THREE.MeshStandardMaterial({ color: 0x7a3b2e, roughness: 0.85 });
+    const stone = new THREE.MeshStandardMaterial({ color: 0x9a9488, roughness: 1 });
+    const concrete = new THREE.MeshStandardMaterial({ color: 0xb9b6ac, roughness: 0.95 });
+    const dark = new THREE.MeshStandardMaterial({ color: 0x2f3337, roughness: 1 });
+    const box = (w, h, d, m) => new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+    const cyl = (r, h, m) => new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 10), m);
+    // a piling whose top is at topY and which sinks well below the surface (y<0)
+    const piling = (g, x, z, topY, r, m) => { const h = topY + 3.0; const c = cyl(r || 0.16, h, m || woodDark); c.position.set(x, topY - h / 2, z); g.add(c); };
+
+    // ---- COVE: a plank dock with a stilted boathouse ----
+    const cove = new THREE.Group();
+    const deck = box(6.5, 0.25, 3.0, wood); deck.position.set(0, 0.62, -3.2); cove.add(deck);
+    for (const x of [-3, -1.5, 0, 1.5, 3]) for (const z of [-2.0, -4.4]) piling(cove, x, z, 0.62, 0.16, woodDark);
+    const house = new THREE.Group(); house.position.set(-1.4, 0, -5.0);
+    const walls = box(2.8, 1.8, 2.4, wood); walls.position.y = 1.75; house.add(walls);
+    const door = box(1.0, 1.2, 0.1, dark); door.position.set(0, 1.4, 1.21); house.add(door);
+    const roof = new THREE.Mesh(new THREE.ConeGeometry(2.35, 1.3, 4), roofMat); roof.rotation.y = Math.PI / 4; roof.position.y = 3.3; house.add(roof);
+    for (const x of [-1.1, 1.1]) for (const z of [-1.0, 1.0]) piling(house, x, z, 0.7, 0.14, woodDark);
+    cove.add(house);
+
+    // ---- RIVER: a stone arch bridge + a little gazebo over the water ----
+    const river = new THREE.Group();
+    const span = box(11, 0.7, 2.2, stone); span.position.set(0, 1.5, -5.5); river.add(span);
+    for (const x of [-4, 0, 4]) { const p = box(1.5, 4.0, 2.4, stone); p.position.set(x, -0.5, -5.5); river.add(p); }
+    for (const z of [-4.45, -6.55]) { const r = box(11, 0.5, 0.22, stone); r.position.set(0, 2.05, z); river.add(r); }
+    const gaz = new THREE.Group(); gaz.position.set(4.6, 0, -2.4);
+    const plat = cyl(1.5, 0.3, wood); plat.position.y = 0.62; gaz.add(plat);
+    for (let i = 0; i < 6; i++) { const a = i / 6 * 6.283; const post = cyl(0.1, 1.9, woodDark); post.position.set(Math.cos(a) * 1.3, 1.55, Math.sin(a) * 1.3); gaz.add(post); }
+    const groof = new THREE.Mesh(new THREE.ConeGeometry(1.85, 1.25, 6), roofMat); groof.position.y = 3.1; gaz.add(groof);
+    for (const a of [0.5, 2.1, 3.7, 5.3]) piling(gaz, Math.cos(a) * 1.25, Math.sin(a) * 1.25, 0.6, 0.12, woodDark);
+    river.add(gaz);
+
+    // ---- DEEP: a concrete dam / lock with gate towers and floating buoys ----
+    const deepG = new THREE.Group();
+    const wall = box(15, 3.0, 1.2, concrete); wall.position.set(0, 1.0, -7.2); deepG.add(wall);
+    for (const x of [-3.6, 3.6]) { const gate = box(2.4, 2.2, 0.5, dark); gate.position.set(x, 0.6, -6.55); deepG.add(gate); }
+    for (const x of [-6.6, 0, 6.6]) { const tw = box(1.7, 4.4, 1.7, concrete); tw.position.set(x, 1.6, -7.2); deepG.add(tw); }
+    const walk = box(15, 0.45, 1.9, concrete); walk.position.set(0, 2.9, -7.2); deepG.add(walk);
+    const buoyMat = new THREE.MeshStandardMaterial({ color: 0xff7a2a, roughness: 0.55 });
+    for (let i = 0; i < 6; i++) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 8), buoyMat); b.position.set(-4.2 + i * 1.7, 0.16, -2.6 - (i % 2) * 0.9); b.userData.buoy = i; deepG.add(b); }
+
+    venueStructs = { cove, river, deep: deepG };
+    for (const k in venueStructs) { venueStructs[k].visible = false; parent.add(venueStructs[k]); }
+  }
+
   function buildSurface() {
     scene2 = new THREE.Scene();
     scene2.background = new THREE.Color(0x8fd0e6);
@@ -673,6 +724,9 @@ const Scene3D = (() => {
       pad.position.set(Math.cos(i * 0.9) * (0.6 + i * 0.22), 0.04, Math.sin(i * 0.9) * (0.6 + i * 0.22));
       structProps.add(pad);
     }
+    // big above-and-below-water structure to cast at — per venue (Sega-style docks,
+    // bridges, dams). Lives on the structProps node so it sits at the holding bearing.
+    buildVenueStructures(structProps);
     world.add(structProps);
 
     // bass boat + angler in the foreground (fixed — camera rides the boat)
@@ -900,7 +954,12 @@ const Scene3D = (() => {
     // into view as you turn to face it)
     const D = 11;
     structProps.position.set(Math.sin(hold) * D, 0, -Math.cos(hold) * D);
+    structProps.rotation.y = -hold;   // turn the structure to face the boat as you swing to it
     structProps.visible = true;
+    // bob the dam buoys on the surface
+    if (venueStructs && venueStructs.deep.visible) {
+      for (const b of venueStructs.deep.children) if (b.userData && b.userData.buoy != null) b.position.y = 0.16 + Math.sin(t * 1.6 + b.userData.buoy) * 0.06;
+    }
 
     // fish shadows cluster around the structure; they're easier to see (more of
     // them, darker) the more directly you're facing the holding water
@@ -1119,8 +1178,10 @@ const Scene3D = (() => {
     if (on !== visible) { visible = on; canvas.style.opacity = on ? "1" : "0"; }
   }
 
-  function setVenue(water0, water1, clarity) {
+  function setVenue(water0, water1, clarity, spotId) {
     if (!ready) return;
+    // show the man-made structure that belongs to this lake
+    if (venueStructs) for (const k in venueStructs) venueStructs[k].visible = (k === spotId);
     surf.material.color.set(water0);
     // the bottom stays silt-coloured (just tinted toward the water) so it reads
     // as a lit lakebed up close while depth fog blends the distance into the water
@@ -1212,6 +1273,15 @@ const Scene3D = (() => {
     }
     const log = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.31, 4.0, 10), barkMat);
     log.rotation.z = Math.PI / 2; log.rotation.y = 0.3; place(log, -0.3, -3.0, -0.5); wood.add(log);
+    // man-made dock pilings driven into the bottom — the structure the dock above
+    // sits on, where bass tuck into the shade. Straight, squared-off posts.
+    const pileMat = new THREE.MeshStandardMaterial({ map: barkMap, color: 0x4f3a22, roughness: 0.95 });
+    for (const px of [-2.3, -1.4, 1.2, 2.1]) {
+      const pile = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 5.6, 8), pileMat);
+      pile.position.set(px, -0.7, -1.0 - Math.abs(px) * 0.3); wood.add(pile);
+      const cross = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.14, 0.14), pileMat);   // a cross-brace
+      cross.position.set(px, -2.4, -1.0 - Math.abs(px) * 0.3); wood.add(cross);
+    }
     // ROCK — boulder pile
     const rock = new THREE.Group();
     const rockMat = new THREE.MeshStandardMaterial({ color: 0x5a6066, roughness: 1, flatShading: true });

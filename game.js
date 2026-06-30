@@ -1626,7 +1626,7 @@
     if (!S3.isReady()) return;
     S3.setVisible(true);   // 3D now drives both surface & underwater; 2D stays as fallback beneath
     const sp = spot(), lu = lure(), dc = dayColors(sp), pos = position();
-    if (_3dVenue !== sp.id) { _3dVenue = sp.id; S3.setVenue(sp.water[0], sp.water[1], sp.clarity); }
+    if (_3dVenue !== sp.id) { _3dVenue = sp.id; S3.setVenue(sp.water[0], sp.water[1], sp.clarity, sp.id); }
     // typical fish SIZE and ABUNDANCE at this spot, so the underwater shoal reflects
     // it: big-fish spots show big bass, a good combo/spot shows more of them
     let sBig = 0, sTot = 0;
