@@ -309,6 +309,7 @@
     fLake: $("fLake"), fLure: $("fLure"), fRod: $("fRod"), fTime: $("fTime"), fWx: $("fWx"),
     statsModal: $("statsModal"), statsClose: $("statsClose"), statsBody: $("statsBody"), openStatsBtn: $("openStatsBtn"),
     catchDetailModal: $("catchDetailModal"), catchDetailClose: $("catchDetailClose"), catchDetailBody: $("catchDetailBody"),
+    trophyModal: $("trophyModal"), trophyClose: $("trophyClose"), trophyStats: $("trophyStats"), trophyMountSvg: $("trophyMountSvg"), trophyAch: $("trophyAch"), trophyAchHead: $("trophyAchHead"),
     shopRods: $("shopRods"), shopLures: $("shopLures"), shopSpots: $("shopSpots"), shopDex: $("shopDex"),
     rodChip: $("rodChip"), lureChip: $("lureChip"), spotChip: $("spotChip"),
     hookMeter: $("hookMeter"), hmMarker: $("hmMarker"), strikeFlash: $("strikeFlash"), catchHookset: $("catchHookset"),
@@ -565,33 +566,73 @@
   };
   // total of the session's best-5 free-play bag
   function bagTotal() { return S.bag.reduce((s, w) => s + w, 0); }
-  // ---- achievements / challenges ----
-  const CHALLENGES = [
-    { id: "tourwin", name: "Tournament Win", desc: "Win any tournament" },
-    { id: "champ",   name: "Circuit Champion", desc: "Win a circuit season" },
-    { id: "lunker",  name: "Lunker!", desc: "Boat an 8 lb+ bass" },
-    { id: "trophy",  name: "Trophy Bass", desc: "Land a 10 lb+ largemouth" },
-    { id: "bag15",   name: "Heavy Sack", desc: "A livewell over 15 lb" },
-    { id: "slam",    name: "Lake Slam", desc: "Catch a bass in all 3 lakes" },
+  // ---- achievements ----
+  // Each has a test() run against a snapshot of your stats/catch-log, so they also
+  // unlock retroactively (old saves earn what they've already done on next open).
+  const ACH = [
+    { id: "first",   ico: "🎣", name: "First Cast",       desc: "Catch your first bass",              test: c => c.total >= 1 },
+    { id: "ten",     ico: "🐟", name: "Getting Dialed",    desc: "Catch 10 bass",                       test: c => c.total >= 10,  prog: c => [c.total, 10] },
+    { id: "fifty",   ico: "🎽", name: "Weekend Warrior",   desc: "Catch 50 bass",                       test: c => c.total >= 50,  prog: c => [c.total, 50] },
+    { id: "hundred", ico: "💯", name: "Bass Master",       desc: "Catch 100 bass",                      test: c => c.total >= 100, prog: c => [c.total, 100] },
+    { id: "lunker",  ico: "💪", name: "Lunker!",           desc: "Boat a 6 lb+ bass",                   test: c => c.big >= LUNKER_LB },
+    { id: "eight",   ico: "🦬", name: "Bruiser",           desc: "Boat an 8 lb+ bass",                  test: c => c.big >= 8 },
+    { id: "trophy",  ico: "👑", name: "Trophy Bass",       desc: "Land a 10 lb+ largemouth",            test: c => c.big >= 10 },
+    { id: "finesse", ico: "🤏", name: "Finesse Master",    desc: "Land a 5 lb+ bass on a finesse lure", test: c => c.finesse },
+    { id: "deep",    ico: "🕳️", name: "Deep Diver",        desc: "Catch a bass 20 ft+ down",            test: c => c.deep },
+    { id: "night",   ico: "🌙", name: "Night Bite",        desc: "Catch a bass after dark",             test: c => c.night },
+    { id: "fullmoon",ico: "🌕", name: "Moon Feeder",       desc: "Catch a bass on a full moon",         test: c => c.fullMoon },
+    { id: "storm",   ico: "🌧️", name: "Rain Maker",        desc: "Catch a bass in the rain",            test: c => c.rain },
+    { id: "lures",   ico: "🧰", name: "Tackle Junkie",     desc: "Catch bass on 8 different lures",      test: c => c.lureCount >= 8, prog: c => [c.lureCount, 8] },
+    { id: "bag15",   ico: "🪣", name: "Heavy Sack",        desc: "A livewell over 15 lb",               test: c => c.bestBag >= 15 },
+    { id: "slam",    ico: "🗺️", name: "Lake Slam",         desc: "Catch a bass in all 3 lakes",          test: c => c.lakeCount >= SPOTS.length, prog: c => [c.lakeCount, SPOTS.length] },
+    { id: "tourwin", ico: "🏁", name: "Tournament Win",    desc: "Win any tournament",                  test: c => c.tourWins >= 1 },
+    { id: "champ",   ico: "🏆", name: "Circuit Champion",  desc: "Win a circuit season",                test: c => c.titles >= 1 },
   ];
-  function unlock(id) {
+  // snapshot of everything the achievement tests look at
+  function achCtx() {
+    const log = G.catchLog || [];
+    const recVals = Object.values(G.records || {});
+    return {
+      total: Object.values(G.caught || {}).reduce((s, n) => s + n, 0),
+      big: recVals.length ? Math.max(...recVals) : 0,
+      bestBag: G.bestBag || 0,
+      tourWins: G.tourWins || 0, titles: (G.season && G.season.titles) || 0,
+      lureCount: new Set(log.map(e => e.lure)).size,
+      lakeCount: Object.keys(G.lakes || {}).filter(k => G.lakes[k]).length,
+      night:    log.some(e => { const h = (e.timeMin / 60) % 24; return h < 5 || h >= 20; }),
+      fullMoon: log.some(e => e.moon === 4),
+      deep:     log.some(e => (e.depth || 0) >= 20),
+      finesse:  log.some(e => e.w >= 5 && e.size === "small"),
+      rain:     log.some(e => e.weather === "rain"),
+    };
+  }
+  // unlock everything now satisfied. silent (on load) just sets the flags; loud
+  // (after a catch/win) fires the toast + save for anything newly earned.
+  function evalAchievements(silent) {
+    if (!G.challenges) G.challenges = {};
+    const c = achCtx(); let changed = false;
+    for (const a of ACH) {
+      if (G.challenges[a.id]) continue;
+      if (a.test(c)) { G.challenges[a.id] = true; changed = true; if (!silent) toast(`🏅 Achievement: ${a.name}`); }
+    }
+    if (changed && !silent) save();
+    return changed;
+  }
+  function unlock(id) {                          // still used by the tournament handlers
     if (!G.challenges) G.challenges = {};
     if (G.challenges[id]) return;
     G.challenges[id] = true;
-    const c = CHALLENGES.find(x => x.id === id);
-    if (c) toast(`🏅 Challenge complete: ${c.name}`);
+    const a = ACH.find(x => x.id === id);
+    if (a) toast(`🏅 Achievement: ${a.name}`);
     save();
   }
-  // catch-driven challenges (called whenever a bass is boated)
+  // catch-driven achievements (called whenever a bass is boated)
   function checkCatchChallenges(f) {
     if (!f || !f.bass) return;
     if (!G.lakes) G.lakes = {};
     G.lakes[G.spot] = true;
-    if (f.weight >= LUNKER_LB) unlock("lunker");
-    if (f.weight >= 10) unlock("trophy");
-    if ((S.tournament ? wellTotal() : bagTotal()) >= 15) unlock("bag15");
-    if (SPOTS.every(sp => G.lakes[sp.id])) unlock("slam");
     logCatch(f);
+    evalAchievements(false);
   }
   // record every bass with the full conditions/gear so the Catch Log can sort & filter
   function logCatch(f) {
@@ -796,7 +837,7 @@
   const sfx = n => Sound.play(n);
   function anyModalOpen() {
     return [el.catchModal, el.failModal, el.shopModal, el.lureModal, el.mapModal,
-            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal].some(m => !m.classList.contains("hidden"));
+            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal].some(m => !m.classList.contains("hidden"));
   }
 
   function floatText(txt, color) {
@@ -3154,17 +3195,95 @@
         <div class="item-btn ${lunk ? "equipped" : "owned"}">${best ? best.toFixed(1) + " lb" : "—"}</div></div>`;
     }).join("");
     const ch = G.challenges || {};
-    const chRows = CHALLENGES.map(c => {
-      const done = !!ch[c.id];
-      return `<div class="item"><div class="item-ico">${done ? "🏅" : "🔒"}</div>
-        <div class="item-info"><div class="item-name" style="${done ? "" : "color:#8aa0ab"}">${c.name}</div>
-        <div class="item-desc">${c.desc}</div></div>
-        <div class="item-btn ${done ? "equipped" : ""}">${done ? "DONE" : "—"}</div></div>`;
-    }).join("");
-    el.recBody.innerHTML = fishRows + `<h3 class="rec-h" style="margin-top:14px">Challenges</h3>` + chRows;
+    const done = ACH.filter(a => ch[a.id]).length;
+    const trophyBtn = `<div class="trophy-cta" data-act="trophy">
+        <div class="tc-ico">🏆</div>
+        <div class="tc-txt"><div class="tc-name">Trophy Room</div>
+          <div class="tc-sub">${biggest ? "Your " + biggest.toFixed(1) + " lb mount · " : ""}${done}/${ACH.length} achievements</div></div>
+        <div class="tc-chev">›</div></div>`;
+    el.recBody.innerHTML = fishRows + `<h3 class="rec-h" style="margin-top:14px">Trophy Room &amp; Achievements</h3>` + trophyBtn;
   }
   el.recordsClose && el.recStats.addEventListener("click", (e) => {
     if (e.target.closest('[data-act="log"]')) openCatchLog();
+  });
+  el.recBody && el.recBody.addEventListener("click", (e) => {
+    if (e.target.closest('[data-act="trophy"]')) openTrophyRoom();
+  });
+
+  // ---- Trophy Room — your biggest bass mounted in 3D + the achievement wall ----
+  function trophyEntry() {
+    // the heaviest bass in the catch log (has full context); fall back to records
+    const log = (G.catchLog || []).slice().sort((a, b) => b.w - a.w);
+    if (log.length) return log[0];
+    const recVals = Object.entries(G.records || {});
+    if (!recVals.length) return null;
+    const [name, w] = recVals.sort((a, b) => b[1] - a[1])[0];
+    return { w, len: +Math.cbrt(w * 1600).toFixed(1), _name: name, bare: true };
+  }
+  function trophyArt(w) {
+    // pick the sculpt/markings that match the size class, like the catch screen does
+    const def = w >= 10 ? F.hawg : w >= 6 ? F.giant : F.largemouth;
+    return def.art;
+  }
+  function openTrophyRoom() {
+    renderTrophyRoom();
+    el.trophyModal.classList.remove("hidden");
+    // mount the biggest bass in 3D once the modal has real dimensions
+    const t = trophyEntry();
+    const cv = document.getElementById("trophy3d"), host = el.trophyMountSvg;
+    let shown = false;
+    if (t && window.Scene3D && Scene3D.showCatch) {
+      requestAnimationFrame(() => {
+        try { shown = Scene3D.showCatch(trophyArt(t.w), "largemouth", cv); } catch (e) {}
+        cv.style.display = shown ? "block" : "none";
+        if (!shown && host) host.innerHTML = t ? fishSVG(F.largemouth, 150) : "";
+      });
+    } else if (host) {
+      cv.style.display = "none";
+      host.innerHTML = t ? fishSVG(F.largemouth, 150) : "";
+    }
+  }
+  function renderTrophyRoom() {
+    const t = trophyEntry();
+    // headline mount stats
+    if (t) {
+      const sp = SPOTS.find(s => s.id === t.spot);
+      const when = t.ts ? new Date(t.ts).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "";
+      const lu = t.lure && LURES.find(l => l.id === t.lure);
+      const bits = [
+        t.len ? `📏 ${t.len}"` : "",
+        sp ? `${sp.ico} ${sp.name}` : "",
+        lu ? `${lu.ico} ${lu.name}` : "",
+        when,
+      ].filter(Boolean);
+      el.trophyStats.innerHTML =
+        `<div class="tr-w">${t.w.toFixed(1)}<small>lb</small></div>
+         <div class="tr-name">Largemouth Bass — Personal Best</div>
+         <div class="tr-bits">${bits.map(b => `<span>${b}</span>`).join("")}</div>`;
+    } else {
+      el.trophyStats.innerHTML = `<div class="tr-name">No mount yet — go land your personal best!</div>`;
+    }
+    // achievement wall
+    const ch = G.challenges || {};
+    const c = achCtx();
+    const got = ACH.filter(a => ch[a.id]).length;
+    el.trophyAchHead.textContent = `Achievements · ${got}/${ACH.length}`;
+    el.trophyAch.innerHTML = ACH.map(a => {
+      const done = !!ch[a.id];
+      let sub = a.desc;
+      if (!done && a.prog) { const [cur, tgt] = a.prog(c); sub = `${a.desc} — ${Math.min(cur, tgt)}/${tgt}`; }
+      return `<div class="ach ${done ? "on" : "off"}">
+        <div class="ach-ico">${done ? a.ico : "🔒"}</div>
+        <div class="ach-txt"><div class="ach-name">${a.name}</div><div class="ach-sub">${sub}</div></div>
+        ${done ? '<div class="ach-check">✓</div>' : ""}</div>`;
+    }).join("");
+  }
+  el.trophyClose.addEventListener("click", () => {
+    if (window.Scene3D && Scene3D.hideCatch) { try { Scene3D.hideCatch(document.getElementById("trophy3d")); } catch (e) {} }
+    el.trophyModal.classList.add("hidden");
+  });
+  el.trophyModal.addEventListener("click", (e) => {
+    if (e.target === el.trophyModal) el.trophyClose.click();
   });
 
   // ---- Catch Log — every bass, sortable & filterable ----
@@ -3362,6 +3481,7 @@
   // ===========================================================================
   // Boot
   // ===========================================================================
+  evalAchievements(true);   // retroactively credit anything an existing save already earned
   rollConditions();
   updateHUD();
   showBtn(false);

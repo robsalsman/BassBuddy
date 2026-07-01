@@ -98,6 +98,37 @@ html, body {
 .rec-h { font-size: 13px; font-weight: 800; color: #cfe6f0; margin: 6px 0 8px; letter-spacing: .3px; }
 .rec-stat.tap { cursor: pointer; border: 1px solid rgba(255,211,92,.4); }
 .rec-stat.tap:active { transform: scale(.97); }
+/* Trophy Room call-to-action button (in the Record Book) */
+.trophy-cta { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 14px; cursor: pointer;
+  background: linear-gradient(135deg, rgba(255,211,92,.16), rgba(255,211,92,.05)); border: 1px solid rgba(255,211,92,.4); }
+.trophy-cta:active { transform: scale(.98); }
+.tc-ico { font-size: 30px; }
+.tc-txt { flex: 1; min-width: 0; }
+.tc-name { font-size: 15px; font-weight: 900; color: var(--gold); }
+.tc-sub { font-size: 12px; color: #cfe6f0; margin-top: 2px; }
+.tc-chev { font-size: 26px; color: var(--gold); font-weight: 800; }
+/* Trophy Room modal */
+.trophy-mount { position: relative; height: 190px; border-radius: 14px; margin-bottom: 10px; overflow: hidden;
+  background: radial-gradient(120% 90% at 50% 20%, #14384a 0%, #0a2634 70%, #071c27 100%);
+  border: 1px solid var(--ui-line); }
+#trophy3d { width: 100%; height: 100%; display: block; }
+#trophyMountSvg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+.trophy-stats { text-align: center; margin-bottom: 8px; }
+.tr-w { font-size: 40px; font-weight: 900; color: var(--gold); line-height: 1; text-shadow: 0 0 14px rgba(255,210,60,.4); }
+.tr-w small { font-size: 16px; margin-left: 3px; color: #d9c98f; }
+.tr-name { font-size: 13px; font-weight: 800; color: #eaf3ff; margin-top: 3px; }
+.tr-bits { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 8px; }
+.tr-bits span { font-size: 11px; font-weight: 700; color: #cfe6f0; background: rgba(255,255,255,.07); border-radius: 999px; padding: 4px 9px; }
+.ach-grid { display: grid; grid-template-columns: 1fr; gap: 7px; }
+.ach { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 12px; border: 1px solid var(--ui-line); }
+.ach.on { background: linear-gradient(135deg, rgba(91,227,122,.14), rgba(91,227,122,.04)); border-color: rgba(91,227,122,.35); }
+.ach.off { background: rgba(255,255,255,.04); opacity: .7; }
+.ach-ico { font-size: 22px; width: 30px; text-align: center; }
+.ach-txt { flex: 1; min-width: 0; }
+.ach-name { font-size: 13.5px; font-weight: 800; color: #eaf3ff; }
+.ach.off .ach-name { color: #9fb2bd; }
+.ach-sub { font-size: 11px; color: #a9cdd9; margin-top: 1px; }
+.ach-check { color: #5be37a; font-weight: 900; font-size: 18px; }
 /* catch log */
 .clog-sort { display: flex; gap: 6px; margin-bottom: 8px; }
 .clog-sbtn { flex: 1; padding: 8px; border-radius: 10px; border: 1px solid var(--ui-line);

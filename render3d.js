@@ -1795,53 +1795,69 @@ const Scene3D = (() => {
   }
 
   // ===========================================================================
-  // Catch / trophy view — its own little renderer in the catch modal
+  // Catch / trophy view — a little standalone renderer, one per canvas so the
+  // catch modal and the Trophy Room can each show a rotating hero bass at once.
   // ===========================================================================
-  let catchR, catchScene, catchCam, catchFish, catchRAF = 0, catchReady = false, catchT = 0;
+  const catchCtxs = {};   // canvas -> { renderer, scene, cam, fish, raf, t }
 
-  function initCatch(cv) {
-    if (!cv) return false;
-    try { catchR = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true, powerPreference: "high-performance" }); }
-    catch (e) { return false; }
-    catchR.setPixelRatio(Math.min(devicePixelRatio || 1, 3));
-    if (THREE.ACESFilmicToneMapping !== undefined) { catchR.toneMapping = THREE.ACESFilmicToneMapping; catchR.toneMappingExposure = 1.1; }
-    catchScene = new THREE.Scene();
-    catchScene.environment = buildEnv(catchR);     // reflections on the trophy's wet skin
-    catchCam = new THREE.PerspectiveCamera(42, 1.8, 0.1, 50);
-    catchCam.position.set(0, 0, 6.4);
-    catchScene.add(new THREE.HemisphereLight(0xffffff, 0x44525e, 1.2));
-    const d1 = new THREE.DirectionalLight(0xfff2cf, 1.7); d1.position.set(3, 5, 6); catchScene.add(d1);
-    const d2 = new THREE.DirectionalLight(0x9fc0ff, 0.6); d2.position.set(-4, -1, 3); catchScene.add(d2);
-    catchReady = true;
-    return true;
+  function catchCtx(cv) {
+    if (!cv) return null;
+    if (cv.__catchCtx) return cv.__catchCtx;
+    let renderer;
+    try { renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true, powerPreference: "high-performance" }); }
+    catch (e) { return null; }
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 3));
+    if (THREE.ACESFilmicToneMapping !== undefined) { renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.1; }
+    const scene = new THREE.Scene();
+    scene.environment = buildEnv(renderer);     // reflections on the trophy's wet skin
+    const cam = new THREE.PerspectiveCamera(42, 1.8, 0.1, 50);
+    cam.position.set(0, 0, 6.4);
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x44525e, 1.2));
+    const d1 = new THREE.DirectionalLight(0xfff2cf, 1.7); d1.position.set(3, 5, 6); scene.add(d1);
+    const d2 = new THREE.DirectionalLight(0x9fc0ff, 0.6); d2.position.set(-4, -1, 3); scene.add(d2);
+    const ctx = { renderer, scene, cam, fish: null, raf: 0, t: 0 };
+    cv.__catchCtx = ctx; catchCtxs[cv.id || "catch3d"] = ctx;
+    return ctx;
   }
 
-  function showCatch(art, speciesKey) {
-    if (!catchReady && !initCatch(document.getElementById("catch3d"))) return false;
-    const cv = catchR.domElement;
-    const w = cv.clientWidth || 300, h = cv.clientHeight || 160;
-    catchR.setSize(w, h, false); catchCam.aspect = w / h; catchCam.updateProjectionMatrix();
-    hideCatch();
-    if (catchFish) { catchScene.remove(catchFish); if (catchFish.disposables) catchFish.disposables.forEach(d => d.dispose && d.dispose()); catchFish.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+  // show a hero bass in the given canvas (defaults to the catch modal's canvas)
+  function showCatch(art, speciesKey, cv) {
+    const ctx = catchCtx(cv || document.getElementById("catch3d"));
+    if (!ctx) return false;
+    const el = ctx.renderer.domElement;
+    const w = el.clientWidth || 300, h = el.clientHeight || 160;
+    ctx.renderer.setSize(w, h, false); ctx.cam.aspect = w / h; ctx.cam.updateProjectionMatrix();
+    if (ctx.raf) { cancelAnimationFrame(ctx.raf); ctx.raf = 0; }
+    if (ctx.fish) {
+      ctx.scene.remove(ctx.fish);
+      const shared = ctx.fish.userData && ctx.fish.userData.imported;   // shares the template geometry — don't free it
+      if (ctx.fish.disposables) ctx.fish.disposables.forEach(d => d.dispose && d.dispose());
+      if (!shared) ctx.fish.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+    }
     // prefer a real loaded model for this species; else the procedural bass
-    catchFish = realModel(speciesKey) || makeBass(art || {});
-    catchFish.scale.setScalar(catchFish.userData.imported ? 1.0 : 2.1);
-    catchScene.add(catchFish);
-    catchT = 0;
+    ctx.fish = realModel(speciesKey) || makeBass(art || {});
+    ctx.fish.scale.setScalar(ctx.fish.userData.imported ? 1.0 : 2.1);
+    ctx.scene.add(ctx.fish);
+    ctx.t = 0;
     const loop = () => {
-      catchT += 0.016;
-      catchFish.rotation.y = -0.55 + Math.sin(catchT * 0.55) * 0.85;   // turn to show both flanks
-      catchFish.rotation.z = Math.sin(catchT * 0.8) * 0.05;
-      catchFish.position.y = -0.1 + Math.sin(catchT * 1.1) * 0.12;
-      if (catchFish.tail) catchFish.tail.rotation.y = Math.sin(catchT * 5) * 0.32;
-      catchR.render(catchScene, catchCam);
-      catchRAF = requestAnimationFrame(loop);
+      ctx.t += 0.016;
+      const f = ctx.fish;
+      f.rotation.y = -0.55 + Math.sin(ctx.t * 0.55) * 0.85;   // turn to show both flanks
+      f.rotation.z = Math.sin(ctx.t * 0.8) * 0.05;
+      f.position.y = -0.1 + Math.sin(ctx.t * 1.1) * 0.12;
+      if (f.tail) f.tail.rotation.y = Math.sin(ctx.t * 5) * 0.32;
+      ctx.renderer.render(ctx.scene, ctx.cam);
+      ctx.raf = requestAnimationFrame(loop);
     };
     loop();
     return true;
   }
 
-  function hideCatch() { if (catchRAF) cancelAnimationFrame(catchRAF); catchRAF = 0; }
+  // stop a canvas's loop (all of them if none given)
+  function hideCatch(cv) {
+    if (cv && cv.__catchCtx) { cancelAnimationFrame(cv.__catchCtx.raf); cv.__catchCtx.raf = 0; return; }
+    for (const k in catchCtxs) { cancelAnimationFrame(catchCtxs[k].raf); catchCtxs[k].raf = 0; }
+  }
 
   return { init, setVisible, setVenue, frame, isReady: () => ready, showCatch, hideCatch };
 })();
