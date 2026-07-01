@@ -509,7 +509,7 @@ const Scene3D = (() => {
     if (THREE.SRGBColorSpace) tx.colorSpace = THREE.SRGBColorSpace;
     return tx;
   }
-  let fishShadows = [], hills, structProps, world, venueStructs = null;
+  let fishShadows = [], hills, structProps, world, venueStructs = null, shoreSets = {}, rainSys = null, _shoreKey = "";
   let splashRings = [], surfFish = null, surfFishKey = "", boil, castSplashed = false;
   let skyKey = "", envMap = null;
   const waterPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -834,6 +834,40 @@ const Scene3D = (() => {
     }
     world.add(hills);
 
+    // per-lake distant skyline silhouettes (rise behind the shoreline ring, shown by
+    // venue): pines over the cove, bluffs on the river, peaks at Trophy Lake, a cypress
+    // treeline on the bayou, tall cliffs at the highland reservoir
+    const smat = h => new THREE.MeshStandardMaterial({ color: h, roughness: 1 });
+    const ringPos = (g, m, i, n, dR) => { const a = i / n * Math.PI * 2, R = 43 + dR + (i % 3) * 3; m.position.set(Math.sin(a) * R, m.position.y, -Math.cos(a) * R); g.add(m); };
+    const cone = (h, r, m) => { const c = new THREE.Mesh(new THREE.ConeGeometry(r, h, 7), m); c.position.y = 0.2 + h / 2; return c; };
+    // COVE — evergreen pines
+    { const g = new THREE.Group(), m = smat(0x2c5738); for (let i = 0; i < 22; i++) ringPos(g, cone(5 + (i % 4) * 2.2, 2.2, m), i, 22, 2); shoreSets.cove = g; }
+    // RIVER — rocky knolls (low wide domes) + a few firs
+    { const g = new THREE.Group(), rk = smat(0x4a5240), fr = smat(0x33543c);
+      for (let i = 0; i < 16; i++) { const d = new THREE.Mesh(new THREE.SphereGeometry(3.4 + (i % 3), 8, 6), rk); d.position.y = -0.2; d.scale.set(1.6, 0.8, 1); ringPos(g, d, i, 16, 1); }
+      for (let i = 0; i < 8; i++) ringPos(g, cone(5.5, 2, fr), i + 0.5, 8, 4); shoreSets.river = g; }
+    // DEEP (Trophy Lake) — dark mountain peaks
+    { const g = new THREE.Group(), m = smat(0x2b3550); for (let i = 0; i < 14; i++) ringPos(g, cone(9 + (i % 4) * 4, 5.5, m), i, 14, 4); shoreSets.deep = g; }
+    // BAYOU — a flat cypress treeline (tall thin silhouettes with mossy crowns)
+    { const g = new THREE.Group(), tr = smat(0x2f4a2c), cr = smat(0x39562f);
+      for (let i = 0; i < 26; i++) { const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.6, 7 + (i % 3) * 2, 6), tr); trunk.position.y = 3; ringPos(g, trunk, i, 26, 0);
+        const crown = new THREE.Mesh(new THREE.SphereGeometry(1.8 + (i % 2), 8, 6), cr); crown.position.y = 6.5 + (i % 3); crown.scale.y = 0.7; ringPos(g, crown, i, 26, 0); } shoreSets.bayou = g; }
+    // HIGHLAND — tall bluffs / cliffs and a few peaks
+    { const g = new THREE.Group(), rk = smat(0x5c5a52), pk = smat(0x3c4a5e);
+      for (let i = 0; i < 12; i++) { const b = new THREE.Mesh(new THREE.BoxGeometry(6 + (i % 3) * 3, 8 + (i % 4) * 5, 5), rk); b.position.y = 3.2; b.rotation.y = i; ringPos(g, b, i, 12, 2); }
+      for (let i = 0; i < 6; i++) ringPos(g, cone(13, 6, pk), i + 0.5, 6, 6); shoreSets.highland = g; }
+    for (const k in shoreSets) { shoreSets[k].visible = false; world.add(shoreSets[k]); }
+
+    // rain — a column of falling streaks around the boat, toggled by weather. Nearer
+    // streaks are longer so the shower reads with depth (WebGL draws lines 1px wide)
+    { const N = 420, geo = new THREE.BufferGeometry(), pos = new Float32Array(N * 6);
+      for (let i = 0; i < N; i++) { const z = -2 - Math.random() * 40, near = Math.max(0, Math.min(1, 1 - (-z) / 42));
+        const x = (Math.random() - 0.5) * 50, y = Math.random() * 27, len = 0.9 + near * 1.6;
+        pos[i * 6] = x; pos[i * 6 + 1] = y; pos[i * 6 + 2] = z; pos[i * 6 + 3] = x + 0.12; pos[i * 6 + 4] = y - len; pos[i * 6 + 5] = z; }
+      geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+      rainSys = new THREE.LineSegments(geo, new THREE.LineBasicMaterial({ color: 0xccdae4, transparent: true, opacity: 0.55 }));
+      rainSys.visible = false; rainSys.frustumCulled = false; scene2.add(rainSys); }
+
     // fish shadows drifting just under the surface (clustered near the structure)
     const shadowMat = new THREE.MeshBasicMaterial({ color: 0x0a1d22, transparent: true, opacity: 0.32 });
     for (let i = 0; i < 7; i++) {
@@ -1068,6 +1102,34 @@ const Scene3D = (() => {
       moonDisc.visible = true; moonDisc.position.set(sxw, syw, -54);
       sunMesh.visible = false; sunGlow.material.opacity = 0.10;
     } else { if (moonDisc) moonDisc.visible = false; sunMesh.visible = true; }
+
+    // ---- per-lake skyline + weather FX ----
+    const venue = st.venue || "cove", season = st.season || "summer", wx = st.weather || "sun";
+    // show this lake's distant silhouette set; tint the green hill ring by season
+    const shoreKey = venue + season;
+    if (shoreKey !== _shoreKey) {
+      _shoreKey = shoreKey;
+      for (const k in shoreSets) shoreSets[k].visible = (k === venue);
+      const foliage = season === "spring" ? 0x4f8047 : season === "fall" ? 0x8a6a2e : season === "winter" ? 0x59685c : 0x356b4e;
+      if (hills) for (const h of hills.children) h.material.color.setHex(foliage);
+    }
+    // overcast weather dims the sun; rain/fog pull the haze in closer
+    const wxDim = wx === "rain" ? 0.6 : wx === "fog" ? 0.66 : wx === "cloud" ? 0.8 : 1;
+    sunS.intensity *= wxDim;
+    sunGlow.material.opacity *= (0.4 + wxDim * 0.6);
+    scene2.fog.far = wx === "fog" ? 34 : wx === "rain" ? 52 : 70;
+    // rain: fall the streaks and wrap them back to the top
+    if (rainSys) {
+      rainSys.visible = wx === "rain";
+      if (rainSys.visible) {
+        const p = rainSys.geometry.attributes.position.array, d = dt * 0.06;
+        for (let i = 0; i < p.length; i += 6) {   // both endpoints of each streak move together
+          p[i + 1] -= d; p[i + 4] -= d;
+          if (p[i + 1] < -1) { p[i + 1] += 27; p[i + 4] += 27; }
+        }
+        rainSys.geometry.attributes.position.needsUpdate = true;
+      }
+    }
     if (st.water0) water.material.color.set(st.water0);
 
     // steer: the whole world rotates around the boat as you run the trolling motor
