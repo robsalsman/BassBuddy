@@ -104,8 +104,12 @@ html, body {
   background: rgba(255,255,255,.05); color: #cfe6f0; font-weight: 800; font-size: 12px; cursor: pointer; }
 .clog-sbtn.active { background: var(--gold); color: #5a3a00; border-color: var(--gold); }
 .clog-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
-.clog-sel { flex: 1 1 auto; min-width: 0; padding: 7px 8px; border-radius: 10px; font-size: 12px; font-weight: 700;
+/* font-size must be >= 16px: iOS Safari auto-zooms the whole page when a <select>
+   or <input> smaller than that is tapped, and stays zoomed in afterwards */
+.clog-sel { flex: 1 1 auto; min-width: 0; padding: 7px 8px; border-radius: 10px; font-size: 16px; font-weight: 700;
   background: rgba(255,255,255,.07); color: #eaf3ff; border: 1px solid var(--ui-line); }
+/* belt-and-suspenders: never let any focusable control drop below 16px */
+select, input, textarea { font-size: 16px; }
 .clog-count { font-size: 12px; font-weight: 800; color: #9fc3d2; margin-bottom: 8px; letter-spacing: .3px; }
 .clog-list { display: flex; flex-direction: column; gap: 7px; }
 .clog-row { display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,.05);
