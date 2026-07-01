@@ -556,9 +556,9 @@ html, body {
   backdrop-filter: blur(6px);
   box-shadow: 0 6px 18px rgba(0,0,0,.35);
 }
-.gauge-row { display: flex; gap: 10px; align-items: center; }
-.gauge { flex: 0 0 auto; font-size: 10px; font-weight: 800; letter-spacing: 1px; color: #bfe0ec; text-align: center; }
-.gauge.wide { flex: 1; text-align: left; }
+.gauge-row { display: flex; gap: 9px; align-items: center; }
+.gauge { flex: 0 0 auto; font-size: 10px; font-weight: 800; letter-spacing: 1px; color: #bfe0ec; text-align: center; white-space: nowrap; }
+.gauge.wide { flex: 1 1 0; min-width: 0; text-align: left; }
 .gauge span { display: block; margin-bottom: 4px; }
 .gauge b { font-size: 14px; color: #fff; }
 .meter {

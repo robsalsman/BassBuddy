@@ -1711,11 +1711,16 @@ const Scene3D = (() => {
     if (camera) {
       if (!camLook) camLook = { x: 0.2, y: -0.7, z: 0 };
       const striking = st.mode === "strike";
+      // during the retrieve, gently drift down to follow a sinking lure so a deep
+      // bite stays framed in the upper scene instead of hiding behind the HUD panel
+      const follow = st.mode === "retrieve" ? Math.max(-2.2, Math.min(0.6, strikeFocusY + 0.7)) : 0;
+      const restLookY = -0.7 + follow * 0.55;
+      const restPosY  = -0.3 + follow * 0.30;
       const tpx = striking ? strikeFocusX * 0.45 : 0;
-      const tpy = striking ? strikeFocusY + 0.4 : -0.3;
+      const tpy = striking ? strikeFocusY + 0.4 : restPosY;
       const tpz = striking ? 4.9 : 9.4;
       const tlx = striking ? strikeFocusX : 0.2;
-      const tly = striking ? strikeFocusY : -0.7;
+      const tly = striking ? strikeFocusY : restLookY;
       const tlz = striking ? -0.3 : 0;
       const k = Math.min(1, ((dt || 16) / 1000) * 5);
       camera.position.x += (tpx - camera.position.x) * k;
