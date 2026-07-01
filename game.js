@@ -1102,6 +1102,33 @@
     rocks: "rock", point: "rock", riffle: "rock",
     drop: "deep", hole: "deep", open: "open",
   };
+  // Seasonal patterns: bass relate to different structure through the year, so
+  // where you fish should follow the season. These multiply the bite/ambush rate
+  // by the current structure group, and the finder coaches you to the pattern.
+  const SEASON_STRUCT = {
+    spring: { veg: 1.40, wood: 1.28, rock: 0.90, deep: 0.62, open: 0.85, tip: "shallow spawning cover — pads, wood & grass" },
+    summer: { veg: 0.88, wood: 0.95, rock: 1.15, deep: 1.34, open: 1.00, tip: "deep ledges & points midday, shallow at dawn/dusk" },
+    fall:   { veg: 1.22, wood: 1.05, rock: 1.00, deep: 0.82, open: 1.28, tip: "bass chase bait — shallow flats & open water" },
+    winter: { veg: 0.68, wood: 0.85, rock: 1.12, deep: 1.38, open: 0.72, tip: "deep & slow — the fish barely move" },
+  };
+  const STRUCT_LABEL = { veg: "grass/pads", wood: "wood cover", rock: "rock", deep: "deep structure", open: "open water" };
+  // how well a structure group fits the season right now (dawn/dusk pulls summer
+  // fish shallow); ~0.5 off-pattern .. ~1.5 dialed-in
+  function seasonFitFor(grp) {
+    const sea = S.cond.season || "summer";
+    let f = (SEASON_STRUCT[sea] || SEASON_STRUCT.summer)[grp] || 1;
+    if (sea === "summer" && Math.abs(S.cond.timeMin / 60 - 14) > 5) {  // early/late — flip toward shallow
+      if (grp === "veg" || grp === "wood") f *= 1.4;
+      if (grp === "deep") f *= 0.80;
+    }
+    return clamp(f, 0.5, 1.5);
+  }
+  function seasonFit() { return seasonFitFor(STRUCT_GROUP[position().id] || "open"); }
+  // the structure group the season favors most right now (for finder coaching)
+  function bestSeasonGroup() {
+    const groups = ["veg", "wood", "rock", "deep", "open"];
+    return groups.reduce((a, b) => seasonFitFor(b) > seasonFitFor(a) ? b : a);
+  }
   const STRUCT_PREF = {
     frog:      { veg: 1.0, wood: 0.8, rock: 0.5, deep: 0.25, open: 0.6 },
     pencil:    { veg: 0.7, wood: 0.6, rock: 0.6, deep: 0.35, open: 0.95 },
@@ -2146,7 +2173,8 @@
     const aimed = 0.55 + 0.45 * (S.castFacing != null ? S.castFacing : 1);   // faced the fish when you cast?
     const hot = lu.id === S.cond.hotLure ? 1.45 : 1;                          // matched the day's pattern
     const szBite = (SIZES[G.lure.size] || SIZES.med).bite;   // finesse = more bites, magnum = fewer
-    const build = (R.action > 0.55 ? 1 : 0.3) * (0.25 + sc) * depthNow * struct * aimed * (S.castLuck || 1) * hot * szBite;
+    const sFit = seasonFit();                                 // fishing the season's pattern?
+    const build = (R.action > 0.55 ? 1 : 0.3) * (0.25 + sc) * depthNow * struct * aimed * (S.castLuck || 1) * hot * szBite * sFit;
     R.interest = clamp(R.interest + (build * 0.012 - 0.0016) * step, 0, 1);
     R.follower = R.interest;
 
@@ -2154,14 +2182,15 @@
     // the lure is dialed in — right bait (sc), in the bite zone (depthNow), with
     // proper action — and drains whenever the presentation slips. pickFish() reads
     // this to decide how big a fish commits, so a sloppy retrieve gets only dinks.
-    const instQ = clamp(sc * depthNow * (R.action > 0.55 ? 1 : 0.4) * (hot > 1 ? 1.12 : 1), 0, 1);
+    // on-pattern structure also gets you a shot at the bigger, better-positioned fish
+    const instQ = clamp(sc * depthNow * (R.action > 0.55 ? 1 : 0.4) * (hot > 1 ? 1.12 : 1) * (0.7 + sFit * 0.3), 0, 1);
     R.bigCred = clamp(R.bigCred + (instQ - 0.5) * 0.02 * step, 0, 1);
 
     // ambush strike — a hidden bass explodes from cover at a random moment. Far
     // likelier on/near structure; once triggered it rushes the lure to a strike.
     const grp = STRUCT_GROUP[position().id] || "open";
     if (!R.ambush && R.interest < 0.72 && R.dist > 0.12 && R.dist < 0.9) {
-      const rate = (grp === "open" || grp === "deep" ? 0.0003 : 0.0009) * (0.45 + sc);
+      const rate = (grp === "open" || grp === "deep" ? 0.0003 : 0.0009) * (0.45 + sc) * sFit;
       if (Math.random() < rate * step) {
         R.ambush = { t: 0, from: grp === "rock" || grp === "deep" ? 1 : grp === "wood" || grp === "veg" ? 2 : Math.floor(Math.random() * 3) };
         vibrate(18);
@@ -3133,7 +3162,13 @@
       </div>
       <div class="finder-info">
         <div class="fi-line">${(SEASONS[c.season] || SEASONS.summer).ico} ${(SEASONS[c.season] || SEASONS.summer).name} · ${w.ico} ${w.name} · ${c.temp}° · ${fmtClock(c.timeMin)}</div>
-        <div class="fi-line" style="color:#9fc3d2">${(SEASONS[c.season] || SEASONS.summer).note}</div>
+        <div class="fi-line" style="color:#9fc3d2">${(SEASON_STRUCT[c.season] || SEASON_STRUCT.summer).tip}</div>
+        <div class="fi-line">${(() => {
+          const here = STRUCT_GROUP[pos.id] || "open", fit = seasonFit(), best = bestSeasonGroup();
+          if (fit >= 1.15) return `<b style="color:#5be37a">✓ On the seasonal pattern</b> — ${STRUCT_LABEL[here]}`;
+          if (fit <= 0.85) return `<b style="color:#ff9b3d">Off-pattern</b> — try <b>${STRUCT_LABEL[best]}</b> this season`;
+          return `Fair spot for the season · best: <b>${STRUCT_LABEL[best]}</b>`;
+        })()}</div>
         <div class="fi-line">Bass holding <b>${zone}</b> · ~${depthFt} ft</div>
         <div class="fi-line">Throw <b>${recDepth}</b> lures in <b>${recColor}</b></div>
         ${best ? `<div class="fi-line">Best lure: <b>${best.lure.ico} ${best.lure.name}</b> <span style="color:${ratingColor(best.pct)}">${best.pct}</span></div>` : ""}
