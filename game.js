@@ -89,9 +89,9 @@
     { id: "buzz",     name: "Buzzbait",     ico: "🪺", price: 0,    desc: "Blades churn a wake across the top — a reaction strike from active bass.",
       colors: ["white","black","chartreuse","shad"], bite: 1.35, bassBias: 1.2, lmBias: 1.5, junk: 0.4, rareBias: 1.15, sizeBias: 1.15, viz: "torpedo",
       style: "top", band: 0.06, cadence: "med", aggr: 0.85, motion: "Buzzing wake" },
-    { id: "jitterbug",name: "Jitterbug",    ico: "🐞", price: 200,  desc: "Wobbles wildly across the top. Tiny twitches draw active fish.",
+    { id: "jitterbug",name: "Jitterbug",    ico: "🐞", price: 200,  desc: "A gentle gurgling wobble — the calm-water & night topwater when bass won't chase a fast bait.",
       colors: ["black","white","red","green"], bite: 1.45, bassBias: 1.15, lmBias: 1.35, junk: 0.5, rareBias: 1.1, sizeBias: 1.0,
-      style: "top", band: 0.05, cadence: "fast", aggr: 0.82, motion: "Tiny twitches" },
+      style: "top", band: 0.05, cadence: "slow", aggr: 0.42, motion: "Gentle gurgle" },
     { id: "pencil",   name: "Pencil Bait",  ico: "✏️", price: 320,  desc: "Walk-the-dog plug. Big sweeping motions call up bigger surface bass.",
       colors: ["shad","gold","white","chartreuse"], bite: 1.05, bassBias: 1.25, lmBias: 1.5, junk: 0.4, rareBias: 1.15, sizeBias: 1.15,
       style: "top", band: 0.06, cadence: "slow", aggr: 0.5, motion: "Big sweeps" },
@@ -163,6 +163,7 @@
     let s = 0.5 + (L.clarBite[clarKey()] - 1) * 1.2;
     s += (L.cover - 1) * (heavyCover ? 0.34 : -0.12);
     s += (L.tol - 1) * (bigWater ? 0.5 : 0.22);
+    if ((lure().style) === "top") s += (L.top - 1) * 1.6;   // floating mono is the topwater line
     return clamp(Math.round(s * 100), 5, 99);
   }
 
@@ -1160,7 +1161,7 @@
     frog:      { veg: 1.0, wood: 0.8, rock: 0.5, deep: 0.25, open: 0.6 },
     pencil:    { veg: 0.7, wood: 0.6, rock: 0.6, deep: 0.35, open: 0.95 },
     torpedo:   { veg: 0.75, wood: 0.6, rock: 0.6, deep: 0.35, open: 0.95 },
-    jitterbug: { veg: 0.85, wood: 0.7, rock: 0.5, deep: 0.3, open: 0.75 },
+    jitterbug: { veg: 0.8, wood: 0.7, rock: 0.7, deep: 0.35, open: 0.98 },
     buzz:      { veg: 0.9, wood: 0.8, rock: 0.5, deep: 0.25, open: 0.85 },
     worm:      { veg: 0.85, wood: 1.0, rock: 0.7, deep: 0.8, open: 0.6 },
     carolina:  { veg: 0.7, wood: 0.85, rock: 0.9, deep: 1.0, open: 0.7 },
