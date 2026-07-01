@@ -843,13 +843,49 @@
         n.connect(f); f.connect(g); g.connect(master); n.start(t); n.stop(t + dur);
       } catch (e) {}
     }
-    // occasional wildlife call — birdsong by day, a loon by night
+    // occasional wildlife call — flavoured by the lake you're on
+    let venueId = "cove";
+    function setVenue(id) { venueId = id || "cove"; }
     function ambientCall(night) {
       if (!ready || G.muted) return;
       try {
         const t = ctx.currentTime;
+        if (venueId === "bayou") {
+          // frog croaks + insect chatter — a warm swamp
+          if (Math.random() < 0.6) { tone(150, t, 0.16, "sawtooth", 0.06, 120); tone(150, t + 0.2, 0.16, "sawtooth", 0.06, 118); }
+          else for (let i = 0; i < 5; i++) tone(3200 + Math.random() * 800, t + i * 0.05, 0.03, "square", 0.015);
+          return;
+        }
+        if (venueId === "highland" || (venueId === "deep" && !night)) {
+          // a lonely loon wail carrying across open water
+          tone(680, t, 0.6, "sine", 0.055, 900); tone(900, t + 0.5, 0.9, "sine", 0.05, 560); return;
+        }
+        if (venueId === "river" && !night) {
+          // a killdeer-style trill over the current
+          const base = 2000 + Math.random() * 500; for (let i = 0; i < 5; i++) tone(base + (i % 2 ? 180 : 0), t + i * 0.06, 0.05, "sine", 0.03); return;
+        }
         if (night) { tone(720, t, 0.5, "sine", 0.05, 540); tone(560, t + 0.55, 0.75, "sine", 0.05, 430); }
         else { const base = 1700 + Math.random() * 900; for (let i = 0; i < 3; i++) tone(base + i * 130, t + i * 0.09, 0.08, "sine", 0.035, base + i * 130 + 220); }
+      } catch (e) {}
+    }
+    // steady rain hiss (highpassed noise loop) faded in on rainy weather
+    let rainBed = null, rainGain = null;
+    function setRain(on) {
+      if (!ready) return;
+      try {
+        const t = ctx.currentTime;
+        if (on && !rainBed) {
+          const len = ctx.sampleRate * 2, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
+          for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+          rainBed = ctx.createBufferSource(); rainBed.buffer = buf; rainBed.loop = true;
+          const f = ctx.createBiquadFilter(); f.type = "highpass"; f.frequency.value = 1600;
+          rainGain = ctx.createGain(); rainGain.gain.setValueAtTime(0.0001, t); rainGain.gain.linearRampToValueAtTime(0.05, t + 1.6);
+          rainBed.connect(f); f.connect(rainGain); rainGain.connect(master); rainBed.start();
+        } else if (!on && rainBed) {
+          const rb = rainBed, rg = rainGain; rainBed = null; rainGain = null;
+          rg.gain.cancelScheduledValues(t); rg.gain.setValueAtTime(rg.gain.value, t); rg.gain.linearRampToValueAtTime(0.0001, t + 1.4);
+          try { rb.stop(t + 1.6); } catch (e) {}
+        }
       } catch (e) {}
     }
     function tone(freq, t0, dur, type, peak, slideTo) {
@@ -902,10 +938,19 @@
           }
           case "coin": tone(988, t, 0.08, "square", 0.09); tone(1319, t + 0.05, 0.12, "square", 0.09); break;
           case "ui": tone(520, t, 0.04, "sine", 0.05, 620); break;
+          case "weighwin": {   // triumphant tournament win — bugle-style fanfare with a low swell
+            tone(196, t, 1.1, "sine", 0.06);
+            [523, 659, 784, 1047, 784, 1047, 1319].forEach((f, i) => tone(f, t + 0.05 + i * 0.11, 0.34, "triangle", 0.15));
+            noise(t + 0.02, 0.5, "highpass", 5000, 0.05); break;   // a shimmer of applause
+          }
+          case "weighin": {    // neutral weigh-in chime — the day's tally is in
+            [523, 659, 784].forEach((f, i) => tone(f, t + i * 0.12, 0.3, "triangle", 0.12));
+            tone(392, t, 0.5, "sine", 0.05); break;
+          }
         }
       } catch (e) {}
     }
-    return { ensure, play, ambientCall, setMuted, setNight, windGust };
+    return { ensure, play, ambientCall, setMuted, setNight, windGust, setVenue, setRain };
   })();
   const sfx = n => Sound.play(n);
   function anyModalOpen() {
@@ -1878,6 +1923,7 @@
     el.tourStandings.innerHTML = board.map((b, i) =>
       `<div class="stand-row ${b.me ? "me" : ""}"><span>${i + 1}. ${b.name}</span><span class="w">${b.total.toFixed(2)} lb</span></div>`).join("");
     el.tourResultModal.classList.remove("hidden");
+    setTimeout(() => sfx(place === 1 ? "weighwin" : "weighin"), 300);   // weigh-in fanfare
     const meRow = el.tourStandings.querySelector(".me");
     if (meRow) el.tourStandings.scrollTop = Math.max(0, meRow.offsetTop - el.tourStandings.clientHeight / 2);
   }
@@ -1922,8 +1968,13 @@
     if (S._ambT <= 0) { S._ambT = rnd(6000, 13000); try { Sound.ambientCall(night); } catch (e) {} }
     // shift the water bed darker & calmer at night, brighter by day (only on change)
     if (S._night !== night) { S._night = night; try { Sound.setNight(night); } catch (e) {} }
+    // flavour the wildlife to the lake you're on (only on change)
+    if (S._sndVenue !== G.spot) { S._sndVenue = G.spot; try { Sound.setVenue(G.spot); } catch (e) {} }
     // wind gusts pick up on cloudy / foggy water
     const wx = S.cond && S.cond.weather, windy = wx === "cloud" || wx === "fog" || wx === "rain";
+    // a steady rain hiss fades in and out with the weather
+    const raining = wx === "rain";
+    if (S._raining !== raining) { S._raining = raining; try { Sound.setRain(raining); } catch (e) {} }
     if (windy) {
       S._windT = (S._windT == null ? rnd(4000, 9000) : S._windT - dt);
       if (S._windT <= 0) { S._windT = rnd(7000, 15000); try { Sound.windGust(wx === "fog" ? 0.45 : 0.7); } catch (e) {} }
