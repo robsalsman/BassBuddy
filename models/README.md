@@ -23,13 +23,16 @@ Requirements / notes:
 - If a file is missing or its manifest flag is `false`, the game silently uses
   the original high-detail procedural bass — nothing breaks.
 
-## Status: pipeline verified ✅
-The loader was tested end-to-end with a real GitHub-hosted GLB (Khronos
-BarramundiFish): it downloads, normalizes, and renders on the catch/trophy
-screen. So a proper `largemouth.glb` will "just work" — the only missing piece
-is a good, lightweight largemouth model. (Currently shows on the catch screen
-only; the live fight/underwater fish still use the procedural model, which would
-need a rigged GLB with mouth/tail animation to swap fully.)
+## Status: shipping a real largemouth ✅
+`largemouth.glb` is a **Meshy-generated** largemouth bass, optimized for the
+web: decimated 234K → 66K triangles, textures resized 2048² → 1024² and
+re-encoded, and the head baked to face **+X** — final size **~2.3 MB** (from
+~13 MB). It downloads, normalizes, and renders on the catch/trophy screen.
+(Shows on the catch screen only; the live fight/underwater fish still use the
+procedural model, which would need a rigged GLB with mouth/tail animation to
+swap fully.)
+
+Attribution: bass model generated with **Meshy AI** (meshy.ai).
 
 ### Easiest way to make one (free):
 1. Go to **meshy.ai** (or **tripo3d.ai**) — free tier, no cost to start.
