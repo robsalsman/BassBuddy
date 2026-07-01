@@ -138,6 +138,34 @@
   };
   const SIZE_ORDER = ["small", "med", "large"];
 
+  // LINE — the stealth-vs-strength axis. clarBite scales bites by water clarity
+  // (invisible fluoro shines in clear water, visible braid shines in murk), cover
+  // is break-off resistance in heavy cover, tol is snap tolerance in the fight,
+  // top is a topwater bonus (floating mono), sens a small feel/interest bump.
+  // cats are the static traits shown in the tackle box.
+  const LINES = {
+    mono:   { name: "Mono",         ico: "🧵", clarBite: { clear: 0.94, stained: 1.0, murky: 1.03 }, cover: 1.0,  tol: 1.12, top: 1.16, sens: 0.9,
+              cats: [["Stealth", 55], ["Strength", 55], ["Sensitivity", 45], ["Cover", 55]] },
+    fluoro: { name: "Fluorocarbon", ico: "💧", clarBite: { clear: 1.18, stained: 1.06, murky: 0.97 }, cover: 0.82, tol: 0.96, top: 0.9,  sens: 1.12,
+              cats: [["Stealth", 92], ["Strength", 50], ["Sensitivity", 80], ["Cover", 42]] },
+    braid:  { name: "Braid",        ico: "🪢", clarBite: { clear: 0.80, stained: 1.0, murky: 1.12 }, cover: 1.5,  tol: 1.35, top: 1.0,  sens: 1.25,
+              cats: [["Stealth", 30], ["Strength", 95], ["Sensitivity", 90], ["Cover", 95]] },
+  };
+  const LINE_ORDER = ["mono", "fluoro", "braid"];
+  function line() { return LINES[G.line] || LINES.mono; }
+  function clarKey() { const c = spot().clarity; return c === "clear" ? "clear" : c === "murky" ? "murky" : "stained"; }
+  // bite multiplier from the line: clarity-driven stealth, plus a topwater bump
+  function lineBiteMul() { const L = line(); let m = L.clarBite[clarKey()]; if ((lure().style) === "top") m *= L.top; return m; }
+  // teaching "fit %" for a line in the current conditions (clarity + cover + where big fish live)
+  function lineFit(id) {
+    const L = LINES[id], grp = STRUCT_GROUP[position().id] || "open";
+    const heavyCover = grp === "veg" || grp === "wood", bigWater = (spot().baseDepth || 0.4) > 0.5 || grp === "deep";
+    let s = 0.5 + (L.clarBite[clarKey()] - 1) * 1.2;
+    s += (L.cover - 1) * (heavyCover ? 0.34 : -0.12);
+    s += (L.tol - 1) * (bigWater ? 0.5 : 0.22);
+    return clamp(Math.round(s * 100), 5, 99);
+  }
+
   // Fish. `art` drives the SVG. `bass:true` = black bass (counts in tournaments);
   // `lm:true` marks a largemouth specifically.
   // Black bass only — this is a bass fishing game.
@@ -264,7 +292,7 @@
     return {
       coins: 0,
       rod: "spin", ownedRods: ["spin"],
-      lure: { id: "worm", color: "green", size: "med" }, ownedLures: ["worm"], attractant: "none",
+      lure: { id: "worm", color: "green", size: "med" }, ownedLures: ["worm"], attractant: "none", line: "mono",
       spot: "cove", ownedSpots: ["cove"],
       positions: { cove: "pads", river: "riffle", deep: "weed" },
       records: {}, caught: {}, catchLog: [],
@@ -289,6 +317,7 @@
         m.ownedLures = Array.from(new Set(["worm", ...(m.ownedLures || []).filter(id => valid.has(id))]));
         if (!valid.has(m.lure.id)) m.lure.id = "worm";
         if (!ATTRACTANTS[m.attractant]) m.attractant = "none";
+        if (!LINES[m.line]) m.line = "mono";
         const lu = LURES.find(l => l.id === m.lure.id);
         if (lu && !lu.colors.includes(m.lure.color)) m.lure.color = lu.colors[0];
         if (!SIZES[m.lure.size]) m.lure.size = "med";
@@ -356,7 +385,7 @@
     shopRods: $("shopRods"), shopLures: $("shopLures"), shopSpots: $("shopSpots"), shopDex: $("shopDex"),
     rodChip: $("rodChip"), lureChip: $("lureChip"), spotChip: $("spotChip"),
     hookMeter: $("hookMeter"), hmMarker: $("hmMarker"), strikeFlash: $("strikeFlash"), catchHookset: $("catchHookset"),
-    lureModal: $("lureModal"), lureClose: $("lureClose"), lureList: $("lureList"), colorRow: $("colorRow"), lureCond: $("lureCond"), lureCats: $("lureCats"), sizeRow: $("sizeRow"),
+    lureModal: $("lureModal"), lureClose: $("lureClose"), lureList: $("lureList"), colorRow: $("colorRow"), lureCond: $("lureCond"), lureCats: $("lureCats"), sizeRow: $("sizeRow"), lineRow: $("lineRow"), lineCats: $("lineCats"),
     rodModal: $("rodModal"), rodClose: $("rodClose"), rodList: $("rodList"), rodCond: $("rodCond"), rodCats: $("rodCats"),
     mapModal: $("mapModal"), mapClose: $("mapClose"), mapVenues: $("mapVenues"), posGrid: $("posGrid"), finder: $("finder"),
     tourneyBtn: $("tourneyBtn"), modeModal: $("modeModal"), modeClose: $("modeClose"),
@@ -683,7 +712,7 @@
     G.catchLog.push({
       ts: Date.now(), w: f.weight, len: f.lengthIn || +Math.cbrt(f.weight * 1600).toFixed(1),
       depth: Math.round((S.catchDepth != null ? S.catchDepth : S.cond.band) * 24),   // feet the fish was caught at
-      lure: G.lure.id, color: G.lure.color, size: G.lure.size || "med", rod: G.rod,
+      lure: G.lure.id, color: G.lure.color, size: G.lure.size || "med", rod: G.rod, line: G.line || "mono",
       spot: G.spot, pos: position().id,
       timeMin: Math.round(S.cond.timeMin), weather: S.cond.weather, season: S.cond.season, temp: S.cond.temp,
       moon: ((S.cond.moon || 0) % 8 + 8) % 8,
@@ -2226,7 +2255,8 @@
     const hot = lu.id === S.cond.hotLure ? 1.45 : 1;                          // matched the day's pattern
     const szBite = (SIZES[G.lure.size] || SIZES.med).bite;   // finesse = more bites, magnum = fewer
     const sFit = seasonFit();                                 // fishing the season's pattern?
-    const build = (R.action > 0.55 ? 1 : 0.3) * (0.25 + sc) * depthNow * struct * aimed * (S.castLuck || 1) * hot * szBite * sFit;
+    const lineMul = lineBiteMul() * (0.94 + line().sens * 0.06);   // line stealth vs clarity (+ topwater, feel)
+    const build = (R.action > 0.55 ? 1 : 0.3) * (0.25 + sc) * depthNow * struct * aimed * (S.castLuck || 1) * hot * szBite * sFit * lineMul;
     R.interest = clamp(R.interest + (build * 0.012 - 0.0016) * step, 0, 1);
     R.follower = R.interest;
 
@@ -2288,7 +2318,7 @@
     let pull = T.state === "jump" ? 1.5 : T.state === "run" ? 1.0 : 0.2;
     pull *= sFactor * (0.7 + T.size * 0.7);
     T.pull = pull;
-    const rodTol = 1 + (rod().power - 1) * 0.55;
+    const rodTol = (1 + (rod().power - 1) * 0.55) * line().tol;   // stronger line resists the snap
 
     if (S.holding) {
       T.tension += dt * (0.00050 + pull * 0.00150) / rodTol;
@@ -2316,7 +2346,7 @@
     // INTO the structure; giving line turns it out. Wrap up and you're broken off.
     if (T.state === "run" && bigFish && hasCover) {
       // a powerful rod muscles the fish out of cover; a finesse stick gets wrapped
-      if (S.holding) T.cover = clamp((T.cover || 0) + dt * 0.00072 * (0.55 + T.size) * (1.25 - rod().cover * 0.85), 0, 1);
+      if (S.holding) T.cover = clamp((T.cover || 0) + dt * 0.00072 * (0.55 + T.size) * (1.25 - rod().cover * 0.85) / line().cover, 0, 1);
       else T.cover = clamp((T.cover || 0) - dt * 0.0013, 0, 1);
       if ((T.cover || 0) > 0.5 && !T._coverBuzz) { vibrate(45); T._coverBuzz = 1; }
       if ((T.cover || 0) < 0.3) T._coverBuzz = 0;
@@ -3054,7 +3084,18 @@
     }).join("");
     renderCats();
     renderSizes();
+    renderLine();
     renderColors();
+  }
+  function renderLine() {
+    el.lineRow.innerHTML = LINE_ORDER.map(k => {
+      const L = LINES[k], sel = (G.line || "mono") === k, fit = lineFit(k);
+      return `<div class="size-opt ${sel ? "sel" : ""}" data-line="${k}">
+        <span class="scent-ico">${L.ico}</span><b>${L.name}</b><i style="color:${ratingColor(fit)}">${fit}%</i></div>`;
+    }).join("");
+    const L = line();
+    el.lineCats.innerHTML = `<div class="cats-head">Line — ${L.ico} ${L.name}</div>` +
+      catBars(L.cats.map(([label, pct]) => ({ label, pct })));
   }
   // a row of mini category bars (shared by lure + rod breakdowns)
   function catBars(cats) {
@@ -3119,7 +3160,8 @@
     } else {
       const szEl = e.target.closest(".size-opt");
       const sc = e.target.closest(".scent-opt");
-      if (szEl) { G.lure.size = szEl.dataset.size; save(); updateHUD(); renderLures(); }
+      if (szEl && szEl.dataset.line) { G.line = szEl.dataset.line; save(); updateHUD(); renderLures(); }
+      else if (szEl && szEl.dataset.size) { G.lure.size = szEl.dataset.size; save(); updateHUD(); renderLures(); }
       else if (sc) { G.attractant = sc.dataset.scent; save(); updateHUD(); renderLures(); }
     }
   });
