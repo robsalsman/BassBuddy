@@ -30,9 +30,15 @@ re-encoded, and the head baked to face **+X** — final size **~2.3 MB** (from
 ~13 MB). It downloads, normalizes, and renders on **both** the catch/trophy
 screen and the live underwater fight, where a GPU vertex-shader swim bend flexes
 the body/tail down its length — so a dense mesh swims with no rig and no
-per-frame CPU cost. (An animation-clip path via `THREE.AnimationMixer` could be
-added later if a GLB ships with a baked swim clip; Meshy's auto-rig currently
-exports the skeleton without a clip.)
+per-frame CPU cost.
+
+**Rigged models play for real.** The loader now keeps any baked animation
+clips and plays them via `THREE.AnimationMixer` with a skeleton-aware clone
+(clips named `swim`/`idle` are preferred; the fight speeds the clip up as the
+fish pulls). Drop in a GLB **with an animation clip** — Meshy "Animate", or
+Blender (armature → keyframe a tail-swish loop → export glTF with Animation
+checked) — and it automatically replaces the shader swim. A rig alone (bones,
+no clip) still falls back to the shader swim.
 
 Attribution: bass model generated with **Meshy AI** (meshy.ai).
 

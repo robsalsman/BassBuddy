@@ -38,13 +38,43 @@ function loadOne(key) {
       const c = new THREE.Box3().setFromObject(root).getCenter(new THREE.Vector3());
       root.position.sub(c);
       const wrap = new THREE.Group(); wrap.add(root); wrap.userData.imported = true;
+      wrap.userData.clips = gltf.animations || [];   // keep any baked animation (swim/idle) clips
       LOADED_MODELS[key] = wrap;
     }, undefined, () => { /* no/failed file for this species — silent procedural fallback */ });
+}
+// clone that keeps skinned meshes bound to THEIR OWN cloned skeleton (plain
+// .clone() leaves the copy driven by the original's bones — SkeletonUtils.clone)
+function cloneSkinned(source) {
+  const srcOf = new Map(), cloneOf = new Map();
+  const walk = (a, b) => { srcOf.set(b, a); cloneOf.set(a, b); for (let i = 0; i < a.children.length; i++) walk(a.children[i], b.children[i]); };
+  const clone = source.clone(true);
+  walk(source, clone);
+  clone.traverse(node => {
+    if (!node.isSkinnedMesh) return;
+    const src = srcOf.get(node);
+    node.skeleton = src.skeleton.clone();
+    node.skeleton.bones = src.skeleton.bones.map(b => cloneOf.get(b) || b);
+    node.bind(node.skeleton, node.bindMatrix);
+  });
+  return clone;
+}
+// if the model shipped with baked animation, attach a mixer playing the best
+// clip (prefers one named swim/idle). Returns true when real animation drives it.
+function attachClips(g, clips) {
+  if (!clips || !clips.length || !THREE.AnimationMixer) return false;
+  try {
+    const mixer = new THREE.AnimationMixer(g);
+    const clip = clips.find(c => /swim|idle/i.test(c.name)) || clips[0];
+    mixer.clipAction(clip).play();
+    g.userData.mixer = mixer;
+    return true;
+  } catch (e) { return false; }
 }
 // a clone of the loaded model for a species, or null
 function realModel(key) {
   const tpl = LOADED_MODELS[key]; if (!tpl) return null;
-  const g = tpl.clone(true); g.userData.imported = true;
+  const g = cloneSkinned(tpl); g.userData.imported = true;
+  attachClips(g, tpl.userData.clips);
   g.mouth = new THREE.Object3D(); g.mouth.position.set(1.2, -0.05, 0); g.add(g.mouth);
   return g;
 }
@@ -71,21 +101,25 @@ function installSwim(mat, uni) {
 // so disposeFish must NOT free it — guarded by userData.imported)
 function realFightFish(key) {
   const tpl = LOADED_MODELS[key]; if (!tpl) return null;
-  const g = tpl.clone(true); g.userData.imported = true;
+  const g = cloneSkinned(tpl); g.userData.imported = true;
   const inner = g.children[0]; if (inner) inner.scale.multiplyScalar(2.7 / 3.0);   // match makeBass LEN
-  const uni = { t: { value: 0 }, a: { value: 0.12 }, c: { value: 0 }, h: { value: 1 } };
-  g.traverse(o => {
-    if (o.isMesh && o.geometry) {
-      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
-      const bb = o.geometry.boundingBox;
-      uni.c.value = (bb.max.x + bb.min.x) * 0.5;
-      uni.h.value = Math.max(1e-3, (bb.max.x - bb.min.x) * 0.5);
-      o.material = o.material.clone();          // per-fish material so the swim shader
-      installSwim(o.material, uni);             // never touches the shared trophy model
-      o.frustumCulled = false;                  // the bend can push verts past the bounds
-    }
-  });
-  g.userData.swim = uni;
+  // a rigged model with a baked swim clip animates for real; otherwise fall back
+  // to the GPU shader bend so the dense mesh still swims
+  if (!attachClips(g, tpl.userData.clips)) {
+    const uni = { t: { value: 0 }, a: { value: 0.12 }, c: { value: 0 }, h: { value: 1 } };
+    g.traverse(o => {
+      if (o.isMesh && o.geometry) {
+        if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+        const bb = o.geometry.boundingBox;
+        uni.c.value = (bb.max.x + bb.min.x) * 0.5;
+        uni.h.value = Math.max(1e-3, (bb.max.x - bb.min.x) * 0.5);
+        o.material = o.material.clone();          // per-fish material so the swim shader
+        installSwim(o.material, uni);             // never touches the shared trophy model
+        o.frustumCulled = false;                  // the bend can push verts past the bounds
+      }
+    });
+    g.userData.swim = uni;
+  }
   g.mouth = new THREE.Object3D(); g.mouth.position.set(1.28, -0.1, 0); g.add(g.mouth);
   return g;
 }
@@ -510,6 +544,22 @@ const Scene3D = (() => {
     return tx;
   }
   let fishShadows = [], hills, structProps, world, venueStructs = null, shoreSets = {}, rainSys = null, _shoreKey = "";
+  let clouds = null, stars = null, birds = null;
+
+  // a soft cumulus sprite painted from overlapping radial blobs
+  function cloudTexture() {
+    const W = 256, H = 128, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+    const g = cv.getContext("2d");
+    for (let i = 0; i < 26; i++) {
+      const x = 30 + Math.random() * (W - 60), y = H * 0.45 + (Math.random() - 0.3) * 34, r = 14 + Math.random() * 26;
+      const grd = g.createRadialGradient(x, y, 0, x, y, r);
+      grd.addColorStop(0, "rgba(255,255,255,0.55)"); grd.addColorStop(1, "rgba(255,255,255,0)");
+      g.fillStyle = grd; g.beginPath(); g.arc(x, y, r, 0, 6.2832); g.fill();
+    }
+    const tx = new THREE.CanvasTexture(cv);
+    if (THREE.SRGBColorSpace) tx.colorSpace = THREE.SRGBColorSpace;
+    return tx;
+  }
   let splashRings = [], surfFish = null, surfFishKey = "", boil, castSplashed = false;
   let skyKey = "", envMap = null;
   const waterPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
@@ -675,18 +725,28 @@ const Scene3D = (() => {
     g.fillStyle = grd; g.fillRect(0, 0, 8, 256);
     const tx = new THREE.CanvasTexture(cv); return tx;
   }
-  // a tiling ripple normal map for the water surface
+  // a tiling ripple normal map for the water surface — wind-streaked: long, low
+  // ripple crests running mostly one way (real chop), with sparser round wavelets
+  // breaking them up so the surface doesn't read as corduroy
   function rippleNormal() {
     const N = 512, cv = document.createElement("canvas"); cv.width = N; cv.height = N;
     const g = cv.getContext("2d");
     g.fillStyle = "#808080"; g.fillRect(0, 0, N, N);
-    for (let i = 0; i < 160; i++) {
-      const x = Math.random() * N, y = Math.random() * N, r = 8 + Math.random() * 40;
+    for (let i = 0; i < 210; i++) {                        // elongated wind streaks
+      const x = Math.random() * N, y = Math.random() * N, r = 6 + Math.random() * 22;
+      const stretch = 2.2 + Math.random() * 3.4, ang = -0.35 + Math.random() * 0.7;   // roughly one wind direction
+      g.save(); g.translate(x, y); g.rotate(ang); g.scale(stretch, 1);
+      const grd = g.createRadialGradient(0, 0, 0, 0, 0, r);
+      grd.addColorStop(0, "rgba(255,255,255,0.42)"); grd.addColorStop(0.55, "rgba(128,128,128,0)"); grd.addColorStop(1, "rgba(0,0,0,0.4)");
+      g.fillStyle = grd; g.beginPath(); g.arc(0, 0, r, 0, 6.28); g.fill(); g.restore();
+    }
+    for (let i = 0; i < 55; i++) {                         // round wavelets for variety
+      const x = Math.random() * N, y = Math.random() * N, r = 10 + Math.random() * 34;
       const grd = g.createRadialGradient(x, y, 0, x, y, r);
-      grd.addColorStop(0, "rgba(255,255,255,0.5)"); grd.addColorStop(0.5, "rgba(128,128,128,0.0)"); grd.addColorStop(1, "rgba(0,0,0,0.45)");
+      grd.addColorStop(0, "rgba(255,255,255,0.32)"); grd.addColorStop(0.5, "rgba(128,128,128,0)"); grd.addColorStop(1, "rgba(0,0,0,0.3)");
       g.fillStyle = grd; g.beginPath(); g.arc(x, y, r, 0, 6.28); g.fill();
     }
-    const tx = heightToNormal(cv, 1.4);
+    const tx = heightToNormal(cv, 1.5);
     tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.repeat.set(8, 8);
     return tx;
   }
@@ -820,6 +880,37 @@ const Scene3D = (() => {
     scene2.add(sunGlow); scene2.add(sunMesh);
     moonDisc = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.4), new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, fog: false }));
     moonDisc.visible = false; scene2.add(moonDisc);
+
+    // drifting clouds — a bank of soft sprites high on the back wall of the sky;
+    // weather decides how many show and how grey they run
+    clouds = new THREE.Group();
+    const cloudTex = cloudTexture();
+    for (let i = 0; i < 9; i++) {
+      const w = 9 + Math.random() * 10;
+      const c = new THREE.Mesh(new THREE.PlaneGeometry(w, w * 0.42),
+        new THREE.MeshBasicMaterial({ map: cloudTex, transparent: true, depthWrite: false, fog: false, opacity: 0.85 }));
+      c.position.set((Math.random() - 0.5) * 90, 13 + Math.random() * 12, -57 - i * 0.2);
+      c.userData.drift = 0.12 + Math.random() * 0.22;
+      clouds.add(c);
+    }
+    scene2.add(clouds);
+    // stars — sprinkled across the upper sky, only out at night
+    { const N = 130, pos = new Float32Array(N * 3);
+      for (let i = 0; i < N; i++) { pos[i * 3] = (Math.random() - 0.5) * 110; pos[i * 3 + 1] = 8 + Math.random() * 34; pos[i * 3 + 2] = -58; }
+      const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+      stars = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xdfe8ff, size: 0.16, transparent: true, opacity: 0.9, fog: false }));
+      stars.visible = false; scene2.add(stars); }
+    // birds — a few gulls flapping across on fair days
+    birds = new THREE.Group();
+    const wingMat = new THREE.MeshBasicMaterial({ color: 0x2a3138, side: THREE.DoubleSide, fog: false });
+    for (let i = 0; i < 4; i++) {
+      const b = new THREE.Group();
+      for (const s of [1, -1]) { const w = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.16), wingMat); w.position.x = s * 0.26; b.add(w); b[s > 0 ? "wr" : "wl"] = w; }
+      b.position.set((Math.random() - 0.5) * 60, 12 + Math.random() * 8, -46 - i);
+      b.userData = { sp: 1.6 + Math.random() * 1.4, ph: Math.random() * 6.28, y0: 12 + Math.random() * 8 };
+      birds.add(b);
+    }
+    scene2.add(birds);
 
     // everything that rotates when you steer the trolling motor goes in `world`
     world = new THREE.Group(); scene2.add(world);
@@ -1118,6 +1209,39 @@ const Scene3D = (() => {
     sunS.intensity *= wxDim;
     sunGlow.material.opacity *= (0.4 + wxDim * 0.6);
     scene2.fog.far = wx === "fog" ? 34 : wx === "rain" ? 52 : 70;
+    // clouds drift across the back of the sky; the weather sets the bank's size and tone
+    if (clouds) {
+      const nShow = wx === "rain" ? 9 : wx === "cloud" ? 7 : wx === "fog" ? 0 : 3;
+      const tone = wx === "rain" ? 0x707880 : wx === "cloud" ? 0xb8c0c6 : 0xffffff;
+      const lift = wx === "rain" ? -4 : 0;                    // storm clouds hang lower
+      clouds.children.forEach((c, i) => {
+        c.visible = i < nShow;
+        if (!c.visible) return;
+        c.material.color.setHex(tone);
+        c.material.color.multiplyScalar(0.35 + dl * 0.65);     // and darken toward night
+        c.position.x += c.userData.drift * (dt / 1000) * 2.2;
+        if (c.position.x > 52) c.position.x = -52;
+        c.position.y = 13 + (i % 3) * 4 + lift;
+      });
+    }
+    // stars come out on clear nights
+    if (stars) {
+      stars.visible = !!st.night && wx !== "rain" && wx !== "fog";
+      if (stars.visible) stars.material.opacity = 0.9 * (1 - dl);
+    }
+    // gulls work the lake on fair days
+    if (birds) {
+      const flying = !st.night && (wx === "sun" || wx === "cloud");
+      birds.visible = flying;
+      if (flying) for (const b of birds.children) {
+        const u = b.userData;
+        b.position.x += u.sp * (dt / 1000) * 2.2;
+        if (b.position.x > 42) b.position.x = -42;
+        b.position.y = u.y0 + Math.sin(t * 0.7 + u.ph) * 0.8;
+        const flap = Math.sin(t * 7 + u.ph) * 0.65;            // wingbeats
+        if (b.wl) b.wl.rotation.x = flap; if (b.wr) b.wr.rotation.x = -flap;
+      }
+    }
     // rain: fall the streaks and wrap them back to the top
     if (rainSys) {
       rainSys.visible = wx === "rain";
@@ -1650,6 +1774,97 @@ const Scene3D = (() => {
       m.add(legs); m.legs = legs; eyes(m, -0.07, 0.055, 0.1, 0.03); models.frog = m;
     }
 
+    // SPINNERBAIT — bent-wire frame, jig head + skirt on the bottom arm,
+    // twin willow blades flashing off the top arm
+    { const m = new THREE.Group();
+      const wire = new THREE.MeshStandardMaterial({ color: 0xc9ced2, roughness: 0.25, metalness: 0.9 });
+      const armUp = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.3, 6), wire);
+      armUp.rotation.z = -0.9; armUp.position.set(-0.06, 0.1, 0); m.add(armUp);
+      const armDn = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.22, 6), wire);
+      armDn.rotation.z = 0.9; armDn.position.set(-0.05, -0.07, 0); m.add(armDn);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 10), tintBody(0xf0f0ee));
+      head.scale.set(1.5, 1, 1); head.position.set(-0.13, -0.15, 0); m.add(head); m.body = head;
+      eyes(m, -0.18, 0.03, -0.14, 0.016);
+      const skirt = new THREE.Group(); skirt.position.set(-0.1, -0.15, 0);
+      for (let i = 0; i < 14; i++) { const a = i / 14 * 6.28;
+        const s = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.0015, 0.26, 4), head.material);
+        s.rotation.z = Math.PI / 2 - 0.25; s.position.set(0.12, Math.cos(a) * 0.035, Math.sin(a) * 0.035); skirt.add(s); }
+      m.add(skirt); m.skirt = skirt;
+      const blades = new THREE.Group(); blades.position.set(0.07, 0.22, 0); m.add(blades); m.spin = blades;
+      for (const [dx, sc] of [[0, 0.8], [-0.09, 0.62]]) {
+        const bl = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 8), M.blade);
+        bl.scale.set(1.5 * sc, 0.55 * sc, 0.16); bl.position.set(dx, dx * 0.5, 0); blades.add(bl); }
+      trebleAt(m, 0.06, -0.18, 0, 0.7);
+      models.spinner = m;
+    }
+    // BUZZBAIT — the same wire frame but a big delta prop that churns the surface
+    { const m = new THREE.Group();
+      const wire = new THREE.MeshStandardMaterial({ color: 0xc9ced2, roughness: 0.25, metalness: 0.9 });
+      const armUp = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.28, 6), wire);
+      armUp.rotation.z = -0.85; armUp.position.set(-0.05, 0.09, 0); m.add(armUp);
+      const armDn = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.2, 6), wire);
+      armDn.rotation.z = 0.85; armDn.position.set(-0.05, -0.07, 0); m.add(armDn);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 10), tintBody(0xe8e23a));
+      head.scale.set(1.4, 1, 1); head.position.set(-0.12, -0.14, 0); m.add(head); m.body = head;
+      const skirt = new THREE.Group(); skirt.position.set(-0.09, -0.14, 0);
+      for (let i = 0; i < 14; i++) { const a = i / 14 * 6.28;
+        const s = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.0015, 0.24, 4), head.material);
+        s.rotation.z = Math.PI / 2 - 0.2; s.position.set(0.11, Math.cos(a) * 0.032, Math.sin(a) * 0.032); skirt.add(s); }
+      m.add(skirt); m.skirt = skirt;
+      const prop = new THREE.Group(); prop.position.set(0.05, 0.2, 0); prop.rotation.z = Math.PI / 2; m.add(prop); m.spin = prop;
+      for (const s of [1, -1]) { const wing = new THREE.Mesh(new THREE.BoxGeometry(0.012, 0.13, 0.09), M.blade);
+        wing.position.y = s * 0.065; wing.rotation.x = s * 0.7; prop.add(wing); }
+      trebleAt(m, 0.05, -0.17, 0, 0.7);
+      models.buzz = m;
+    }
+    // RATTLE TRAP — tall, flat-sided lipless crank with a humped back
+    { const m = new THREE.Group();
+      const b = new THREE.Mesh(new THREE.SphereGeometry(0.16, 18, 14), tintBody(0xc03a2e));
+      b.scale.set(1.35, 1.05, 0.42); b.rotation.z = 0.18; m.add(b); m.body = b;
+      eyes(m, -0.18, 0.045, 0.1, 0.026);
+      trebleAt(m, -0.03, -0.16, 0, 0.85); trebleAt(m, 0.17, -0.12, 0, 0.75);
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.018, 0.005, 6, 10), M.hook);
+      ring.position.set(-0.06, 0.15, 0); m.add(ring);         // line tie on the BACK — the trap signature
+      models.trap = m;
+    }
+    // INLINE SPINNER — straight shaft, oval blade spinning around it, dressed treble
+    { const m = new THREE.Group();
+      const wire = new THREE.MeshStandardMaterial({ color: 0xc9ced2, roughness: 0.25, metalness: 0.9 });
+      const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.34, 6), wire);
+      shaft.rotation.z = Math.PI / 2; m.add(shaft);
+      const bodyBrass = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.038, 0.12, 10),
+        new THREE.MeshStandardMaterial({ color: 0xd9a13a, roughness: 0.3, metalness: 0.85 }));
+      bodyBrass.rotation.z = Math.PI / 2; bodyBrass.position.x = 0.06; m.add(bodyBrass); m.body = bodyBrass;
+      const blade = new THREE.Group(); blade.position.x = -0.1; m.add(blade); m.spin = blade;
+      const bl = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 8), M.blade);
+      bl.scale.set(1.4, 0.5, 0.14); bl.position.y = 0.055; bl.rotation.x = 0.5; blade.add(bl);
+      const fluff = new THREE.Group(); fluff.position.x = 0.17;
+      for (let i = 0; i < 8; i++) { const a = i / 8 * 6.28;
+        const h = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.001, 0.1, 4), tintBody(0xb6322b));
+        h.rotation.z = Math.PI / 2; h.position.set(0.05, Math.cos(a) * 0.02, Math.sin(a) * 0.02); fluff.add(h); }
+      m.add(fluff); trebleAt(m, 0.2, -0.02, 0, 0.65);
+      models.inline = m;
+    }
+    // CAROLINA RIG — brass egg weight + red clacker bead, leader back to a floating worm
+    { const m = new THREE.Group();
+      const eggW = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 10),
+        new THREE.MeshStandardMaterial({ color: 0xd9a13a, roughness: 0.3, metalness: 0.85 }));
+      eggW.scale.set(1.4, 1, 1); eggW.position.set(-0.24, -0.03, 0); m.add(eggW);
+      const bead = new THREE.Mesh(new THREE.SphereGeometry(0.022, 10, 8),
+        new THREE.MeshStandardMaterial({ color: 0xc02a2a, roughness: 0.25 }));
+      bead.position.set(-0.16, -0.03, 0); m.add(bead);
+      const leader = new THREE.Mesh(new THREE.CylinderGeometry(0.0035, 0.0035, 0.34, 4),
+        new THREE.MeshBasicMaterial({ color: 0xdfe8ee, transparent: true, opacity: 0.55 }));
+      leader.rotation.z = Math.PI / 2 - 0.12; leader.position.set(0.02, 0, 0); m.add(leader);
+      const curve = new THREE.CatmullRomCurve3([
+        new THREE.Vector3(0.18, 0.02, 0), new THREE.Vector3(0.28, 0.05, 0.02),
+        new THREE.Vector3(0.36, 0.03, -0.02), new THREE.Vector3(0.42, 0.08, 0.02)]);
+      const wm = softBody(0x3f8f3a);
+      const wbody = new THREE.Mesh(new THREE.TubeGeometry(curve, 30, 0.028, 8), wm); m.add(wbody); m.body = wbody;
+      trebleAt(m, 0.2, -0.03, 0, 0.6);
+      models.carolina = m;
+    }
+
     for (const k in models) { models[k].visible = false; g.add(models[k]); }
     g.models = models;
     g.setType = id => {
@@ -1754,17 +1969,20 @@ const Scene3D = (() => {
       const act = 0.45 + (st.lureAction || 0) * 0.55;   // cleaner action = livelier
       let jig = 0, wig = 0, roll = 0, yaw = 0, pitch = 0;
       switch (st.lureId) {
-        case "crank": {                                   // tight, fast side-to-side wobble
-          const f = 22; yaw = Math.sin(t * f) * 0.5 * act; roll = Math.sin(t * f) * 0.18; jig = Math.sin(t * f) * 0.05; break;
+        case "crank": case "trap": {                      // tight, fast side-to-side vibration
+          const f = st.lureId === "trap" ? 28 : 22; yaw = Math.sin(t * f) * 0.5 * act; roll = Math.sin(t * f) * 0.18; jig = Math.sin(t * f) * 0.05; break;
         }
         case "spoon": {                                   // wide flutter — rocks and tumbles
           roll = Math.sin(t * 7) * 0.9; pitch = Math.sin(t * 5.5) * 0.5; jig = Math.sin(t * 5.5) * 0.16; wig = Math.sin(t * 3.5) * 0.12; break;
         }
-        case "worm": case "furry": {                      // slow bottom hops (the twitch bob)
+        case "worm": case "furry": case "carolina": {     // slow bottom hops / drag (the twitch bob)
           jig = Math.max(0, Math.sin(t * 2.4)) * 0.22 * act; pitch = Math.sin(t * 2.2) * 0.25; wig = Math.sin(t * 1.6) * 0.06; break;
         }
-        case "jitterbug": case "torpedo": {               // surface — waddle hard side to side
+        case "jitterbug": case "torpedo": case "buzz": {  // surface — waddle hard side to side
           yaw = Math.sin(t * 13) * 0.6 * act; roll = Math.sin(t * 13) * 0.3; jig = Math.abs(Math.sin(t * 13)) * 0.07; wig = Math.sin(t * 9) * 0.16; break;
+        }
+        case "spinner": case "inline": {                  // steady swim — thump & flash, blades doing the work
+          roll = Math.sin(t * 9) * 0.14; jig = Math.sin(t * 9) * 0.03; wig = Math.sin(t * 4) * 0.08; break;
         }
         default: {                                        // pencil / frog — walk-the-dog sweep
           yaw = Math.sin(t * 6) * 0.7 * act; wig = Math.sin(t * 6) * 0.2; jig = Math.abs(Math.sin(t * 6)) * 0.05; break;
@@ -1903,6 +2121,8 @@ const Scene3D = (() => {
       fightFish.rotation.z = (f.state === "jump") ? 0.5 : Math.sin(t * 2) * 0.08;
       undulate(fightFish, t, 0.16 + f.pull * 0.06);          // procedural bass only (no-op on imported)
       if (fightFish.userData.swim) { const sw = fightFish.userData.swim; sw.t.value = t; sw.a.value = 0.12 + f.pull * 0.05; }
+      // a rigged model plays its baked clip, thrashing faster the harder it pulls
+      if (fightFish.userData.mixer) fightFish.userData.mixer.update((dt || 16) / 1000 * (0.8 + f.pull * 0.8));
       if (fightFish.tail) fightFish.tail.rotation.y = Math.sin(t * (8 + f.pull * 4)) * 0.5;
       // line runs from the rod tip to the fish's actual mouth, bowing red when taut
       fightFish.updateMatrixWorld(true);
@@ -1995,6 +2215,7 @@ const Scene3D = (() => {
       f.rotation.z = Math.sin(ctx.t * 0.8) * 0.05;
       f.position.y = -0.1 + Math.sin(ctx.t * 1.1) * 0.12;
       if (f.tail) f.tail.rotation.y = Math.sin(ctx.t * 5) * 0.32;
+      if (f.userData.mixer) f.userData.mixer.update(0.016);   // rigged model idles for real
       ctx.renderer.render(ctx.scene, ctx.cam);
       ctx.raf = requestAnimationFrame(loop);
     };
