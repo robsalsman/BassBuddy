@@ -2078,7 +2078,7 @@
       castAim: S.castAim ? { x: S.castAim.x, y: S.castAim.y } : null,
       castProgress: S.bobber.flyT || 0,
       heading: S.heading, holdBearing: S.holdBearing, facing: facingQuality(), steer: S.steer,
-      structure: STRUCT_GROUP[position().id] || "open",
+      structure: STRUCT_GROUP[position().id] || "open", venue: sp.id,
       hotZone: (function () { const z = hotZone(); return { x: z.x, y: z.y }; })(),
       fight: S.mode === "fight" && S.hookedFish ? {
         dist: S.ft.dist, state: S.ft.state, tension: S.ft.tension,

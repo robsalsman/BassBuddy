@@ -1455,7 +1455,36 @@ const Scene3D = (() => {
     // OPEN — bare; nothing to add
     const open = new THREE.Group();
 
-    terrainSets = { veg, wood, rock, deep, open };
+    // BAYOU (lake signature) — submerged cypress bases with flared buttresses,
+    // gnarled roots crawling the bottom, knees poking up, and swampy grass
+    const bayouUW = new THREE.Group();
+    const cypBark = new THREE.MeshStandardMaterial({ map: barkMap, color: 0x6a5030, roughness: 0.98 });
+    const cypBarkDk = new THREE.MeshStandardMaterial({ map: barkMap, color: 0x47341f, roughness: 1 });
+    for (const tk of [{ x: -1.7, z: -1.9, h: 6.2, r: 0.28 }, { x: 1.2, z: -2.6, h: 6.8, r: 0.32 }, { x: 2.5, z: -1.2, h: 5.0, r: 0.22 }]) {
+      const tr = new THREE.Mesh(new THREE.CylinderGeometry(tk.r * 0.7, tk.r, tk.h, 10), cypBark);
+      tr.position.set(tk.x, -3.4 + tk.h / 2, tk.z); bayouUW.add(tr);
+      const foot = new THREE.Mesh(new THREE.ConeGeometry(tk.r * 2.0, 1.2, 8), cypBark); foot.position.set(tk.x, -2.8, tk.z); bayouUW.add(foot);
+      for (let i = 0; i < 4; i++) { const a = i / 4 * 6.28 + tk.x; const root = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.11, 1.3, 6), cypBarkDk); root.position.set(tk.x + Math.cos(a) * 0.55, -3.3, tk.z + Math.sin(a) * 0.55); root.rotation.z = Math.PI * 0.42; root.rotation.y = a; bayouUW.add(root); }
+    }
+    for (const [kx, kz] of [[-0.8, -1.4], [0.3, -2.0], [1.9, -2.2], [-1.2, -2.6], [2.9, -1.6]]) {
+      const knee = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.72, 6), cypBarkDk); knee.position.set(kx, -3.0, kz); bayouUW.add(knee);
+    }
+    for (let i = 0; i < 8; i++) { const bl = new THREE.Mesh(new THREE.ConeGeometry(0.11, 1.0 + Math.random() * 0.5, 5), weedMat); place(bl, -2.4 + Math.random() * 4.8, -3.0 + Math.random() * 0.4, -0.6 - Math.random() * 2.2); bl.userData.sway = Math.random() * 6.28; bayouUW.add(bl); }
+
+    // HIGHLAND (lake signature) — a sunken brush pile, flooded-timber bases and
+    // scattered rock: classic clear-water reservoir structure
+    const highlandUW = new THREE.Group();
+    const deadMat = new THREE.MeshStandardMaterial({ map: barkMap, color: 0xa89e86, roughness: 1 });
+    for (const tk of [{ x: -1.8, z: -2.0, h: 6.4, r: 0.2 }, { x: 1.5, z: -1.6, h: 5.6, r: 0.18 }]) {
+      const tr = new THREE.Mesh(new THREE.CylinderGeometry(tk.r * 0.6, tk.r, tk.h, 9), deadMat);
+      tr.position.set(tk.x, -3.4 + tk.h / 2, tk.z); highlandUW.add(tr);
+    }
+    const brush = new THREE.Group(); brush.position.set(0.2, -3.05, -1.4);
+    for (let i = 0; i < 18; i++) { const br = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.06, 1.1 + Math.random() * 1.0, 5), deadMat); br.position.set((Math.random() - 0.5) * 1.9, Math.random() * 0.5, (Math.random() - 0.5) * 1.7); br.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3); brush.add(br); }
+    highlandUW.add(brush);
+    for (let i = 0; i < 7; i++) { const b = new THREE.Mesh(new THREE.IcosahedronGeometry(0.28 + Math.random() * 0.5, 0), deepRock); place(b, -2.6 + i * 0.7 + Math.random() * 0.3, -3.05 + Math.random() * 0.3, -0.9 - Math.random() * 1.8); b.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3); b.scale.y = 0.6; highlandUW.add(b); }
+
+    terrainSets = { veg, wood, rock, deep, open, bayouUW, highlandUW };
     for (const k in terrainSets) { terrainSets[k].visible = false; scene.add(terrainSets[k]); }
   }
 
@@ -1640,12 +1669,17 @@ const Scene3D = (() => {
     // god-rays shimmer and fade out at night
     for (const ray of rays) { ray.material.opacity = (0.025 + 0.05 * dl) * (0.7 + 0.3 * Math.sin(t * 0.8 + ray.userData.phase)); }
 
-    // show the structure that matches this spot; sway the weeds
-    const struct = st.structure || "open";
-    for (const k in terrainSets) terrainSets[k].visible = (k === struct);
-    if (struct === "veg" && terrainSets.veg) {
-      for (const blade of terrainSets.veg.children) blade.rotation.z = Math.sin(t * 1.3 + (blade.userData.sway || 0)) * 0.18;
+    // show the structure that matches this spot; the two new lakes swap in their
+    // own signature underwater cover (cypress roots / brush pile) over any cover spot
+    let struct = st.structure || "open";
+    if (struct !== "open") {
+      if (st.venue === "bayou") struct = "bayouUW";
+      else if (st.venue === "highland") struct = "highlandUW";
     }
+    for (const k in terrainSets) terrainSets[k].visible = (k === struct);
+    // sway any grass blades in the visible set
+    const shown = terrainSets[struct];
+    if (shown) for (const blade of shown.children) { if (blade.userData && blade.userData.sway != null) blade.rotation.z = Math.sin(t * 1.3 + blade.userData.sway) * 0.18; }
 
     const showLure = st.mode === "retrieve" || st.mode === "strike";
     // on the strike the lead bass has engulfed the lure — it vanishes into the mouth
