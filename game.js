@@ -211,7 +211,6 @@
     },
     {
       id: "bayou", name: "Cypress Bayou", ico: "🌾", price: 0, clarity: "stained", baseDepth: 0.26,
-      struct3d: "cove",   // shallow swamp — reuse the cove's dock/boathouse structure
       sky: ["#8fb36a", "#d7e6b0"], water: ["#4f7a45", "#12300f"],
       desc: "Warm tea-stained swamp — giant largemouth buried in heavy cover.",
       unlock: { need: c => c.total >= 25, label: "Catch 25 bass to unlock", prog: c => [c.total, 25] },
@@ -231,7 +230,6 @@
     },
     {
       id: "highland", name: "Highland Reservoir", ico: "⛰️", price: 0, clarity: "clear", baseDepth: 0.58,
-      struct3d: "deep",   // deep clear reservoir — reuse the dam/lock structure
       sky: ["#a7c8e8", "#e2eef7"], water: ["#2b83aa", "#08283a"],
       desc: "Deep, gin-clear highland lake — finesse the rock for suspended giants.",
       unlock: { need: c => c.big >= LUNKER_LB, label: "Land a 6 lb+ lunker to unlock" },

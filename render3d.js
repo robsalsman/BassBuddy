@@ -738,7 +738,60 @@ const Scene3D = (() => {
     const buoyMat = new THREE.MeshStandardMaterial({ color: 0xff7a2a, roughness: 0.55 });
     for (let i = 0; i < 6; i++) { const b = new THREE.Mesh(new THREE.SphereGeometry(0.24, 10, 8), buoyMat); b.position.set(-4.2 + i * 1.7, 0.16, -2.6 - (i % 2) * 0.9); b.userData.buoy = i; deepG.add(b); }
 
-    venueStructs = { cove, river, deep: deepG };
+    // ---- BAYOU: a stand of cypress trees with knees + a weathered duck blind ----
+    const bayou = new THREE.Group();
+    const bark = new THREE.MeshStandardMaterial({ color: 0x6b5236, roughness: 1 });
+    const barkDk = new THREE.MeshStandardMaterial({ color: 0x4c3b28, roughness: 1 });
+    const foliage = new THREE.MeshStandardMaterial({ color: 0x3c5a2e, roughness: 0.95 });
+    const foliage2 = new THREE.MeshStandardMaterial({ color: 0x4a6b38, roughness: 0.95 });
+    const cypress = (x, z, s) => {
+      const g = new THREE.Group(); g.position.set(x, 0, z);
+      const buttress = new THREE.Mesh(new THREE.ConeGeometry(0.85 * s, 1.7 * s, 8), bark); buttress.position.y = 0.85 * s - 0.4; g.add(buttress);
+      const trunk = cyl(0.26 * s, 4.8 * s, bark); trunk.position.y = 2.4 * s; g.add(trunk);
+      for (let i = 0; i < 3; i++) {                       // layered canopy blobs up top
+        const c = new THREE.Mesh(new THREE.SphereGeometry((1.15 - i * 0.18) * s, 10, 8), i % 2 ? foliage : foliage2);
+        c.position.set((i - 1) * 0.4 * s, (4.6 + i * 0.7) * s, (i % 2 ? 0.3 : -0.3) * s); c.scale.y = 0.82; g.add(c);
+      }
+      return g;
+    };
+    bayou.add(cypress(-2.3, -4.4, 1.15));
+    bayou.add(cypress(1.7, -5.6, 1.35));
+    bayou.add(cypress(3.5, -3.0, 0.95));
+    for (const [kx, kz] of [[-2.9, -3.3], [-1.6, -3.7], [1.1, -4.6], [2.4, -4.7], [3.1, -2.3], [-0.4, -2.9]]) {
+      const knee = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.72, 6), barkDk); knee.position.set(kx, 0.2, kz); bayou.add(knee);   // knees poke above the water
+    }
+    const blind = new THREE.Group(); blind.position.set(-3.6, 0, -1.7);
+    const bdeck = box(2.2, 0.2, 2.0, wood); bdeck.position.y = 0.5; blind.add(bdeck);
+    for (const bx of [-0.9, 0.9]) for (const bz of [-0.8, 0.8]) piling(blind, bx, bz, 0.5, 0.1, woodDark);
+    const brail = box(2.2, 0.5, 0.1, woodDark); brail.position.set(0, 0.85, -0.95); blind.add(brail);
+    bayou.add(blind);
+
+    // ---- HIGHLAND: flooded standing timber + a rocky bluff + a channel marker ----
+    const highG = new THREE.Group();
+    const deadWood = new THREE.MeshStandardMaterial({ color: 0xb7ad97, roughness: 1 });
+    const rockMat = new THREE.MeshStandardMaterial({ color: 0x8a8478, roughness: 1 });
+    const rockDk = new THREE.MeshStandardMaterial({ color: 0x6d685c, roughness: 1 });
+    const snag = (x, z, h, r) => {
+      const g = new THREE.Group(); g.position.set(x, 0, z);
+      const trunk = cyl(r || 0.18, h, deadWood); trunk.position.y = h / 2 - 0.6; g.add(trunk);
+      for (const la of [0.7, -0.9]) { const lb = cyl(0.07, 1.1, deadWood); lb.position.set(Math.cos(la) * 0.4, h * 0.5 - 0.6, 0); lb.rotation.z = la; g.add(lb); }
+      return g;
+    };
+    highG.add(snag(-2.6, -4.6, 5.2, 0.2));
+    highG.add(snag(-1.2, -5.7, 6.4, 0.16));
+    highG.add(snag(2.4, -4.1, 4.4, 0.18));
+    highG.add(snag(3.6, -5.3, 5.6, 0.2));
+    const bluff = new THREE.Group(); bluff.position.set(4.7, 0, -2.3);
+    for (const [bx, by, bz, sz] of [[0, 0.4, 0, 1.9], [0.4, 1.35, -0.3, 1.4], [-0.3, 2.1, 0.2, 1.0], [0.2, 2.8, -0.1, 0.7]]) {
+      const rk = box(sz, sz * 0.9, sz, by > 1.6 ? rockDk : rockMat); rk.position.set(bx, by, bz); rk.rotation.y = bx; bluff.add(rk);
+    }
+    highG.add(bluff);
+    const marker = new THREE.Group(); marker.position.set(0.7, 0, -2.5);
+    const pole = cyl(0.08, 2.4, dark); pole.position.y = 0.9; marker.add(pole);
+    const sign = box(0.5, 0.5, 0.08, new THREE.MeshStandardMaterial({ color: 0xd23b2e, roughness: 0.7 })); sign.position.y = 1.9; marker.add(sign);
+    highG.add(marker);
+
+    venueStructs = { cove, river, deep: deepG, bayou, highland: highG };
     for (const k in venueStructs) { venueStructs[k].visible = false; parent.add(venueStructs[k]); }
   }
 
