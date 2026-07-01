@@ -209,6 +209,46 @@
           zone: [0.50, 0.40, 0.26, 0.14], bias: { spotted: 1.8, smallmouth: 1.5, largemouth: 1.2 } },
       ],
     },
+    {
+      id: "bayou", name: "Cypress Bayou", ico: "🌾", price: 0, clarity: "stained", baseDepth: 0.26,
+      struct3d: "cove",   // shallow swamp — reuse the cove's dock/boathouse structure
+      sky: ["#8fb36a", "#d7e6b0"], water: ["#4f7a45", "#12300f"],
+      desc: "Warm tea-stained swamp — giant largemouth buried in heavy cover.",
+      unlock: { need: c => c.total >= 25, label: "Catch 25 bass to unlock", prog: c => [c.total, 25] },
+      fish: [
+        { k: "largemouth", weight: 74 }, { k: "giant", weight: 20 }, { k: "hawg", weight: 6 },
+      ],
+      positions: [
+        { id: "pads", name: "Grass Mats", ico: "🌿", desc: "Frog water — bass blow up through the salad.", depth: -0.16,
+          zone: [0.30, 0.34, 0.18, 0.16], bias: { largemouth: 2.0, giant: 1.5, hawg: 1.2 } },
+        { id: "logs", name: "Cypress Knees", ico: "🪵", desc: "Flip the trunks — big bass tuck in tight.", depth: -0.06,
+          zone: [0.70, 0.32, 0.16, 0.14], bias: { largemouth: 1.8, giant: 1.6 } },
+        { id: "bank", name: "Backwater Slough", ico: "🐸", desc: "Skinny water full of ambushers.", depth: -0.1,
+          zone: [0.24, 0.66, 0.18, 0.16], bias: { largemouth: 1.9, giant: 1.2 } },
+        { id: "drop", name: "Boat Canal", ico: "📉", desc: "The deeper cut — the biggest girls stage here.", depth: 0.24,
+          zone: [0.52, 0.84, 0.26, 0.14], bias: { giant: 2.4, hawg: 2.6, largemouth: 1.2 } },
+      ],
+    },
+    {
+      id: "highland", name: "Highland Reservoir", ico: "⛰️", price: 0, clarity: "clear", baseDepth: 0.58,
+      struct3d: "deep",   // deep clear reservoir — reuse the dam/lock structure
+      sky: ["#a7c8e8", "#e2eef7"], water: ["#2b83aa", "#08283a"],
+      desc: "Deep, gin-clear highland lake — finesse the rock for suspended giants.",
+      unlock: { need: c => c.big >= LUNKER_LB, label: "Land a 6 lb+ lunker to unlock" },
+      fish: [
+        { k: "largemouth", weight: 60 }, { k: "giant", weight: 30 }, { k: "hawg", weight: 10 },
+      ],
+      positions: [
+        { id: "point", name: "Main-Lake Point", ico: "📍", desc: "Cruising bass sweep the point.", depth: 0.04,
+          zone: [0.66, 0.50, 0.18, 0.16], bias: { largemouth: 1.5, giant: 1.5 } },
+        { id: "logs", name: "Standing Timber", ico: "🌲", desc: "Suspended bass hang in the flooded trees.", depth: 0.0,
+          zone: [0.30, 0.46, 0.18, 0.16], bias: { largemouth: 1.7, giant: 1.4 } },
+        { id: "rocks", name: "Bluff Wall", ico: "🧱", desc: "Vertical rock — bass pin bait against it.", depth: 0.1,
+          zone: [0.24, 0.68, 0.18, 0.14], bias: { largemouth: 1.4, giant: 1.3 } },
+        { id: "hole", name: "Deep Brush Pile", ico: "🕳️", desc: "Sunken brush in deep water holds true giants.", depth: 0.28,
+          zone: [0.54, 0.84, 0.24, 0.14], bias: { giant: 2.4, hawg: 3.0, largemouth: 1.3 } },
+      ],
+    },
   ];
 
   const LUNKER_LB = 6;   // a black bass this heavy earns a "LUNKER!" callout
@@ -284,7 +324,12 @@
   const isArcade = () => true;
   const ownsRod = () => true;
   const ownsLure = () => true;
-  const ownsSpot = () => true;
+  // lakes are free, but the two extra ones unlock by hitting a milestone (no coins)
+  const ownsSpot = (id) => {
+    const sp = SPOTS.find(s => s.id === id);
+    if (!sp || !sp.unlock) return true;
+    return !!sp.unlock.need(achCtx());
+  };
 
   // ===========================================================================
   // DOM refs
@@ -1928,7 +1973,7 @@
     if (!S3.isReady()) return;
     S3.setVisible(true);   // 3D now drives both surface & underwater; 2D stays as fallback beneath
     const sp = spot(), lu = lure(), dc = dayColors(sp), pos = position();
-    if (_3dVenue !== sp.id) { _3dVenue = sp.id; S3.setVenue(sp.water[0], sp.water[1], sp.clarity, sp.id); }
+    if (_3dVenue !== sp.id) { _3dVenue = sp.id; S3.setVenue(sp.water[0], sp.water[1], sp.clarity, sp.struct3d || sp.id); }
     // typical fish SIZE and ABUNDANCE at this spot, so the underwater shoal reflects
     // it: big-fish spots show big bass, a good combo/spot shows more of them
     let sBig = 0, sTot = 0;
@@ -3032,10 +3077,15 @@
     el.mapVenues.innerHTML = SPOTS.map(s => {
       const owned = ownsSpot(s.id);
       const sel = G.spot === s.id;
+      let sub = s.desc;
+      if (!owned && s.unlock) {
+        const p = s.unlock.prog ? s.unlock.prog(achCtx()) : null;
+        sub = `🔒 ${s.unlock.label}` + (p ? ` (${Math.min(p[0], p[1])}/${p[1]})` : "");
+      }
       return `<div class="venue ${sel ? "sel" : ""} ${owned ? "" : "locked"}" data-venue="${s.id}" data-owned="${owned}">
         <div class="ico">${s.ico}</div>
-        <div class="info"><div class="nm">${s.name}</div><div class="ds">${s.desc}</div></div>
-        <div class="lk">${owned ? (sel ? "HERE" : "GO") : "🔒 " + s.price + "🪙"}</div></div>`;
+        <div class="info"><div class="nm">${s.name}</div><div class="ds"${owned ? "" : ' style="color:#ffcf6a"'}>${sub}</div></div>
+        <div class="lk">${owned ? (sel ? "HERE" : "GO") : "🔒"}</div></div>`;
     }).join("");
     renderPositions();
   }
@@ -3100,7 +3150,7 @@
       if (v.dataset.owned === "true") {
         if (G.spot !== v.dataset.venue) { G.spot = v.dataset.venue; seedFish(); rollConditions(); resetToIdle(); }
         save(); updateHUD(); renderMap();
-      } else { toast("Unlock this spot in the 🛒 shop"); }
+      } else { const sp = SPOTS.find(s => s.id === v.dataset.venue); toast(sp && sp.unlock ? "🔒 " + sp.unlock.label : "Locked"); }
     } else if (p) {
       G.positions[spot().id] = p.dataset.pos; recomputeCond(); save(); updateHUD(); renderPositions();
     }
@@ -3138,11 +3188,14 @@
     // Lakes
     el.shopSpots.innerHTML = SPOTS.map(s => {
       const active = G.spot === s.id;
+      const owned = ownsSpot(s.id);
       const btn = active ? `<button class="item-btn equipped" disabled>FISHING</button>`
+                : !owned ? `<button class="item-btn" disabled>🔒</button>`
                 : locked ? `<button class="item-btn" disabled>LOCKED</button>`
                 : `<button class="item-btn owned" data-go-spot="${s.id}">GO</button>`;
+      const desc = owned ? s.desc : `🔒 ${s.unlock.label}`;
       return `<div class="item"><div class="item-ico">${s.ico}</div><div class="item-info"><div class="item-name">${s.name}</div>
-        <div class="item-desc">${s.desc}</div></div>${btn}</div>`;
+        <div class="item-desc"${owned ? "" : ' style="color:#ffcf6a"'}>${desc}</div></div>${btn}</div>`;
     }).join("");
     // Dex
     el.shopDex.innerHTML = `<div class="dex-grid"></div>`;
@@ -3473,7 +3526,7 @@
     const d = t.dataset;
     if (d.equipRod) { G.rod = d.equipRod; }
     else if (d.equipLure) { const l = LURES.find(x => x.id === d.equipLure); G.lure.id = l.id; if (!l.colors.includes(G.lure.color)) G.lure.color = l.colors[0]; }
-    else if (d.goSpot) { if (S.tournament && !S.tournament.ended) { toast("Can't switch lakes mid-tournament"); return; } if (G.spot !== d.goSpot) { G.spot = d.goSpot; seedFish(); rollConditions(); resetToIdle(); } }
+    else if (d.goSpot) { if (S.tournament && !S.tournament.ended) { toast("Can't switch lakes mid-tournament"); return; } if (!ownsSpot(d.goSpot)) { const sp = SPOTS.find(s => s.id === d.goSpot); toast(sp && sp.unlock ? "🔒 " + sp.unlock.label : "Locked"); return; } if (G.spot !== d.goSpot) { G.spot = d.goSpot; seedFish(); rollConditions(); resetToIdle(); } }
     else return;
     save(); updateHUD(); renderShop();
   });
