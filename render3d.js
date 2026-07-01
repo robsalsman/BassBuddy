@@ -49,6 +49,47 @@ function realModel(key) {
   return g;
 }
 
+// GPU swim bend: a travelling sine wave down the body (local X), growing toward
+// the tail. Lets a dense imported mesh "swim" on the GPU — no rig, no per-frame
+// CPU vertex work. Uniforms are shared across the model's materials and updated
+// each frame by the fight controller.
+function installSwim(mat, uni) {
+  mat.onBeforeCompile = (shader) => {
+    shader.uniforms.uSwimT = uni.t; shader.uniforms.uSwimA = uni.a;
+    shader.uniforms.uSwimC = uni.c; shader.uniforms.uSwimH = uni.h;
+    shader.vertexShader = "uniform float uSwimT, uSwimA, uSwimC, uSwimH;\n" +
+      shader.vertexShader.replace("#include <begin_vertex>",
+        "#include <begin_vertex>\n" +
+        "  float _xn = clamp((transformed.x - uSwimC) / uSwimH, -1.0, 1.0);\n" +
+        "  float _tail = clamp((1.0 - _xn) * 0.5, 0.0, 1.0);\n" +
+        "  transformed.z += sin(_xn * 3.4 - uSwimT * 9.0) * uSwimA * uSwimH * (0.12 + _tail * _tail);\n");
+  };
+  mat.needsUpdate = true;
+}
+// an imported model set up to swim in the fight: sized to the procedural bass,
+// with a mouth anchor and the swim shader wired in (shares the template geometry,
+// so disposeFish must NOT free it — guarded by userData.imported)
+function realFightFish(key) {
+  const tpl = LOADED_MODELS[key]; if (!tpl) return null;
+  const g = tpl.clone(true); g.userData.imported = true;
+  const inner = g.children[0]; if (inner) inner.scale.multiplyScalar(2.7 / 3.0);   // match makeBass LEN
+  const uni = { t: { value: 0 }, a: { value: 0.12 }, c: { value: 0 }, h: { value: 1 } };
+  g.traverse(o => {
+    if (o.isMesh && o.geometry) {
+      if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+      const bb = o.geometry.boundingBox;
+      uni.c.value = (bb.max.x + bb.min.x) * 0.5;
+      uni.h.value = Math.max(1e-3, (bb.max.x - bb.min.x) * 0.5);
+      o.material = o.material.clone();          // per-fish material so the swim shader
+      installSwim(o.material, uni);             // never touches the shared trophy model
+      o.frustumCulled = false;                  // the bend can push verts past the bounds
+    }
+  });
+  g.userData.swim = uni;
+  g.mouth = new THREE.Object3D(); g.mouth.position.set(1.28, -0.1, 0); g.add(g.mouth);
+  return g;
+}
+
 // =============================================================================
 // Detailed, realistic procedural bass — shared by the fight, the 3D preview,
 // and the catch screen. The skin is painted to an offscreen canvas (scales,
@@ -1480,7 +1521,11 @@ const Scene3D = (() => {
   function disposeFish(g) {
     if (!g) return; scene.remove(g);
     if (g.disposables) g.disposables.forEach(d => d.dispose && d.dispose());
-    g.traverse(o => { if (o.geometry) o.geometry.dispose(); if (o.material && !g.disposables) o.material.dispose(); });
+    const shared = g.userData && g.userData.imported;   // clone shares the template geometry + textures
+    g.traverse(o => {
+      if (o.geometry && !shared) o.geometry.dispose();
+      if (o.material && !g.disposables) o.material.dispose();   // fight clone's material is its own copy
+    });
   }
 
   function undulate(g, t, strength, recompute) {
@@ -1681,7 +1726,7 @@ const Scene3D = (() => {
     // the fight — full procedural bass
     if (st.mode === "fight" && st.fight) {
       const f = st.fight, key = JSON.stringify(f.art || {});
-      if (!fightFish || key !== fightArtKey) { disposeFish(fightFish); fightFish = makeBass(f.art || {}); scene.add(fightFish); fightArtKey = key; }
+      if (!fightFish || key !== fightArtKey) { disposeFish(fightFish); fightFish = realFightFish("largemouth") || makeBass(f.art || {}); scene.add(fightFish); fightArtKey = key; }
       fightFish.visible = true;
       const fx = xOf(f.dist);
       let fy;
@@ -1694,7 +1739,8 @@ const Scene3D = (() => {
       // boat); it only quarters away a little when it runs, head still leading.
       fightFish.rotation.y = Math.PI - (f.state === "run" ? 0.5 : 0);
       fightFish.rotation.z = (f.state === "jump") ? 0.5 : Math.sin(t * 2) * 0.08;
-      undulate(fightFish, t, 0.16 + f.pull * 0.06);
+      undulate(fightFish, t, 0.16 + f.pull * 0.06);          // procedural bass only (no-op on imported)
+      if (fightFish.userData.swim) { const sw = fightFish.userData.swim; sw.t.value = t; sw.a.value = 0.12 + f.pull * 0.05; }
       if (fightFish.tail) fightFish.tail.rotation.y = Math.sin(t * (8 + f.pull * 4)) * 0.5;
       // line runs from the rod tip to the fish's actual mouth, bowing red when taut
       fightFish.updateMatrixWorld(true);

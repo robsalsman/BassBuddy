@@ -27,10 +27,12 @@ Requirements / notes:
 `largemouth.glb` is a **Meshy-generated** largemouth bass, optimized for the
 web: decimated 234K → 66K triangles, textures resized 2048² → 1024² and
 re-encoded, and the head baked to face **+X** — final size **~2.3 MB** (from
-~13 MB). It downloads, normalizes, and renders on the catch/trophy screen.
-(Shows on the catch screen only; the live fight/underwater fish still use the
-procedural model, which would need a rigged GLB with mouth/tail animation to
-swap fully.)
+~13 MB). It downloads, normalizes, and renders on **both** the catch/trophy
+screen and the live underwater fight, where a GPU vertex-shader swim bend flexes
+the body/tail down its length — so a dense mesh swims with no rig and no
+per-frame CPU cost. (An animation-clip path via `THREE.AnimationMixer` could be
+added later if a GLB ships with a baked swim clip; Meshy's auto-rig currently
+exports the skeleton without a clip.)
 
 Attribution: bass model generated with **Meshy AI** (meshy.ai).
 
