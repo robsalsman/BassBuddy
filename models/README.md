@@ -32,13 +32,16 @@ screen and the live underwater fight, where a GPU vertex-shader swim bend flexes
 the body/tail down its length — so a dense mesh swims with no rig and no
 per-frame CPU cost.
 
-**Rigged models play for real.** The loader now keeps any baked animation
-clips and plays them via `THREE.AnimationMixer` with a skeleton-aware clone
-(clips named `swim`/`idle` are preferred; the fight speeds the clip up as the
-fish pulls). Drop in a GLB **with an animation clip** — Meshy "Animate", or
-Blender (armature → keyframe a tail-swish loop → export glTF with Animation
-checked) — and it automatically replaces the shader swim. A rig alone (bones,
-no clip) still falls back to the shader swim.
+**The shipped largemouth is now the RIGGED build** (~4.9 MB): the Meshy
+rigged export (33-bone UniRig skeleton + skin weights) with a `swim` animation
+clip authored programmatically — a traveling lateral wave over the 9-bone spine
+chain, baked into the GLB with gltf-transform. The loader plays clips via
+`THREE.AnimationMixer` with a skeleton-aware clone (clips named `swim`/`idle`
+preferred; the fight speeds the clip up as the fish pulls). The asset is
+prenormalized (3 units long, origin-centred, head +X) because runtime Box3
+measurement of skinned meshes is unreliable; the loader also measures by
+bind-pose geometry for the same reason. A model without clips still gets the
+GPU shader swim fallback.
 
 Attribution: bass model generated with **Meshy AI** (meshy.ai).
 

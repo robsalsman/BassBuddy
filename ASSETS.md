@@ -10,9 +10,8 @@ authored asset can replace the procedural stand-in, pipeline ready)
 ## 3D — Fish
 | Asset | Where | Status |
 |---|---|---|
-| Largemouth bass (catch/trophy) | `models/largemouth.glb` (Meshy, 2.3 MB, 66K tris) | ✅ real authored model |
-| Largemouth bass (live fight) | same GLB + GPU vertex-shader swim | ✅ |
-| Rigged/animated bass | GLB loader | ⬆️ **AnimationMixer pipeline added** — drop in a GLB with baked clips (`swim`/`idle`) and it plays automatically, skeleton-aware cloning included. 📦 needs a Meshy/Blender export **with an animation clip** (current auto-rig exports bones but no clip) |
+| Largemouth bass (catch/trophy) | `models/largemouth.glb` (Meshy, rigged, 4.9 MB, 82K tris) | ✅ real authored model |
+| Largemouth bass (live fight) | same GLB — **true skeletal swim** | ⬆️ 33-bone rig with a programmatically authored `swim` clip (traveling wave over the 9-bone spine chain), played via AnimationMixer; thrash speed follows the fish's pull. Shader-swim remains as fallback for clip-less models |
 | Procedural bass (fallback, pursuers, shoal) | `makeBass()` — painted scale/bump/normal maps, per-species markings | ✅ |
 | Smallmouth / spotted models | `models/manifest.json` slots | 📦 empty, loader ready |
 | Shadow pursuer bass | `buildShadowFish()` | ✅ (intentionally silhouette) |

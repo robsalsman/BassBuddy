@@ -25,17 +25,32 @@ function loadRealModels() {
     for (const key of ["largemouth", "smallmouth", "spotted"]) if (man[key]) loadOne(key);
   }).catch(() => {});
 }
+// measure a model by BIND-POSE geometry (geometry.boundingBox ⊗ matrixWorld).
+// Box3.setFromObject can't be trusted here: for SkinnedMeshes it computes skinned
+// bounds through bone matrices that are stale right after load.
+function measureBindBox(root) {
+  root.updateMatrixWorld(true);
+  const box = new THREE.Box3(), b = new THREE.Box3();
+  root.traverse(o => {
+    if (!o.isMesh || !o.geometry) return;
+    if (!o.geometry.boundingBox) o.geometry.computeBoundingBox();
+    b.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld);
+    box.union(b);
+  });
+  return box;
+}
 function loadOne(key) {
   _gltfLoader.load("models/" + key + ".glb", (gltf) => {
       const root = gltf.scene || gltf.scenes[0];
       // normalize so any dropped-in model frames the same: scale the longest axis
       // to the game's fish length FIRST, then recenter (scaling moves the centre,
-      // so recentring after scale is what keeps it framed)
+      // so recentring after scale is what keeps it framed). Prenormalized assets
+      // (like the shipped rigged bass) measure ~3.0 already, making this a no-op.
       const size = new THREE.Vector3();
-      new THREE.Box3().setFromObject(root).getSize(size);
+      measureBindBox(root).getSize(size);
       const longest = Math.max(size.x, size.y, size.z) || 1;
       root.scale.multiplyScalar(3.0 / longest);
-      const c = new THREE.Box3().setFromObject(root).getCenter(new THREE.Vector3());
+      const c = measureBindBox(root).getCenter(new THREE.Vector3());
       root.position.sub(c);
       const wrap = new THREE.Group(); wrap.add(root); wrap.userData.imported = true;
       wrap.userData.clips = gltf.animations || [];   // keep any baked animation (swim/idle) clips
