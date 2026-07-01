@@ -654,6 +654,12 @@ const Scene3D = (() => {
     buildSurface();
 
     addEventListener("resize", resize);
+    addEventListener("orientationchange", resize);
+    // the visual viewport changes (URL bar show/hide, pinch) don't always fire a
+    // window resize on iOS — track them, and observe the canvas itself so the
+    // buffer follows its real size no matter what triggers the change
+    if (window.visualViewport) { visualViewport.addEventListener("resize", resize); visualViewport.addEventListener("scroll", resize); }
+    if (window.ResizeObserver) { try { new ResizeObserver(resize).observe(canvas); } catch (e) {} }
     ready = true;
     return true;
   }
@@ -1241,10 +1247,17 @@ const Scene3D = (() => {
 
   function resize() {
     if (!renderer) return;
-    renderer.setSize(innerWidth, innerHeight, false);
-    canvas.style.width = innerWidth + "px"; canvas.style.height = innerHeight + "px";
-    if (camera) { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
-    if (camS) { camS.aspect = innerWidth / innerHeight; camS.updateProjectionMatrix(); }
+    // Size the drawing buffer from the canvas's ACTUAL laid-out size, not
+    // innerWidth/innerHeight — on iOS Safari those lag the real viewport (dynamic
+    // URL bar), which used to leave the canvas smaller than the screen and let the
+    // 2D fallback bleed around the edges. CSS (#c3d { inset:0; width/height:100% })
+    // keeps the element full-bleed; we only update the buffer resolution + aspect.
+    const w = canvas.clientWidth || innerWidth, h = canvas.clientHeight || innerHeight;
+    if (!w || !h) return;
+    renderer.setSize(w, h, false);
+    const aspect = w / h;
+    if (camera) { camera.aspect = aspect; camera.updateProjectionMatrix(); }
+    if (camS) { camS.aspect = aspect; camS.updateProjectionMatrix(); }
   }
 
   function setVisible(on) {
