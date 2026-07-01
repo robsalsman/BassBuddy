@@ -362,7 +362,7 @@
     rodModal: $("rodModal"), rodClose: $("rodClose"), rodList: $("rodList"), rodCond: $("rodCond"), rodCats: $("rodCats"),
     mapModal: $("mapModal"), mapClose: $("mapClose"), mapVenues: $("mapVenues"), posGrid: $("posGrid"), finder: $("finder"),
     tourneyBtn: $("tourneyBtn"), modeModal: $("modeModal"), modeClose: $("modeClose"),
-    tourHud: $("tourHud"), tourClock: $("tourClock"), livewell: $("livewell"), tourTotal: $("tourTotal"), tourBig: $("tourBig"), tourQuit: $("tourQuit"),
+    tourHud: $("tourHud"), tourClock: $("tourClock"), livewell: $("livewell"), tourTotal: $("tourTotal"), tourBig: $("tourBig"), tourQuit: $("tourQuit"), tourBoard: $("tourBoard"),
     tourStartModal: $("tourStartModal"), tourField: $("tourField"),
     tourStartBtn: $("tourStartBtn"), tourStartCancel: $("tourStartCancel"), tourRules: $("tourRules"),
     tourResultModal: $("tourResultModal"), tourResultMedal: $("tourResultMedal"), tourPlace: $("tourPlace"),
@@ -1654,18 +1654,64 @@
   // ===========================================================================
   // Tournament mode
   // ===========================================================================
+  // rival anglers you compete against live
+  const RIVAL_NAMES = ["R. Vela", "J. Kwan", "M. Boone", "T. Ito", "D. Ferro", "K. Ash",
+    "C. Rios", "B. Nash", "L. Okafor", "P. Sung", "G. Reyes", "S. Vance", "A. Dorn", "F. Colt"];
+  // build the field: each rival gets a skill and a set of catch events revealed over
+  // the day, so their bags climb (and cull) live — no scripted "AI appears at the end"
+  function buildRivals(field, tier) {
+    const names = RIVAL_NAMES.slice().sort(() => Math.random() - 0.5).slice(0, Math.max(0, field - 1));
+    return names.map(name => {
+      const skill = 0.62 + Math.random() * 0.72;                 // 0.62 .. 1.34
+      const nCatch = 4 + Math.floor(Math.random() * 5);          // 4..8 fish through the day
+      const catches = [];
+      for (let j = 0; j < nCatch; j++) catches.push({ w: +(rnd(1.0, 5.4) * tier * skill).toFixed(2), at: Math.random() });
+      return { name, skill, catches };
+    });
+  }
+  // a rival's live 5-fish total / big fish at elapsed fraction e (0..1)
+  function rivalRevealed(rv, e) { return rv.catches.filter(c => c.at <= e).map(c => c.w).sort((a, b) => b - a); }
+  function rivalTotal(rv, e) { return rivalRevealed(rv, e).slice(0, 5).reduce((s, w) => s + w, 0); }
+  function rivalBig(rv, e) { const r = rivalRevealed(rv, e); return r.length ? r[0] : 0; }
+  // full standings (you + rivals) at the current elapsed fraction
+  function tourStandings() {
+    const T = S.tournament; if (!T) return [];
+    const e = clamp(1 - T.timeLeft / T.dur, 0, 1);
+    const board = (T.rivals || []).map(rv => ({ name: rv.name, total: rivalTotal(rv, e), big: rivalBig(rv, e), me: false }));
+    board.push({ name: "You", total: wellTotal(), big: T.big, me: true, fish: T.well.length });
+    board.sort((a, b) => b.total - a.total || b.big - a.big);
+    return board;
+  }
+  function renderTourBoard() {
+    const T = S.tournament;
+    if (!T || T.ended) { el.tourBoard.classList.add("hidden"); return; }
+    const board = tourStandings();
+    const myPlace = board.findIndex(b => b.me) + 1;
+    el.tourBoard.classList.remove("hidden");
+    el.tourBoard.innerHTML =
+      `<div class="tb-head">Live · P${myPlace}/${board.length}</div>` +
+      board.slice(0, 5).map((b, i) => {
+        const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : (i + 1) + ".";
+        return `<div class="tb-row ${b.me ? "me" : ""}"><span class="tb-r">${medal}</span><span class="tb-n">${b.name}</span><span class="tb-w">${b.total.toFixed(2)}</span></div>`;
+      }).join("") +
+      (myPlace > 5 ? `<div class="tb-row me"><span class="tb-r">${myPlace}.</span><span class="tb-n">You</span><span class="tb-w">${wellTotal().toFixed(2)}</span></div>` : "");
+  }
+
   function startTournament() {
     const t = pendingTour; if (!t) { el.tourStartModal.classList.add("hidden"); return; }
     if (G.spot !== t.spot) { G.spot = t.spot; seedFish(); rollConditions(); }
     // a fee still seeds the purse maths, but the player never pays it
     const fee = t.spot === "deep" ? 150 : t.spot === "river" ? 90 : 50;
+    const sp = SPOTS.find(s => s.id === t.spot) || spot();
+    const tier = sp.id === "deep" || sp.id === "highland" ? 1.7 : sp.id === "river" || sp.id === "bayou" ? 1.25 : 1.0;
     el.tourStartModal.classList.add("hidden");
-    S.tournament = { timeLeft: t.dur, dur: t.dur, well: [], big: 0, culls: 0, field: t.field, fee, spotId: t.spot, name: t.name, eventId: t.id, ended: false };
+    S.tournament = { timeLeft: t.dur, dur: t.dur, well: [], big: 0, culls: 0, field: t.field, fee, spotId: t.spot, name: t.name, eventId: t.id, ended: false, tier, rivals: buildRivals(t.field, tier), lastLead: null };
     el.tourHud.classList.remove("hidden");
     renderWell();
+    renderTourBoard();
     updateHUD();
     resetToIdle();
-    toast(`🏁 ${t.name} — lines in! Boat your best 5 bass!`);
+    toast(`🏁 ${t.name} — lines in! ${t.field - 1} rivals on the water!`);
     save();
   }
   function tourLand(f, isRecord, prev) {
@@ -1698,6 +1744,7 @@
     checkCatchChallenges(f);
     vibrate([20, 40, 30]);
     renderWell();
+    renderTourBoard();
     toast(msg);
     resetToIdle();
   }
@@ -1727,6 +1774,18 @@
     const sec = Math.max(0, Math.ceil(T.timeLeft / 1000));
     el.tourClock.textContent = Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
     el.tourClock.parentElement.classList.toggle("low", sec <= 30);
+    // refresh the live leaderboard a couple times a second as rivals boat fish
+    T._boardT = (T._boardT || 0) + dt;
+    if (T._boardT >= 450) {
+      T._boardT = 0;
+      const board = tourStandings();
+      const lead = board[0] && board[0].name;
+      if (T.lastLead && lead !== T.lastLead && T.well.length) {   // the lead changed — call it out
+        toast(board[0].me ? "🥇 You took the lead!" : `${lead} took the lead`);
+      }
+      T.lastLead = lead;
+      renderTourBoard();
+    }
     if (T.timeLeft <= 0) endTournament();
   }
   function endTournament() {
@@ -1736,18 +1795,12 @@
     S.mode = "idle"; S.hookedFish = null;
     el.fightPanel.classList.add("hidden"); el.retrievePanel.classList.add("hidden"); el.castMeter.classList.add("hidden"); showBtn(false);
 
+    el.tourBoard.classList.add("hidden");
     const myTotal = wellTotal();
-    // AI field — winning bags scale with venue
-    const sp = SPOTS.find(s => s.id === T.spotId) || spot();
-    const tier = sp.id === "deep" ? 1.7 : sp.id === "river" ? 1.25 : 1.0;
-    const ai = [];
-    for (let i = 0; i < T.field - 1; i++) {
-      const n = 3 + Math.floor(Math.random() * 3); // 3–5 fish
-      let wt = 0; for (let j = 0; j < n; j++) wt += rnd(1.2, 6.0) * tier;
-      ai.push({ name: "AI Angler " + (i + 1), total: +wt.toFixed(2), big: +rnd(2, 7 * tier).toFixed(1), me: false });
-    }
-    const me = { name: "You", total: +myTotal.toFixed(2), big: +T.big.toFixed(1), me: true, fish: T.well.length };
-    const board = ai.concat([me]).sort((a, b) => b.total - a.total);
+    // the weigh-in: the same rivals you watched all day bring in their FINAL bags
+    const board = (T.rivals || []).map(rv => ({ name: rv.name, total: +rivalTotal(rv, 1).toFixed(2), big: +rivalBig(rv, 1).toFixed(1), me: false }));
+    board.push({ name: "You", total: +myTotal.toFixed(2), big: +T.big.toFixed(1), me: true, fish: T.well.length });
+    board.sort((a, b) => b.total - a.total || b.big - a.big);
     const place = board.findIndex(x => x.me) + 1;
 
     // payouts (arcade has no entry fee but still pays a base purse)
@@ -1804,6 +1857,7 @@
     S.tournament = null;
     pendingTour = null;
     el.tourHud.classList.add("hidden");
+    el.tourBoard.classList.add("hidden");
     document.getElementById("loadout").classList.remove("hidden");
     el.tourResultModal.classList.add("hidden");
     el.tourClock.parentElement.classList.remove("low");

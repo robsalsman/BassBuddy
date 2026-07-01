@@ -282,6 +282,27 @@ select, input, textarea { font-size: 16px; }
 }
 .tour-clock { display: flex; align-items: center; gap: 4px; font-weight: 800; font-size: 16px; flex: 0 0 auto; }
 .tour-clock.low b { color: var(--bad); }
+/* live tournament leaderboard */
+.tour-board {
+  position: absolute;
+  top: calc(108px + var(--safe-top));
+  right: 8px;
+  width: 172px;
+  background: linear-gradient(180deg, rgba(20,60,75,.92), rgba(8,32,42,.92));
+  border: 1px solid var(--ui-line);
+  border-radius: 12px;
+  padding: 6px 8px;
+  z-index: 20;
+  box-shadow: 0 4px 14px rgba(0,0,0,.35);
+  backdrop-filter: blur(6px);
+  font-size: 12px;
+}
+.tb-head { font-size: 10px; font-weight: 800; letter-spacing: .4px; color: #8fd0e6; text-align: center; margin-bottom: 4px; text-transform: uppercase; }
+.tb-row { display: flex; align-items: center; gap: 5px; padding: 2px 3px; border-radius: 6px; }
+.tb-row.me { background: rgba(255,211,92,.18); font-weight: 800; }
+.tb-r { flex: 0 0 20px; text-align: center; }
+.tb-n { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #eaf3ff; }
+.tb-w { flex: 0 0 auto; color: var(--gold); font-weight: 800; }
 .livewell { display: flex; gap: 3px; flex: 1; justify-content: center; }
 .well-slot {
   width: 30px; height: 34px;
