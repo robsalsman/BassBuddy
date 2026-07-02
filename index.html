@@ -8,8 +8,8 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>BassBuddy — Bass Fishing</title>
-<script>window.BB_V = "20260702ag";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
-<link rel="stylesheet" href="style.css?v=20260702ag" />
+<script>window.BB_V = "20260702ah";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
+<link rel="stylesheet" href="style.css?v=20260702ah" />
 </head>
 <body>
 <div id="game">
@@ -36,6 +36,9 @@
     <button class="chip" id="spotChip"><span>📍</span><b id="spotName">Lily Cove</b><small id="posName">Lily Pads</small></button>
     <div class="chip cond" id="condChip"><span id="condIcon">☀️</span><b id="condTemp">68°</b><span id="condMoon" class="cond-moon">🌕</span><small id="condClock">6:30a</small></div>
   </div>
+
+  <!-- The Guide: tap the old-timer for a full read on the water -->
+  <button id="guideBtn" class="guide-btn" title="Ask the Guide"></button>
 
   <!-- Tournament HUD (hidden until a tournament is running) -->
   <div id="tourHud" class="tour-hud hidden">
@@ -285,6 +288,20 @@
     </div>
   </div>
 
+  <!-- Ask the Guide: full conditions read + recommendations from the old-timer -->
+  <div id="guideModal" class="modal hidden">
+    <div class="modal-card shop-card">
+      <div class="shop-head">
+        <h2>🎣 Ask the Guide</h2>
+        <button class="close-btn" id="guideClose">✕</button>
+      </div>
+      <div class="guide-wrap">
+        <div id="guideFace" class="guide-face"></div>
+        <div id="guideBody" class="guide-body shop-body"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- End-of-day summary (free play: the day runs dawn to dusk) -->
   <div id="daySummaryModal" class="modal hidden">
     <div class="modal-card">
@@ -467,7 +484,7 @@
 </div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=20260702ag"></script>
-<script src="game.js?v=20260702ag"></script>
+<script type="module" src="render3d.js?v=20260702ah"></script>
+<script src="game.js?v=20260702ah"></script>
 </body>
 </html>

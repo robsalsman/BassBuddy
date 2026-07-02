@@ -438,6 +438,7 @@
     mapNext: $("mapNext"), mapBack: $("mapBack"), lureFish: $("lureFish"), lureBack: $("lureBack"), lakeMap: $("lakeMap"),
     lureTitle: $("lureTitle"), rodTitle: $("rodTitle"), rodBack: $("rodBack"), rodNext: $("rodNext"),
     tutBanner: $("tutBanner"), tutStep: $("tutStep"), tutText: $("tutText"), tutSkip: $("tutSkip"), menuBtn: $("menuBtn"),
+    guideBtn: $("guideBtn"), guideModal: $("guideModal"), guideClose: $("guideClose"),
     fx: $("fx"),
   };
 
@@ -1104,7 +1105,7 @@
   const sfx = n => Sound.play(n);
   function anyModalOpen() {
     return [el.catchModal, el.failModal, el.lureModal, el.mapModal,
-            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal, el.titleScreen, el.lbModal, el.lbProfileModal].some(m => !m.classList.contains("hidden"));
+            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal, el.titleScreen, el.lbModal, el.lbProfileModal, el.guideModal].some(m => !m.classList.contains("hidden"));
   }
 
   function floatText(txt, color) {
@@ -1672,6 +1673,146 @@
   });
 
   // ===========================================================================
+  // THE GUIDE — a warm old-timer built from a family photo: khaki cap, wire
+  // glasses, blue plaid. One tap and he reads the water like a real guide.
+  // (This portrait style is the template for future angler avatars.)
+  // ===========================================================================
+  function guideSVG(crop) {
+    const vb = crop ? "33 21 54 54" : "0 0 120 120";
+    return `<svg viewBox="${vb}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="gskin" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#eab894"/><stop offset="1" stop-color="#d09a72"/>
+        </linearGradient>
+        <linearGradient id="gcap" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#e8dcb8"/><stop offset="1" stop-color="#cdbd92"/>
+        </linearGradient>
+        <pattern id="gplaid" width="13" height="13" patternUnits="userSpaceOnUse">
+          <rect width="13" height="13" fill="#bcd2e2"/>
+          <rect width="13" height="4.5" y="4" fill="#93b3cb" opacity=".8"/>
+          <rect width="4.5" height="13" x="4" fill="#93b3cb" opacity=".8"/>
+          <rect width="13" height="1.3" y="5.6" fill="#eef5fa" opacity=".9"/>
+          <rect width="1.3" height="13" x="5.6" fill="#eef5fa" opacity=".9"/>
+        </pattern>
+        <radialGradient id="gvig" cx="50%" cy="42%" r="75%">
+          <stop offset="55%" stop-color="rgba(0,0,0,0)"/><stop offset="100%" stop-color="rgba(20,10,4,.55)"/>
+        </radialGradient>
+      </defs>
+      <rect width="120" height="120" fill="#7a563a"/>
+      <g stroke="#5f4028" stroke-width="1">
+        <line x1="24" y1="0" x2="24" y2="120"/><line x1="52" y1="0" x2="52" y2="120"/>
+        <line x1="82" y1="0" x2="82" y2="120"/><line x1="106" y1="0" x2="106" y2="120"/>
+      </g>
+      <g stroke="#8d6845" stroke-width=".7" opacity=".7">
+        <path d="M6,30 q8,3 16,1"/><path d="M60,74 q10,-3 18,0"/><path d="M90,20 q8,4 14,2"/>
+      </g>
+      <!-- shoulders / plaid shirt -->
+      <path d="M14,120 C16,96 34,84 46,81 L74,81 C88,84 104,96 106,120 Z" fill="url(#gplaid)" stroke="#7796ad" stroke-width="1"/>
+      <path d="M46,81 L54,92 L60,84 L66,92 L74,81 L74,86 L60,98 L46,86 Z" fill="#a7c2d6" stroke="#7796ad" stroke-width=".8"/>
+      <path d="M52,86 L60,120 M68,86 L60,120" stroke="#7796ad" stroke-width=".8" fill="none"/>
+      <circle cx="60" cy="104" r="1.3" fill="#5c7a90"/><circle cx="60" cy="113" r="1.3" fill="#5c7a90"/>
+      <rect x="55" y="80" width="10" height="7" fill="#3a4a52"/>
+      <!-- neck -->
+      <path d="M52,68 L68,68 L67,84 L53,84 Z" fill="#d69c74"/>
+      <path d="M52,68 L68,68 L67,75 Q60,79 53,75 Z" fill="#b97f57" opacity=".55"/>
+      <!-- ears -->
+      <ellipse cx="38.5" cy="55" rx="4" ry="6" fill="url(#gskin)"/>
+      <ellipse cx="81.5" cy="55" rx="4" ry="6" fill="url(#gskin)"/>
+      <!-- gray hair at the temples -->
+      <path d="M38,44 q-3,8 0,14 q4,3 6,1 q-3,-8 -1,-15 Z" fill="#d8d8d4"/>
+      <path d="M82,44 q3,8 0,14 q-4,3 -6,1 q3,-8 1,-15 Z" fill="#d8d8d4"/>
+      <!-- head -->
+      <path d="M41,42 Q41,26 60,26 Q79,26 79,42 L79,54 Q79,74 60,76 Q41,74 41,54 Z" fill="url(#gskin)"/>
+      <path d="M44,64 Q52,74 60,74 Q68,74 76,64 Q70,72 60,72 Q50,72 44,64 Z" fill="#b97f57" opacity=".35"/>
+      <!-- cap -->
+      <path d="M40,38 Q40,18 60,18 Q80,18 80,38 L80,40 L40,40 Z" fill="url(#gcap)"/>
+      <path d="M40,38 Q60,32 80,38 L80,41 Q60,36 40,41 Z" fill="#b3a479"/>
+      <path d="M34,40 Q60,32 86,40 Q88,44 84,45 Q60,38 36,45 Q32,44 34,40 Z" fill="#dccfa6"/>
+      <path d="M36,45 Q60,38 84,45 L84,46.5 Q60,40 36,46.5 Z" fill="#a89a71" opacity=".8"/>
+      <g stroke="#c23b28" stroke-width="1.1" fill="none" opacity=".9">
+        <path d="M53,26 q3,-2 6,0"/><path d="M55,29 q4,-2 8,0"/><path d="M60,32 h6"/>
+      </g>
+      <path d="M41,41 Q60,36 79,41 L79,45 Q60,40 41,45 Z" fill="#9a6f4b" opacity=".35"/>
+      <!-- brows -->
+      <path d="M45,45 q5,-2.5 10,-.5" stroke="#bdbdb8" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <path d="M65,44.5 q5,-2 10,.5" stroke="#bdbdb8" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <!-- glasses -->
+      <g stroke="#7d7a72" stroke-width="1.3" fill="rgba(226,236,244,.28)">
+        <rect x="43.5" y="47" width="14.5" height="11" rx="4.5"/>
+        <rect x="62" y="47" width="14.5" height="11" rx="4.5"/>
+        <path d="M58,51.5 q2,-1.5 4,0" fill="none"/>
+        <path d="M43.5,51 L39,52" fill="none"/><path d="M76.5,51 L81,52" fill="none"/>
+      </g>
+      <!-- eyes: kind, crinkled -->
+      <ellipse cx="50.8" cy="52.6" rx="2" ry="2.3" fill="#3c2f26"/>
+      <ellipse cx="69.2" cy="52.6" rx="2" ry="2.3" fill="#3c2f26"/>
+      <circle cx="51.5" cy="51.8" r=".6" fill="#fff" opacity=".85"/>
+      <circle cx="69.9" cy="51.8" r=".6" fill="#fff" opacity=".85"/>
+      <path d="M47.5,55.8 q3.2,1.6 6.4,0" stroke="#b97f57" stroke-width=".8" fill="none"/>
+      <path d="M66.1,55.8 q3.2,1.6 6.4,0" stroke="#b97f57" stroke-width=".8" fill="none"/>
+      <ellipse cx="47" cy="60.5" rx="3.4" ry="2" fill="#e08a66" opacity=".35"/>
+      <ellipse cx="73" cy="60.5" rx="3.4" ry="2" fill="#e08a66" opacity=".35"/>
+      <!-- nose -->
+      <path d="M60,52 q-1.6,6 -2.6,8.2 q2.6,2 5.2,0 Q61.4,58 60,52" fill="#cf9068" opacity=".8"/>
+      <!-- laugh lines -->
+      <path d="M50,62 q1.6,3.4 4,4.6" stroke="#b97f57" stroke-width=".9" fill="none" opacity=".8"/>
+      <path d="M70,62 q-1.6,3.4 -4,4.6" stroke="#b97f57" stroke-width=".9" fill="none" opacity=".8"/>
+      <!-- big warm smile -->
+      <path d="M50,64.5 Q60,72.5 70,64.5 Q66,70.5 60,70.5 Q54,70.5 50,64.5 Z" fill="#8a4a37"/>
+      <path d="M52.2,65.6 Q60,70.6 67.8,65.6 Q60,68.9 52.2,65.6 Z" fill="#f4efe6"/>
+      <path d="M50,64.5 Q60,72.5 70,64.5" stroke="#7e4432" stroke-width="1" fill="none"/>
+      <rect width="120" height="120" fill="url(#gvig)"/>
+    </svg>`;
+  }
+  // gather everything the engine knows into one plain-spoken guide read
+  function guideReport() {
+    const c = S.cond, sp = spot(), pos = position(), w = WEATHER[c.weather], sea = SEASONS[c.season] || SEASONS.summer;
+    const hour = c.timeMin / 60, ft = Math.round(c.band * 24);
+    const zone = c.band < 0.34 ? "shallow" : c.band < 0.67 ? "mid-depth" : "deep";
+    const best = bestLureNow();
+    const here = STRUCT_GROUP[pos.id] || "open", bestGrp = bestSeasonGroup(), fit = seasonFit();
+    const bestPos = sp.positions.find(p => (STRUCT_GROUP[p.id] || "open") === bestGrp);
+    const colorRec = preferredFam() === "natural" ? "natural colors — greens, shad, black" : "something loud — chartreuse, red, gold";
+    // best size / line / scent for the recommended lure, scored the same way the pickers score
+    let szBest = "med", szPct = -1;
+    for (const k of SIZE_ORDER) { const p = lureScore(best ? best.lure : lure(), null, k).pct; if (p > szPct) { szPct = p; szBest = k; } }
+    let lnBest = "mono", lnPct = -1;
+    for (const k of LINE_ORDER) { const p = lineFit(k); if (p > lnPct) { lnPct = p; lnBest = k; } }
+    const savedSc = G.attractant; let scBest = "none", scPct = -1;
+    for (const k in ATTRACTANTS) { G.attractant = k; const p = lureScore(best ? best.lure : lure()).pct; if (p > scPct) { scPct = p; scBest = k; } }
+    G.attractant = savedSc;
+    const lowLight = hour < 8 || hour > 18 || c.weather === "night" || c.weather === "fog";
+    const why =
+      c.weather === "rain" ? "That rain's putting fresh oxygen in the shallows — they'll chase a moving bait." :
+      c.weather === "fog" ? "Fog keeps the light low all day. They'll roam like it's dawn — cover water." :
+      c.weather === "night" ? "Dark water, big appetite. The giants hunt shallow at night — slow and loud." :
+      c.weather === "sun" && hour >= 10 && hour <= 16 ? "Bright midday sun pins 'em tight to shade and deep edges. Put it right on their nose." :
+      lowLight ? "Low light has 'em up and prowling — prime feeding window, don't waste it." :
+      c.temp < 50 ? "Cold water slows their motor way down. Half-speed everything and let it soak." :
+      c.temp > 82 ? "Bathwater up top — the better fish slide deep where it's cool. Follow 'em down." :
+      "Fair conditions — the fish are where the food and cover meet. Fish the pattern, not the memory.";
+    const spotLine = fit >= 1.15
+      ? `You're parked on the right stuff — ${STRUCT_LABEL[here]} is exactly the ${sea.name.toLowerCase()} pattern. Stay put.`
+      : fit <= 0.85
+        ? `I'd move. This ${sea.name.toLowerCase()}, the fish want ${STRUCT_LABEL[bestGrp]}${bestPos ? ` — slide over to ${bestPos.ico} ${bestPos.name}` : ""}.`
+        : `Fair spot. If it goes quiet, the ${sea.name.toLowerCase()} pattern is ${STRUCT_LABEL[bestGrp]}${bestPos ? ` — ${bestPos.ico} ${bestPos.name} has it` : ""}.`;
+    const greet = hour < 11 ? "Mornin'!" : hour < 17 ? "Afternoon!" : hour < 21 ? "Evenin'!" : "Still out here, huh?";
+    const signs = ["Now go get 'em.", "That big girl's out there somewhere.", "Keep your hook sharp.", "Set it like you mean it.", "Tight lines, kid."];
+    return `
+      <p><b>${greet}</b> ${sea.ico} ${sea.name}, ${w.ico} ${w.name.toLowerCase()}, water's ${c.temp}°, ${moonNow().ico} ${moonNow().name.toLowerCase()} moon, ${fmtClock(c.timeMin)}. Bass are holding <b>${zone}</b> — call it <b>${ft} ft</b>.</p>
+      <p>🗺️ ${spotLine}</p>
+      <p>🧰 Tie on the <b>${best ? best.lure.ico + " " + best.lure.name : "worm"}</b>${best ? ` <span style="color:${ratingColor(best.pct)}">(${best.pct} bite)</span>` : ""} in <b>${SIZES[szBest].name.toLowerCase()}</b>, ${colorRec}. Spool up <b>${LINES[lnBest].name}</b>${scBest !== "none" ? `, and a shot of <b>${ATTRACTANTS[scBest].name}</b> wouldn't hurt` : ""}.</p>
+      <p>💡 ${why}</p>
+      <p class="g-sign">— ${signs[Math.floor(c.timeMin / 97) % signs.length]}</p>`;
+  }
+  function openGuide() {
+    document.getElementById("guideFace").innerHTML = guideSVG(false);
+    document.getElementById("guideBody").innerHTML = guideReport();
+    el.guideModal.classList.remove("hidden");
+    sfx("ui");
+  }
+
+  // ===========================================================================
   // TITLE SCREEN — name entry + mode select on boot; 🏠 from the map returns here
   // ===========================================================================
   function showTitle() {
@@ -1721,6 +1862,9 @@
     else { closeTitle(true); openCircuit(); }
   });
   el.menuBtn.addEventListener("click", () => { el.mapModal.classList.add("hidden"); sfx("ui"); showTitle(); });
+  el.guideBtn.innerHTML = guideSVG(true);
+  el.guideBtn.addEventListener("click", openGuide);
+  el.guideClose.addEventListener("click", () => el.guideModal.classList.add("hidden"));
   // 🏠 from anywhere: an active tournament/arcade run is saved, not lost
   el.homeBtn.addEventListener("click", () => {
     if ((S.tournament && !S.tournament.ended) || (S.arcade && !S.arcade.ended)) suspendRun();
@@ -3017,6 +3161,7 @@
     // hide the menu chrome while fishing so the Sega overlay owns the screen
     e.menuHud.classList.toggle("fishing-off", show);
     e.loadout.classList.toggle("fishing-off", show);
+    if (el.guideBtn) el.guideBtn.classList.toggle("fishing-off", show);
     if (!show) return;
     // in a tournament the tour HUD already shows the clock + weight at the top,
     // so suppress the Sega top blocks to avoid overlapping it
