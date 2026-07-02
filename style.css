@@ -262,7 +262,8 @@ select, input, textarea { font-size: 16px; }
 /* ---------- Tournament HUD ---------- */
 .tour-hud {
   position: absolute;
-  top: calc(54px + var(--safe-top));
+  /* below the loadout chips row — never cover the rod/lure/lake/conditions bar */
+  top: calc(100px + var(--safe-top));
   left: 8px; right: 8px;
   display: flex;
   align-items: center;
@@ -280,7 +281,7 @@ select, input, textarea { font-size: 16px; }
 /* live tournament leaderboard */
 .tour-board {
   position: absolute;
-  top: calc(108px + var(--safe-top));
+  top: calc(152px + var(--safe-top));
   right: 8px;
   width: 172px;
   background: linear-gradient(180deg, rgba(20,60,75,.92), rgba(8,32,42,.92));

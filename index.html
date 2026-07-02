@@ -8,8 +8,8 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>BassBuddy — Bass Fishing</title>
-<script>window.BB_V = "20260702g";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
-<link rel="stylesheet" href="style.css?v=20260702g" />
+<script>window.BB_V = "20260702h";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
+<link rel="stylesheet" href="style.css?v=20260702h" />
 </head>
 <body>
 <div id="game">
@@ -175,12 +175,17 @@
     </div>
   </div>
 
-  <!-- Lure tray -->
+  <!-- Tackle box — Lures/Line/Color/Scent (the Rod & Lakes tabs hop to their pickers) -->
   <div id="lureModal" class="modal hidden">
     <div class="modal-card">
       <div class="shop-head">
-        <h2>🪝 Tackle Box</h2>
+        <h2>🧰 Tackle Box</h2>
         <button class="close-btn" id="lureClose">✕</button>
+      </div>
+      <div class="shop-tabs">
+        <button class="tab active">🪱 Lure</button>
+        <button class="tab tb-tab" data-tb="rods">🎣 Rod</button>
+        <button class="tab tb-tab" data-tb="lakes">🗺️ Lakes</button>
       </div>
       <p class="muted">Bite ratings for right now — read the conditions and pick your combo.</p>
       <div class="lure-cond" id="lureCond"></div>
@@ -198,12 +203,17 @@
     </div>
   </div>
 
-  <!-- Rod picker -->
+  <!-- Tackle box — Rods -->
   <div id="rodModal" class="modal hidden">
     <div class="modal-card">
       <div class="shop-head">
-        <h2>🎣 Rods</h2>
+        <h2>🧰 Tackle Box</h2>
         <button class="close-btn" id="rodClose">✕</button>
+      </div>
+      <div class="shop-tabs">
+        <button class="tab tb-tab" data-tb="lures">🪱 Lure</button>
+        <button class="tab active">🎣 Rod</button>
+        <button class="tab tb-tab" data-tb="lakes">🗺️ Lakes</button>
       </div>
       <p class="muted">Match the rod to your lure and where you're fishing.</p>
       <div class="lure-cond" id="rodCond"></div>
@@ -279,29 +289,6 @@
       <div class="tour-result-stats" id="tourResultStats"></div>
       <div class="tour-standings" id="tourStandings"></div>
       <button class="big-btn" id="tourResultOk">COLLECT</button>
-    </div>
-  </div>
-
-  <!-- Shop modal -->
-  <div id="shopModal" class="modal hidden">
-    <div class="modal-card shop-card">
-      <div class="shop-head">
-        <h2>🧰 Tackle Box</h2>
-        <button class="close-btn" id="shopClose">✕</button>
-      </div>
-      <p class="muted" style="margin:0 0 6px">Everything's yours — pick the right gear for the conditions.</p>
-
-      <div class="shop-tabs">
-        <button class="tab active" data-tab="rods">Rods</button>
-        <button class="tab" data-tab="lures">Lures</button>
-        <button class="tab" data-tab="spots">Lakes</button>
-        <button class="tab" data-tab="dex">Fish-Dex</button>
-      </div>
-
-      <div class="shop-body" id="shopRods"></div>
-      <div class="shop-body hidden" id="shopLures"></div>
-      <div class="shop-body hidden" id="shopSpots"></div>
-      <div class="shop-body hidden" id="shopDex"></div>
     </div>
   </div>
 
@@ -414,7 +401,7 @@
 </div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=20260702g"></script>
-<script src="game.js?v=20260702g"></script>
+<script type="module" src="render3d.js?v=20260702h"></script>
+<script src="game.js?v=20260702h"></script>
 </body>
 </html>

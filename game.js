@@ -377,14 +377,13 @@
     catchName: $("catchName"), catchWeight: $("catchWeight"), catchReward: $("catchReward"),
     catchRewardWrap: $("catchRewardWrap"), catchScoreBd: $("catchScoreBd"), catchRecord: $("catchRecord"), catchTourney: $("catchTourney"), catchOk: $("catchOk"),
     failModal: $("failModal"), failMsg: $("failMsg"), failOk: $("failOk"),
-    shopBtn: $("shopBtn"), muteBtn: $("muteBtn"), shopModal: $("shopModal"), shopClose: $("shopClose"),
+    shopBtn: $("shopBtn"), muteBtn: $("muteBtn"),
     xpPill: $("xpPill"), recordsModal: $("recordsModal"), recordsClose: $("recordsClose"), recStats: $("recStats"), recBody: $("recBody"),
     catchLogModal: $("catchLogModal"), catchLogClose: $("catchLogClose"), clogList: $("clogList"), clogCount: $("clogCount"),
     fLake: $("fLake"), fLure: $("fLure"), fRod: $("fRod"), fTime: $("fTime"), fWx: $("fWx"),
     statsModal: $("statsModal"), statsClose: $("statsClose"), statsBody: $("statsBody"), openStatsBtn: $("openStatsBtn"),
     catchDetailModal: $("catchDetailModal"), catchDetailClose: $("catchDetailClose"), catchDetailBody: $("catchDetailBody"),
     trophyModal: $("trophyModal"), trophyClose: $("trophyClose"), trophyStats: $("trophyStats"), trophyMountSvg: $("trophyMountSvg"), trophyAch: $("trophyAch"), trophyAchHead: $("trophyAchHead"),
-    shopRods: $("shopRods"), shopLures: $("shopLures"), shopSpots: $("shopSpots"), shopDex: $("shopDex"),
     rodChip: $("rodChip"), lureChip: $("lureChip"), spotChip: $("spotChip"),
     hookMeter: $("hookMeter"), hmMarker: $("hmMarker"), strikeFlash: $("strikeFlash"), catchHookset: $("catchHookset"),
     lureModal: $("lureModal"), lureClose: $("lureClose"), lureList: $("lureList"), colorRow: $("colorRow"), lureCond: $("lureCond"), lureCats: $("lureCats"), sizeRow: $("sizeRow"), lineRow: $("lineRow"), lineCats: $("lineCats"),
@@ -964,7 +963,7 @@
   })();
   const sfx = n => Sound.play(n);
   function anyModalOpen() {
-    return [el.catchModal, el.failModal, el.shopModal, el.lureModal, el.mapModal,
+    return [el.catchModal, el.failModal, el.lureModal, el.mapModal,
             el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal, el.titleScreen].some(m => !m.classList.contains("hidden"));
   }
 
@@ -2105,6 +2104,7 @@
     // day (Morning -> Noon -> Evening; Trophy Lake runs Dusk -> Midnight -> Dawn)
     const sweepStart = t.spot === "deep" ? 21 * 60 : 6 * 60;
     S.tournament = { timeLeft: t.dur, dur: t.dur, well: [], big: 0, culls: 0, field: t.field, fee, spotId: t.spot, name: t.name, eventId: t.id, ended: false, tier, rivals: buildRivals(t.field, tier), lastLead: null, sweepStart, period: 0 };
+    pendingTour = null;   // lines are in — the prep sheet is done
     S.cond.timeMin = sweepStart; recomputeCond(); renderConditions();
     el.tourHud.classList.remove("hidden");
     renderWell();
@@ -2281,7 +2281,7 @@
   el.tourStartBtn.addEventListener("click", startTournament);
   el.tourStartCancel.addEventListener("click", () => { pendingTour = null; el.tourStartModal.classList.add("hidden"); });
   // change tackle without losing the chosen event — pop the box, refresh on close
-  document.getElementById("tourTackleBtn").addEventListener("click", () => { openShop(); switchTab("lures"); });
+  document.getElementById("tourTackleBtn").addEventListener("click", () => { el.tourStartModal.classList.add("hidden"); openLures(); });
   el.tourQuit.addEventListener("click", () => {
     if (!S.tournament) return;
     if (S.tournament.well.length) endTournament();   // weigh in what you have
@@ -3464,12 +3464,12 @@
     const zone = band < 0.34 ? "shallow" : band < 0.67 ? "mid-depth" : "deep";
     el.lureCond.innerHTML = `${(SEASONS[c.season] || SEASONS.summer).ico} ${(SEASONS[c.season] || SEASONS.summer).name} · ${w.ico} ${w.name} · ${c.temp}° · ${moonNow().ico} ${moonNow().name} · ${fmtClock(c.timeMin)} · bass holding <b>${zone}</b> (~${Math.round(band * 24)}ft)`;
     // rate every lure for right now, best first
-    const rated = LURES.map(l => ({ l, owned: ownsLure(l.id), r: lureScore(l) }))
+    const rated = LURES.map(l => ({ l, r: lureScore(l) }))
       .sort((a, b) => b.r.score - a.r.score);
-    el.lureList.innerHTML = rated.map(({ l, owned, r }) => {
+    el.lureList.innerHTML = rated.map(({ l, r }) => {
       const sel = G.lure.id === l.id;
-      const tag = owned ? (sel ? "✓ ON" : "TAP") : "🔒 " + l.price + "🪙";
-      return `<div class="lure-opt ${sel ? "sel" : ""} ${owned ? "" : "locked"}" data-lure="${l.id}" data-owned="${owned}">
+      const tag = sel ? "✓ ON" : "TAP";
+      return `<div class="lure-opt ${sel ? "sel" : ""}" data-lure="${l.id}">
         <div class="ico">${l.ico}</div>
         <div class="info">
           <div class="nm">${l.name} <span class="stars" style="color:${ratingColor(r.pct)}">${starStr(r.stars)}</span></div>
@@ -3537,20 +3537,20 @@
     }).join("");
     G.attractant = saved;
   }
+  // closing any tackle picker mid tournament-prep hops back to the start sheet
+  function tackleClosed() {
+    if (pendingTour && !(S.tournament && !S.tournament.ended)) { refreshTourStart(); el.tourStartModal.classList.remove("hidden"); }
+  }
   el.lureChip.addEventListener("click", openLures);
-  el.lureClose.addEventListener("click", () => el.lureModal.classList.add("hidden"));
+  el.lureClose.addEventListener("click", () => { el.lureModal.classList.add("hidden"); tackleClosed(); });
   el.lureModal.addEventListener("click", (e) => {
     const opt = e.target.closest(".lure-opt");
     const dot = e.target.closest(".color-dot");
     if (opt) {
-      if (opt.dataset.owned === "true") {
-        G.lure.id = opt.dataset.lure;
-        const l = lure();
-        if (!l.colors.includes(G.lure.color)) G.lure.color = l.colors[0];
-        save(); updateHUD(); renderLures();
-      } else {
-        toast("Buy this lure in the 🛒 shop");
-      }
+      G.lure.id = opt.dataset.lure;
+      const l = lure();
+      if (!l.colors.includes(G.lure.color)) G.lure.color = l.colors[0];
+      save(); updateHUD(); renderLures();
     } else if (dot) {
       G.lure.color = dot.dataset.color; save(); updateHUD(); renderColors(); renderCats();
     } else {
@@ -3582,7 +3582,7 @@
     const cur = rodScore(rod(), lu);
     el.rodCats.innerHTML = `<div class="cats-head">Why — ${rod().ico} ${rod().name}</div>` + catBars(cur.cats) + `<div class="cats-tip">${cur.tip}</div>`;
   }
-  el.rodClose.addEventListener("click", () => el.rodModal.classList.add("hidden"));
+  el.rodClose.addEventListener("click", () => { el.rodModal.classList.add("hidden"); tackleClosed(); });
   el.rodModal.addEventListener("click", (e) => {
     const opt = e.target.closest(".lure-opt"); if (!opt) return;
     G.rod = opt.dataset.rod; save(); updateHUD(); renderRods();
@@ -3692,57 +3692,6 @@
   // Shop
   // ===========================================================================
   el.rodChip.addEventListener("click", openRods);
-  function openShop() { el.shopModal.classList.remove("hidden"); renderShop(); }
-  function switchTab(tab) {
-    document.querySelectorAll(".tab").forEach(x => x.classList.toggle("active", x.dataset.tab === tab));
-    el.shopRods.classList.toggle("hidden", tab !== "rods");
-    el.shopLures.classList.toggle("hidden", tab !== "lures");
-    el.shopSpots.classList.toggle("hidden", tab !== "spots");
-    el.shopDex.classList.toggle("hidden", tab !== "dex");
-  }
-  function renderShop() {
-    const locked = !!(S.tournament && !S.tournament.ended);   // lake fixed once a tournament is live
-    // Rods
-    el.shopRods.innerHTML = RODS.map(r => {
-      const eq = G.rod === r.id;
-      const btn = eq ? `<button class="item-btn equipped" disabled>EQUIPPED</button>` : `<button class="item-btn owned" data-equip-rod="${r.id}">EQUIP</button>`;
-      return `<div class="item"><div class="item-ico">${r.ico}</div><div class="item-info"><div class="item-name">${r.name}</div>
-        <div class="item-desc">${r.desc} · Power ${r.power.toFixed(2)}× · Luck +${Math.round(r.luck * 100)}%</div></div>${btn}</div>`;
-    }).join("");
-    // Lures
-    el.shopLures.innerHTML = LURES.map(l => {
-      const eq = G.lure.id === l.id;
-      const btn = eq ? `<button class="item-btn equipped" disabled>EQUIPPED</button>` : `<button class="item-btn owned" data-equip-lure="${l.id}">EQUIP</button>`;
-      const swatches = l.colors.map(c => `<i style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${COLORS[c].hex};margin-right:3px;border:1px solid rgba(255,255,255,.4)"></i>`).join("");
-      return `<div class="item"><div class="item-ico">${l.ico}</div><div class="item-info"><div class="item-name">${l.name}</div>
-        <div class="item-desc">${l.desc}</div><div style="margin-top:4px">${swatches}</div></div>${btn}</div>`;
-    }).join("");
-    // Lakes
-    el.shopSpots.innerHTML = SPOTS.map(s => {
-      const active = G.spot === s.id;
-      const owned = ownsSpot(s.id);
-      const btn = active ? `<button class="item-btn equipped" disabled>FISHING</button>`
-                : !owned ? `<button class="item-btn" disabled>🔒</button>`
-                : locked ? `<button class="item-btn" disabled>LOCKED</button>`
-                : `<button class="item-btn owned" data-go-spot="${s.id}">GO</button>`;
-      const desc = owned ? s.desc : `🔒 ${s.unlock.label}`;
-      return `<div class="item"><div class="item-ico">${s.ico}</div><div class="item-info"><div class="item-name">${s.name}</div>
-        <div class="item-desc"${owned ? "" : ' style="color:#ffcf6a"'}>${desc}</div></div>${btn}</div>`;
-    }).join("");
-    // Dex
-    el.shopDex.innerHTML = `<div class="dex-grid"></div>`;
-    const grid = el.shopDex.querySelector(".dex-grid");
-    const dexSeen = new Set();
-    Object.keys(F).forEach(k => {
-      const def = F[k];
-      if (dexSeen.has(def.name)) return; dexSeen.add(def.name);
-      const caught = G.caught[def.name], best = G.records[def.name];
-      grid.insertAdjacentHTML("beforeend", `<div class="dex-cell ${caught ? "" : "locked"}">
-        <div class="e">${caught ? fishSVG(def, 56) : "❓"}</div>
-        <div class="n">${caught ? def.name : "???"}</div>
-        <div class="best">${best ? "🏆 " + best + " lb" : ""}</div></div>`);
-    });
-  }
   el.muteBtn.addEventListener("click", () => {
     G.muted = !G.muted; el.muteBtn.textContent = G.muted ? "🔇" : "🔊";
     Sound.setMuted(G.muted);
@@ -3762,6 +3711,7 @@
     const season = G.season || { best: {}, titles: 0 };
     const seasonPts = Object.values(season.best || {}).reduce((s, p) => s + p, 0);
     const seasonEvents = Object.keys(season.best || {}).length;
+    const bestCatch = (G.catchLog || []).reduce((m, c) => Math.max(m, c.score || 0), 0);
     const stats = [
       ["🐟", "Bass caught", totalCaught],
       ["🏅", "Biggest bass", biggest ? biggest.toFixed(1) + " lb" : "—"],
@@ -3769,6 +3719,9 @@
       ["🏁", "Tournament wins", G.tourWins || 0],
       ["👑", "Circuit titles", season.titles || 0],
       ["📋", "Season", `${seasonPts} pts · ${seasonEvents}/${TOURNAMENTS.length}`],
+      ["🎯", "Angler score", (G.coins || 0).toLocaleString()],
+      ["💥", "Best catch", bestCatch ? bestCatch.toLocaleString() : "—"],
+      ["🕹️", "Arcade best", G.arcadeBestScore ? G.arcadeBestScore.toLocaleString() : "—"],
     ];
     el.recStats.innerHTML = stats.map(([i, l, v]) => {
       const tap = l === "Bass caught" && totalCaught > 0;   // tap to open the full catch log
@@ -4056,18 +4009,15 @@
   el.xpPill.addEventListener("click", openRecords);
   el.recordsClose.addEventListener("click", () => el.recordsModal.classList.add("hidden"));
 
-  el.shopBtn.addEventListener("click", openShop);
-  el.shopClose.addEventListener("click", () => { el.shopModal.classList.add("hidden"); if (pendingTour) refreshTourStart(); });
-  document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => switchTab(t.dataset.tab)));
-  el.shopModal.addEventListener("click", (e) => {
-    const t = e.target.closest("button"); if (!t) return;
-    const d = t.dataset;
-    if (d.equipRod) { G.rod = d.equipRod; }
-    else if (d.equipLure) { const l = LURES.find(x => x.id === d.equipLure); G.lure.id = l.id; if (!l.colors.includes(G.lure.color)) G.lure.color = l.colors[0]; }
-    else if (d.goSpot) { if (S.tournament && !S.tournament.ended) { toast("Can't switch lakes mid-tournament"); return; } if (S.arcade && !S.arcade.ended) { toast("Can't switch lakes mid-arcade 🕹️"); return; } if (!ownsSpot(d.goSpot)) { const sp = SPOTS.find(s => s.id === d.goSpot); toast(sp && sp.unlock ? "🔒 " + sp.unlock.label : "Locked"); return; } if (G.spot !== d.goSpot) { G.spot = d.goSpot; seedFish(); rollConditions(); resetToIdle(); } }
-    else return;
-    save(); updateHUD(); renderShop();
-  });
+  // 🧰 opens the real tackle box (lure/size/line/color/scent); tabs hop between
+  // the lure, rod and lake pickers so it all feels like one box
+  el.shopBtn.addEventListener("click", openLures);
+  document.querySelectorAll(".tb-tab").forEach(t => t.addEventListener("click", () => {
+    el.lureModal.classList.add("hidden"); el.rodModal.classList.add("hidden");
+    if (t.dataset.tb === "rods") openRods();
+    else if (t.dataset.tb === "lures") openLures();
+    else openMap();
+  }));
 
   // ===========================================================================
   // Boot
