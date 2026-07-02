@@ -415,7 +415,7 @@
     lbProfileModal: $("lbProfileModal"), lbpName: $("lbpName"), lbpClose: $("lbpClose"),
     lbpStats: $("lbpStats"), lbpFav: $("lbpFav"), lbpSorts: $("lbpSorts"), lbpList: $("lbpList"),
     mapTitle: $("mapTitle"), mapCond: $("mapCond"), posHead: $("posHead"), finderHead: $("finderHead"),
-    mapNext: $("mapNext"), mapBack: $("mapBack"), lureFish: $("lureFish"), lureBack: $("lureBack"),
+    mapNext: $("mapNext"), mapBack: $("mapBack"), lureFish: $("lureFish"), lureBack: $("lureBack"), lakeMap: $("lakeMap"),
     tutBanner: $("tutBanner"), tutStep: $("tutStep"), tutText: $("tutText"), tutSkip: $("tutSkip"), menuBtn: $("menuBtn"),
     fx: $("fx"),
   };
@@ -4130,6 +4130,7 @@
     el.mapVenues.classList.toggle("hidden", prep === 2);
     const spotStep = prep !== 1;
     el.posHead.classList.toggle("hidden", !spotStep);
+    el.lakeMap.classList.toggle("hidden", !spotStep);
     el.posGrid.classList.toggle("hidden", !spotStep);
     el.finderHead.classList.toggle("hidden", !spotStep);
     el.finder.classList.toggle("hidden", !spotStep);
@@ -4164,8 +4165,49 @@
     }).join("");
     renderPositions();
   }
+  // ---- overhead lake map: each lake's own shape with the spots pinned where
+  // their zones actually sit on the water. Markers are tappable.
+  const LAKE_SHAPES = {
+    cove:     { water: "M14,32 C10,14 32,6 54,7 C80,8 94,20 93,35 C92,52 72,60 47,58 C24,56 17,49 14,32 Z", deco: "pads" },
+    river:    { water: "M2,8 C20,2 32,16 48,15 C64,14 60,30 76,33 C90,36 96,46 98,56 L98,64 L84,64 C68,56 58,50 44,43 C28,35 8,28 2,20 Z", deco: "rocks" },
+    deep:     { water: "M7,27 C9,9 38,3 61,7 C86,11 96,25 94,40 C92,57 66,63 41,60 C17,57 5,45 7,27 Z", deco: "deep" },
+    bayou:    { water: "M6,20 C16,7 33,13 44,9 C58,3 73,9 85,15 C97,22 95,38 87,46 C77,57 62,50 50,56 C36,63 19,57 11,46 C3,36 0,29 6,20 Z", deco: "cypress" },
+    highland: { water: "M48,3 C58,13 55,23 62,31 C71,42 89,39 95,49 L95,61 L73,61 C62,52 54,50 45,54 L24,61 L5,58 C9,45 25,44 35,37 C46,30 41,15 48,3 Z", deco: "timber" },
+  };
+  function lakeTopoSVG(sp) {
+    const shape = LAKE_SHAPES[sp.id] || LAKE_SHAPES.cove;
+    const deep = shade(sp.water[1], -6), shallow = sp.water[0];
+    let deco = "";
+    const dot = (x, y, txt, size) => `<text x="${x}" y="${y}" font-size="${size || 4}" text-anchor="middle" opacity="0.75">${txt}</text>`;
+    if (shape.deco === "pads") deco = dot(24, 22, "🪷") + dot(70, 16, "🪷") + dot(38, 50, "🪷", 3.4);
+    else if (shape.deco === "rocks") deco = dot(30, 24, "🪨", 3.6) + dot(64, 26, "🪨", 3) + dot(86, 48, "🪨", 3.6);
+    else if (shape.deco === "cypress") deco = dot(28, 16, "🌳", 4.2) + dot(72, 12, "🌳", 3.6) + dot(18, 44, "🌳", 3.6) + dot(66, 52, "🌳", 4);
+    else if (shape.deco === "timber") deco = dot(30, 44, "🌲", 3.8) + dot(58, 24, "🌲", 3.2) + dot(82, 52, "🌲", 3.6);
+    else if (shape.deco === "deep") deco = dot(50, 34, "〰️", 4);
+    const xy = p => [8 + p.zone[0] * 84, 5 + p.zone[1] * 50];
+    const markers = sp.positions.map(p => {
+      const sel = G.positions[sp.id] === p.id;
+      const [x, y] = xy(p);
+      // flip the label above the pin when another pin sits close underneath it
+      const crowdedBelow = sp.positions.some(q => { if (q === p) return false; const [qx, qy] = xy(q); return Math.abs(qx - x) < 24 && qy - y > 0 && qy - y < 16; });
+      return `<g class="mk ${sel ? "sel" : ""}" data-pos="${p.id}" transform="translate(${x.toFixed(1)},${y.toFixed(1)})">
+        <circle r="6" class="mk-c"/>
+        <text y="1.6" font-size="6" text-anchor="middle">${p.ico}</text>
+        <text y="${crowdedBelow ? -8 : 10.5}" class="mk-l" text-anchor="middle">${p.name}</text>
+      </g>`;
+    }).join("");
+    return `<svg viewBox="0 0 100 66" xmlns="http://www.w3.org/2000/svg">
+      <defs><radialGradient id="lm-${sp.id}" cx="50%" cy="42%" r="70%">
+        <stop offset="0%" stop-color="${deep}"/><stop offset="100%" stop-color="${shallow}"/>
+      </radialGradient></defs>
+      <path d="${shape.water}" fill="url(#lm-${sp.id})" stroke="rgba(234,246,251,0.5)" stroke-width="0.8"/>
+      ${deco}${markers}
+      <text x="97" y="63" font-size="3.2" text-anchor="end" fill="rgba(234,246,251,0.5)">${sp.ico} ${sp.name}</text>
+    </svg>`;
+  }
   function renderPositions() {
     const sp = spot();
+    el.lakeMap.innerHTML = lakeTopoSVG(sp);
     el.posGrid.innerHTML = sp.positions.map(p => {
       const sel = G.positions[sp.id] === p.id;
       return `<div class="pos-cell ${sel ? "sel" : ""}" data-pos="${p.id}">
@@ -4244,7 +4286,7 @@
   });
   el.mapModal.addEventListener("click", (e) => {
     const v = e.target.closest(".venue");
-    const p = e.target.closest(".pos-cell");
+    const p = e.target.closest(".pos-cell") || e.target.closest(".mk");   // grid cell or overhead-map pin
     if (v) {
       if (S.arcade && !S.arcade.ended) { toast("Can't switch lakes mid-arcade 🕹️"); return; }
       if (v.dataset.owned === "true") {
