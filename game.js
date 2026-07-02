@@ -416,6 +416,7 @@
     lbpStats: $("lbpStats"), lbpFav: $("lbpFav"), lbpSorts: $("lbpSorts"), lbpList: $("lbpList"),
     mapTitle: $("mapTitle"), mapCond: $("mapCond"), posHead: $("posHead"), finderHead: $("finderHead"),
     mapNext: $("mapNext"), mapBack: $("mapBack"), lureFish: $("lureFish"), lureBack: $("lureBack"), lakeMap: $("lakeMap"),
+    lureTitle: $("lureTitle"), rodTitle: $("rodTitle"), rodBack: $("rodBack"), rodNext: $("rodNext"),
     tutBanner: $("tutBanner"), tutStep: $("tutStep"), tutText: $("tutText"), tutSkip: $("tutSkip"), menuBtn: $("menuBtn"),
     fx: $("fx"),
   };
@@ -1450,6 +1451,7 @@
     if (S.arcade && !S.arcade.ended) { toast("Arcade run in progress 🕹️"); return; }
     if (S.tut) { S.tut = null; el.tutBanner.classList.add("hidden"); }
     dropPausedRuns();
+    S.dayStarted = true;
     Music.setScene("game");   // in case we arrived via a menu deep-link with the theme still on
     el.modeModal.classList.add("hidden");
     S.arcadePrev = { spot: G.spot };
@@ -1607,6 +1609,7 @@
       : G.pausedArcade ? `▶ RESUME ARCADE · S${G.pausedArcade.a.stage + 1}/4 · ${fmtT(G.pausedArcade.a.timeLeft)}` : null;
     el.tsResume.classList.toggle("hidden", !pr);
     if (pr) el.tsResume.textContent = pr;
+    el.tsFree.textContent = S.dayStarted ? "🎣 BACK TO THE WATER" : "🎣 GO FISHING";
     el.titleScreen.classList.remove("hidden");
     Music.setScene("title");
   }
@@ -1619,7 +1622,11 @@
     if (!keepTheme) Music.setScene("game");   // theme keeps playing through lake/spot/tackle prep
     save(); updateHUD();
   }
-  el.tsFree.addEventListener("click", () => { closeTitle(true); sfx("ui"); startPrep(); });
+  el.tsFree.addEventListener("click", () => {
+    sfx("ui");
+    if (S.dayStarted) { closeTitle(); return; }   // mid-session: straight back to the water
+    closeTitle(true); startPrep();
+  });
   el.tsArcade.addEventListener("click", () => { closeTitle(); sfx("ui"); startArcade(); });
   el.tsTour.addEventListener("click", () => { closeTitle(); sfx("ui"); openCircuit(); });
   el.tsTutorial.addEventListener("click", () => { closeTitle(); sfx("ui"); startTutorial(); });
@@ -1658,6 +1665,7 @@
     resetToIdle(); save(); updateHUD();
   }
   function resumeRun() {
+    S.dayStarted = true;
     if (G.pausedTour) {
       const p = G.pausedTour; G.pausedTour = null;
       G.spot = p.spot; seedFish();
@@ -1685,14 +1693,42 @@
 
   // ---- GO FISHING prep wizard: lake → spot → tackle, the theme playing all the
   // way — each step has room to read the weather and conditions before lines-in
-  function startPrep() { S.prep = 1; openMap(); }
+  function startPrep() { gotoPrep(1); }
+  // step numbering: free play runs 1..8 (lake..scent); tournaments run 2..8 and
+  // renumber as 1..7 since the event already fixed the lake
+  function prepNum(step) { return S.prepTour ? `${step - 1} of 7` : `${step} of 8`; }
+  function gotoPrep(step) {
+    S.prep = step;
+    el.mapModal.classList.add("hidden"); el.lureModal.classList.add("hidden"); el.rodModal.classList.add("hidden");
+    if (step <= 2) openMap();
+    else if (step === 3) openRods();
+    else openLures();
+  }
+  // ✕ or backing all the way out of the wizard — to the menu, or back to the
+  // event sheet when it's a tournament prep
+  function exitPrep() {
+    const wasTour = S.prepTour;
+    S.prep = null; S.prepTour = false;
+    el.lureFish.classList.add("hidden"); el.lureBack.classList.add("hidden");
+    el.mapModal.classList.add("hidden"); el.lureModal.classList.add("hidden"); el.rodModal.classList.add("hidden");
+    if (wasTour && pendingTour) { refreshTourStart(); el.tourStartModal.classList.remove("hidden"); }
+    else showTitle();
+  }
   function finishPrep() {
     S.prep = null;
     el.lureFish.classList.add("hidden"); el.lureBack.classList.add("hidden");
     el.lureModal.classList.add("hidden");
+    S.dayStarted = true;
     Music.setScene("game");
     resetToIdle(); save(); updateHUD();
     toast(`🎣 ${spot().name} — ${position().name}. Lines in!`);
+  }
+  function finishTourPrep() {
+    S.prep = null; S.prepTour = false;
+    el.lureFish.classList.add("hidden"); el.lureBack.classList.add("hidden");
+    el.lureModal.classList.add("hidden");
+    S.dayStarted = true;
+    startTournament();
   }
   // the slider labels ARE the per-channel mute toggles
   function updateVolLabels() {
@@ -1741,6 +1777,7 @@
     G.spot = "cove"; G.positions.cove = "pads";
     S.cond.weather = "cloud"; S.cond.timeMin = 7 * 60 + 30; S.cond.season = "summer"; S.cond.front = 0.05;
     recomputeCond(); renderConditions(); seedFish(); resetToIdle();
+    S.dayStarted = true;
     S.tut = { step: -1 };
     el.tutBanner.classList.remove("hidden");
     tutShow(0);
@@ -1822,6 +1859,9 @@
     const t = pendingTour, sp = SPOTS.find(s => s.id === t.spot) || spot();
     const mins = Math.round(t.dur / 60000), secs = Math.round(t.dur / 1000) % 60;
     document.getElementById("tourTitle").textContent = t.name;
+    const tm = document.getElementById("tourMap"), tl = document.getElementById("tourLore");
+    if (tm) tm.innerHTML = lakeTopoSVG(sp);
+    if (tl) tl.innerHTML = sp.lore ? `📍 ${sp.lore.where}<br>📏 ${sp.lore.size} · 🌊 ${sp.lore.depth} · 💧 ${sp.clarity} water · 🏆 record ${sp.lore.record}` : "";
     el.tourRules.textContent = `${sp.name} • ${mins}:${String(secs).padStart(2, "0")} on the clock.`;
     el.tourField.textContent = t.field;
     const lu = lure();
@@ -2633,6 +2673,7 @@
     el.tourStartModal.classList.add("hidden");
     // Sega Original-mode day sweep: the event's countdown maps onto a full fishing
     // day (Morning -> Noon -> Evening; Trophy Lake runs Dusk -> Midnight -> Dawn)
+    S.dayStarted = true;
     const sweepStart = t.spot === "deep" ? 21 * 60 : 6 * 60;
     S.tournament = { timeLeft: t.dur, dur: t.dur, well: [], big: 0, culls: 0, field: t.field, fee, spotId: t.spot, name: t.name, eventId: t.id, ended: false, tier, rivals: buildRivals(t.field, tier), lastLead: null, sweepStart, period: 0 };
     pendingTour = null;   // lines are in — the prep sheet is done
@@ -2810,10 +2851,16 @@
     updateHUD();
   }
 
-  el.tourStartBtn.addEventListener("click", startTournament);
+  // START walks the same spot → rod → lure → size → color → line → scent steps
+  // as free play; the clock only starts at 🏁 LINES IN!
+  el.tourStartBtn.addEventListener("click", () => {
+    if (!pendingTour) return;
+    sfx("ui");
+    el.tourStartModal.classList.add("hidden");
+    S.prepTour = true;
+    gotoPrep(2);
+  });
   el.tourStartCancel.addEventListener("click", () => { pendingTour = null; el.tourStartModal.classList.add("hidden"); });
-  // change tackle without losing the chosen event — pop the box, refresh on close
-  document.getElementById("tourTackleBtn").addEventListener("click", () => { el.tourStartModal.classList.add("hidden"); openLures(); });
   el.tourQuit.addEventListener("click", () => {
     if (!S.tournament) return;
     if (S.tournament.well.length) endTournament();   // weigh in what you have
@@ -3988,10 +4035,37 @@
   // ===========================================================================
   // Lure tray
   // ===========================================================================
+  // wizard steps 4..8 stage the tackle box one option category at a time
+  const LURE_STEPS = {
+    4: { seg: "lure",  ico: "🪱", name: "Pick your lure",  back: "◂ ROD",   next: "NEXT — SIZE ▸" },
+    5: { seg: "size",  ico: "📏", name: "Lure size",       back: "◂ LURE",  next: "NEXT — COLOR ▸" },
+    6: { seg: "color", ico: "🎨", name: "Color",           back: "◂ SIZE",  next: "NEXT — LINE ▸" },
+    7: { seg: "line",  ico: "🧵", name: "Line",            back: "◂ COLOR", next: "NEXT — SCENT ▸" },
+    8: { seg: "scent", ico: "🧪", name: "Scent / flavor",  back: "◂ LINE",  next: null },
+  };
   function openLures() {
     renderLures();
-    el.lureFish.classList.toggle("hidden", S.prep !== 3);   // final wizard step ends with GO FISH!
-    el.lureBack.classList.toggle("hidden", S.prep !== 3);
+    const st = LURE_STEPS[S.prep] || null;
+    const seg = st && st.seg;
+    const show = (elm, on) => elm && elm.classList.toggle("hidden", !on);
+    show(document.getElementById("tbTabsLure"), !seg);
+    show(el.lureList, !seg || seg === "lure");
+    show(el.lureCats, !seg || seg === "lure");
+    show(document.getElementById("sizeHead"), !seg || seg === "size");
+    show(el.sizeRow, !seg || seg === "size");
+    show(document.getElementById("colorHead"), !seg || seg === "color");
+    show(el.colorRow, !seg || seg === "color");
+    show(document.getElementById("lineHead"), !seg || seg === "line");
+    show(el.lineRow, !seg || seg === "line");
+    show(el.lineCats, !seg || seg === "line");
+    show(document.getElementById("scentHead"), !seg || seg === "scent");
+    show(document.getElementById("scentRow"), !seg || seg === "scent");
+    el.lureTitle.textContent = st ? `${st.ico} ${prepNum(S.prep)} — ${st.name}` : "🧰 Tackle Box";
+    show(el.lureBack, !!st); show(el.lureFish, !!st);
+    if (st) {
+      el.lureBack.textContent = st.back;
+      el.lureFish.textContent = st.next || (S.prepTour ? "🏁 LINES IN!" : "🎣 GO FISH!");
+    }
     el.lureModal.classList.remove("hidden");
   }
   function ratingColor(p) { return p >= 75 ? "#5be37a" : p >= 50 ? "#ffd35c" : p >= 30 ? "#ff9d3d" : "#ff5d5d"; }
@@ -4081,15 +4155,15 @@
   el.lureChip.addEventListener("click", openLures);
   el.lureClose.addEventListener("click", () => {
     el.lureModal.classList.add("hidden");
-    if (S.prep) { S.prep = null; el.lureFish.classList.add("hidden"); el.lureBack.classList.add("hidden"); showTitle(); return; }
+    if (S.prep) { exitPrep(); return; }
     tackleClosed();
   });
-  el.lureFish.addEventListener("click", () => { sfx("cast"); finishPrep(); });
-  el.lureBack.addEventListener("click", () => {
-    sfx("ui");
-    el.lureModal.classList.add("hidden"); el.lureFish.classList.add("hidden"); el.lureBack.classList.add("hidden");
-    S.prep = 2; openMap();
+  el.lureFish.addEventListener("click", () => {
+    if (S.prep >= 4 && S.prep < 8) { sfx("ui"); gotoPrep(S.prep + 1); return; }
+    sfx("cast");
+    if (S.prepTour) finishTourPrep(); else finishPrep();
   });
+  el.lureBack.addEventListener("click", () => { sfx("ui"); gotoPrep(S.prep - 1); });
   el.lureModal.addEventListener("click", (e) => {
     const opt = e.target.closest(".lure-opt");
     const dot = e.target.closest(".color-dot");
@@ -4110,7 +4184,16 @@
   });
 
   // ---- Rod picker ----
-  function openRods() { renderRods(); el.rodModal.classList.remove("hidden"); }
+  function openRods() {
+    renderRods();
+    const prep = S.prep === 3;
+    el.rodTitle.textContent = prep ? `🎣 ${prepNum(3)} — Pick your rod` : "🧰 Tackle Box";
+    const tabs = document.getElementById("tbTabsRod");
+    if (tabs) tabs.classList.toggle("hidden", prep);
+    el.rodBack.classList.toggle("hidden", !prep);
+    el.rodNext.classList.toggle("hidden", !prep);
+    el.rodModal.classList.remove("hidden");
+  }
   function renderRods() {
     const lu = lure(), sp = spot(), pos = position();
     el.rodCond.innerHTML = `${lu.ico} ${lu.name} · ${SIZES[G.lure.size || "med"].name} · ${sp.ico} ${sp.name} — ${pos.name} · <b>${sp.clarity}</b> water`;
@@ -4131,9 +4214,11 @@
   }
   el.rodClose.addEventListener("click", () => {
     el.rodModal.classList.add("hidden");
-    if (S.prep === 3) { openLures(); return; }   // rod detour inside the wizard goes back to the tackle step
+    if (S.prep) { exitPrep(); return; }
     tackleClosed();
   });
+  el.rodBack.addEventListener("click", () => { sfx("ui"); gotoPrep(2); });
+  el.rodNext.addEventListener("click", () => { sfx("ui"); gotoPrep(4); });
   el.rodModal.addEventListener("click", (e) => {
     const opt = e.target.closest(".lure-opt"); if (!opt) return;
     G.rod = opt.dataset.rod; save(); updateHUD(); renderRods();
@@ -4147,7 +4232,7 @@
     // GO FISHING prep wizard: step 1 shows lakes, step 2 the spot + finder —
     // conditions ride along at the top so every pick is an informed one
     const prep = S.prep || 0;
-    el.mapTitle.textContent = prep === 1 ? "🗺️ 1 of 3 — Pick your lake" : prep === 2 ? "📍 2 of 3 — Pick your spot" : "🗺️ Where to Fish";
+    el.mapTitle.textContent = prep === 1 ? `🗺️ ${prepNum(1)} — Pick your lake` : prep === 2 ? `📍 ${prepNum(2)} — Pick your spot` : "🗺️ Where to Fish";
     const c = S.cond, w = WEATHER[c.weather], sea = SEASONS[c.season] || SEASONS.summer;
     el.mapCond.innerHTML = `${sea.ico} ${sea.name} · ${w.ico} ${w.name} · ${c.temp}° · ${moonNow().ico} ${moonNow().name} · ${fmtClock(c.timeMin)} · bass holding ~<b>${Math.round(c.band * 24)} ft</b>`;
     el.mapVenues.classList.toggle("hidden", prep === 2);
@@ -4158,9 +4243,9 @@
     el.finderHead.classList.toggle("hidden", !spotStep);
     el.finder.classList.toggle("hidden", !spotStep);
     el.mapNext.classList.toggle("hidden", !prep);
-    el.mapNext.textContent = prep === 1 ? "NEXT — PICK YOUR SPOT ▸" : "NEXT — TACKLE BOX ▸";
+    el.mapNext.textContent = prep === 1 ? "NEXT — PICK YOUR SPOT ▸" : "NEXT — PICK YOUR ROD ▸";
     el.mapBack.classList.toggle("hidden", !prep);
-    el.mapBack.textContent = prep === 1 ? "◂ MENU" : "◂ LAKE";
+    el.mapBack.textContent = prep === 1 ? "◂ MENU" : S.prepTour ? "◂ EVENT" : "◂ LAKE";
     el.endDayBtn.classList.toggle("hidden", !!prep);
     el.menuBtn.classList.toggle("hidden", !!prep);
     el.mapVenues.innerHTML = SPOTS.map(s => {
@@ -4289,17 +4374,17 @@
   el.spotChip.addEventListener("click", openMap);
   el.mapClose.addEventListener("click", () => {
     el.mapModal.classList.add("hidden");
-    if (S.prep) { S.prep = null; showTitle(); }   // backing out of prep returns to the menu (theme keeps playing)
+    if (S.prep) exitPrep();   // backing out of prep — menu, or the event sheet
   });
   el.mapNext.addEventListener("click", () => {
     sfx("ui");
     if (S.prep === 1) { S.prep = 2; renderMap(); }
-    else if (S.prep === 2) { S.prep = 3; el.mapModal.classList.add("hidden"); openLures(); }
+    else if (S.prep === 2) gotoPrep(3);
   });
   el.mapBack.addEventListener("click", () => {
     sfx("ui");
-    if (S.prep === 2) { S.prep = 1; renderMap(); }
-    else { S.prep = null; el.mapModal.classList.add("hidden"); showTitle(); }
+    if (S.prep === 2 && !S.prepTour) { S.prep = 1; renderMap(); }
+    else exitPrep();
   });
   el.newDayBtn.addEventListener("click", () => { sfx("ui"); startNewDay(); });
   el.endDayBtn.addEventListener("click", () => {

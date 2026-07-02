@@ -8,8 +8,8 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>BassBuddy — Bass Fishing</title>
-<script>window.BB_V = "20260702s";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
-<link rel="stylesheet" href="style.css?v=20260702s" />
+<script>window.BB_V = "20260702t";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
+<link rel="stylesheet" href="style.css?v=20260702t" />
 </head>
 <body>
 <div id="game">
@@ -180,10 +180,10 @@
   <div id="lureModal" class="modal hidden">
     <div class="modal-card">
       <div class="shop-head">
-        <h2>🧰 Tackle Box</h2>
+        <h2 id="lureTitle">🧰 Tackle Box</h2>
         <button class="close-btn" id="lureClose">✕</button>
       </div>
-      <div class="shop-tabs">
+      <div class="shop-tabs" id="tbTabsLure">
         <button class="tab active">🪱 Lure</button>
         <button class="tab tb-tab" data-tb="rods">🎣 Rod</button>
         <button class="tab tb-tab" data-tb="lakes">🗺️ Lakes</button>
@@ -192,14 +192,14 @@
       <div class="lure-cond" id="lureCond"></div>
       <div class="lure-list" id="lureList"></div>
       <div class="lure-cats" id="lureCats"></div>
-      <div class="color-head">Size</div>
+      <div class="color-head" id="sizeHead">Size</div>
       <div class="size-row" id="sizeRow"></div>
-      <div class="color-head">Line</div>
+      <div class="color-head" id="lineHead">Line</div>
       <div class="size-row" id="lineRow"></div>
       <div class="lure-cats" id="lineCats"></div>
-      <div class="color-head">Color</div>
+      <div class="color-head" id="colorHead">Color</div>
       <div class="color-row" id="colorRow"></div>
-      <div class="color-head">Scent / Flavor</div>
+      <div class="color-head" id="scentHead">Scent / Flavor</div>
       <div class="scent-row" id="scentRow"></div>
       <div class="prep-row" style="margin-top:10px">
         <button class="title-btn hidden" id="lureBack">◂ SPOT</button>
@@ -212,10 +212,10 @@
   <div id="rodModal" class="modal hidden">
     <div class="modal-card">
       <div class="shop-head">
-        <h2>🧰 Tackle Box</h2>
+        <h2 id="rodTitle">🧰 Tackle Box</h2>
         <button class="close-btn" id="rodClose">✕</button>
       </div>
-      <div class="shop-tabs">
+      <div class="shop-tabs" id="tbTabsRod">
         <button class="tab tb-tab" data-tb="lures">🪱 Lure</button>
         <button class="tab active">🎣 Rod</button>
         <button class="tab tb-tab" data-tb="lakes">🗺️ Lakes</button>
@@ -224,6 +224,10 @@
       <div class="lure-cond" id="rodCond"></div>
       <div class="lure-list" id="rodList"></div>
       <div class="lure-cats" id="rodCats"></div>
+      <div class="prep-row" style="margin-top:10px">
+        <button class="title-btn hidden" id="rodBack">◂ SPOT</button>
+        <button class="big-btn hidden" id="rodNext">NEXT — LURE ▸</button>
+      </div>
     </div>
   </div>
 
@@ -311,6 +315,8 @@
     <div class="modal-card">
       <div class="catch-emoji">🏆</div>
       <div class="catch-name" id="tourTitle">Bass Tournament</div>
+      <div class="lake-map" id="tourMap" style="margin:8px 0"></div>
+      <div class="muted" id="tourLore" style="font-size:11.5px;margin-bottom:6px"></div>
       <p class="muted" id="tourRules"></p>
       <ul class="rules">
         <li>⏱️ Race the clock to boat your best 5 <b>black bass</b>.</li>
@@ -319,8 +325,7 @@
       </ul>
       <div class="tour-entry">Field of <b id="tourField">10</b></div>
       <div class="tour-tackle" id="tourTackle"></div>
-      <button class="big-btn" id="tourStartBtn">START</button>
-      <button class="text-btn alt-btn" id="tourTackleBtn">🧰 Change Tackle</button>
+      <button class="big-btn" id="tourStartBtn">START — PICK YOUR SPOT ▸</button>
       <button class="text-btn" id="tourStartCancel">Back</button>
     </div>
   </div>
@@ -464,7 +469,7 @@
 </div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=20260702s"></script>
-<script src="game.js?v=20260702s"></script>
+<script type="module" src="render3d.js?v=20260702t"></script>
+<script src="game.js?v=20260702t"></script>
 </body>
 </html>
