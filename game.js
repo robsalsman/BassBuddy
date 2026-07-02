@@ -4804,7 +4804,9 @@
     // it swims (the model's own animation) while revolving a slow 360
     (function fishIn() {
       if (sp2._go || !document.getElementById("introFish")) return;
-      if (window.Scene3D && Scene3D.isReady && Scene3D.isReady() && Scene3D.showCatch) {
+      // wait for the actual rigged GLB — the same model the underwater scenes
+      // swim — never the procedural fallback
+      if (window.Scene3D && Scene3D.isReady && Scene3D.isReady() && Scene3D.hasModel && Scene3D.hasModel("largemouth")) {
         try {
           const cv = document.getElementById("introFish");
           cv.classList.remove("hidden");

@@ -2267,7 +2267,7 @@ const Scene3D = (() => {
     }
     // prefer a real loaded model for this species; else the procedural bass
     ctx.fish = realModel(speciesKey) || makeBass(art || {});
-    ctx.fish.scale.setScalar(ctx.fish.userData.imported ? 1.0 : 2.1);
+    ctx.fish.scale.setScalar(ctx.fish.userData.imported ? (spin ? 2.0 : 1.0) : 2.1);   // splash frames the bass larger
     ctx.scene.add(ctx.fish);
     ctx.t = 0;
     const loop = () => {
@@ -2292,7 +2292,8 @@ const Scene3D = (() => {
     for (const k in catchCtxs) { cancelAnimationFrame(catchCtxs[k].raf); catchCtxs[k].raf = 0; }
   }
 
-  return { init, setVisible, setVenue, frame, isReady: () => ready, showCatch, hideCatch };
+  return { init, setVisible, setVenue, frame, isReady: () => ready, showCatch, hideCatch,
+    hasModel: (k) => !!LOADED_MODELS[k] };   // lets the splash wait for the REAL bass, not the fallback
 })();
 
 export { makeBass, bassTextures };
