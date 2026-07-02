@@ -8,8 +8,8 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>BassBuddy — Bass Fishing</title>
-<script>window.BB_V = "20260702f";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
-<link rel="stylesheet" href="style.css?v=20260702e" />
+<script>window.BB_V = "20260702g";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
+<link rel="stylesheet" href="style.css?v=20260702g" />
 </head>
 <body>
 <div id="game">
@@ -26,7 +26,6 @@
     <button id="tourneyBtn" class="hud-btn alt" title="Tournament circuit">🏁</button>
     <button id="muteBtn" class="hud-btn" title="Sound">🔊</button>
     <button id="shopBtn" class="hud-btn" title="Tackle box">🧰</button>
-    <a id="threeDBtn" class="hud-btn three-d" href="3d.html" title="3D Preview">✨3D</a>
   </div>
 
   <!-- Loadout chips -->
@@ -226,6 +225,7 @@
       <div class="color-head">📡 Fish Finder</div>
       <div class="finder" id="finder"></div>
       <button class="text-btn" id="endDayBtn" style="width:100%;margin-top:8px">🌙 Call it a day — head in</button>
+      <button class="text-btn" id="menuBtn" style="width:100%">🏠 Main menu</button>
     </div>
   </div>
 
@@ -309,7 +309,7 @@
   <div id="recordsModal" class="modal hidden">
     <div class="modal-card shop-card">
       <div class="shop-head">
-        <h2>🏆 Record Book</h2>
+        <h2 id="recTitle">🏆 Record Book</h2>
         <button class="close-btn" id="recordsClose">✕</button>
       </div>
       <div class="rec-stats" id="recStats"></div>
@@ -384,12 +384,37 @@
     </div>
   </div>
 
+  <!-- Tutorial coach banner (steps advance as you actually do them) -->
+  <div id="tutBanner" class="tut-banner hidden">
+    <b id="tutStep" class="tut-step">1/5</b>
+    <div id="tutText" class="tut-text"></div>
+    <button id="tutSkip" class="tut-skip">✕</button>
+  </div>
+
+  <!-- Title screen / main menu -->
+  <div id="titleScreen" class="title-screen hidden">
+    <div class="title-inner">
+      <div class="title-logo">🎣 BASS<i>BUDDY</i></div>
+      <div class="title-sub">— big bass fishin' arcade —</div>
+      <div id="titleStats" class="title-stats hidden"></div>
+      <input id="anglerName" class="title-name" maxlength="12" placeholder="ENTER YOUR NAME"
+             autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" />
+      <button class="big-btn title-go" id="tsFree">🎣 GO FISHING</button>
+      <div class="title-row">
+        <button class="title-btn" id="tsArcade">🕹️ ARCADE</button>
+        <button class="title-btn" id="tsTour">🏆 CIRCUIT</button>
+      </div>
+      <button class="title-btn title-wide" id="tsTutorial">🎓 LEARN TO FISH</button>
+      <div class="title-cred">A tribute to SEGA Bass Fishing</div>
+    </div>
+  </div>
+
   <!-- Floating coin/score popups get injected here -->
   <div id="fx"></div>
 </div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=20260702e"></script>
-<script src="game.js?v=20260702e"></script>
+<script type="module" src="render3d.js?v=20260702g"></script>
+<script src="game.js?v=20260702g"></script>
 </body>
 </html>

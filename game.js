@@ -302,6 +302,7 @@
       challenges: {}, lakes: {}, arcadeClears: 0, arcadeNC: false, arcadeBestScore: 0,
       mode: "free",     // "free" fishing (default) — tournaments are entered from the circuit
       muted: false,
+      name: "", tutorialDone: false,
     };
   }
   function load() {
@@ -397,6 +398,9 @@
     tourStartBtn: $("tourStartBtn"), tourStartCancel: $("tourStartCancel"), tourRules: $("tourRules"),
     tourResultModal: $("tourResultModal"), tourResultMedal: $("tourResultMedal"), tourPlace: $("tourPlace"),
     tourBag: $("tourBag"), tourResultStats: $("tourResultStats"), tourStandings: $("tourStandings"), tourResultOk: $("tourResultOk"),
+    titleScreen: $("titleScreen"), anglerName: $("anglerName"), titleStats: $("titleStats"),
+    tsFree: $("tsFree"), tsArcade: $("tsArcade"), tsTour: $("tsTour"), tsTutorial: $("tsTutorial"),
+    tutBanner: $("tutBanner"), tutStep: $("tutStep"), tutText: $("tutText"), tutSkip: $("tutSkip"), menuBtn: $("menuBtn"),
     fx: $("fx"),
   };
 
@@ -961,7 +965,7 @@
   const sfx = n => Sound.play(n);
   function anyModalOpen() {
     return [el.catchModal, el.failModal, el.shopModal, el.lureModal, el.mapModal,
-            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal].some(m => !m.classList.contains("hidden"));
+            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal, el.titleScreen].some(m => !m.classList.contains("hidden"));
   }
 
   function floatText(txt, color) {
@@ -1027,6 +1031,8 @@
   const fmtT = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
   function startArcade() {
     if (S.tournament && !S.tournament.ended) { toast("Tournament in progress ⏱️"); return; }
+    if (S.arcade && !S.arcade.ended) { toast("Arcade run in progress 🕹️"); return; }
+    if (S.tut) { S.tut = null; el.tutBanner.classList.add("hidden"); }
     el.modeModal.classList.add("hidden");
     S.arcadePrev = { spot: G.spot };
     S.arcade = { stage: 0, timeLeft: 0, bag: 0, quota: 0, bump: 0, continues: 0, score: 0, ended: false };
@@ -1162,6 +1168,85 @@
     }
     else exitArcade();
   });
+
+  // ===========================================================================
+  // TITLE SCREEN — name entry + mode select on boot; 🏠 from the map returns here
+  // ===========================================================================
+  function showTitle() {
+    el.anglerName.value = G.name || "";
+    const biggest = Object.values(G.records || {}).reduce((m, w) => Math.max(m, w), 0);
+    const bits = [];
+    if (G.coins) bits.push(`🏆 ${G.coins.toLocaleString()} pts`);
+    if (biggest) bits.push(`🐟 best ${biggest.toFixed(1)} lb`);
+    if (G.arcadeBestScore) bits.push(`🕹️ ${G.arcadeBestScore.toLocaleString()}`);
+    if ((G.season || {}).titles) bits.push(`👑 ${G.season.titles}`);
+    el.titleStats.innerHTML = bits.map(b => `<span>${b}</span>`).join("");
+    el.titleStats.classList.toggle("hidden", !bits.length);
+    el.titleScreen.classList.remove("hidden");
+  }
+  function closeTitle() {
+    const n = (el.anglerName.value || "").trim().toUpperCase().slice(0, 12);
+    if (n) G.name = n;
+    if (!G.name) G.name = "ANGLER";
+    el.anglerName.blur();
+    el.titleScreen.classList.add("hidden");
+    save(); updateHUD();
+  }
+  el.tsFree.addEventListener("click", () => { closeTitle(); sfx("ui"); openMap(); });
+  el.tsArcade.addEventListener("click", () => { closeTitle(); sfx("ui"); startArcade(); });
+  el.tsTour.addEventListener("click", () => { closeTitle(); sfx("ui"); openCircuit(); });
+  el.tsTutorial.addEventListener("click", () => { closeTitle(); sfx("ui"); startTutorial(); });
+  el.menuBtn.addEventListener("click", () => { el.mapModal.classList.add("hidden"); sfx("ui"); showTitle(); });
+  el.anglerName.addEventListener("keydown", (e) => { if (e.key === "Enter") el.anglerName.blur(); });
+
+  // ===========================================================================
+  // TUTORIAL — a coach banner that watches real play and advances step by step
+  // ===========================================================================
+  const TUT_STEPS = [
+    "Press & HOLD the water, drag to aim at the 🎯 ring, then RELEASE to cast",
+    "TAP to twitch the lure; pause and it sinks. Work it inside the green 🎯 BITE ZONE",
+    "A bass is closing in — hold that rhythm, keep it in the zone…",
+    "STRIKE! Tap the meter when the sweeping marker hits the green!",
+    "HOLD reel to gain line, let GO when the tension bar runs red — tire it out!",
+  ];
+  function startTutorial() {
+    if (S.tournament && !S.tournament.ended) { toast("Tournament in progress ⏱️"); return; }
+    if (S.arcade && !S.arcade.ended) { toast("Arcade run in progress 🕹️"); return; }
+    // friendly water: shallow cove pads on a cloudy summer morning = hungry fish
+    G.spot = "cove"; G.positions.cove = "pads";
+    S.cond.weather = "cloud"; S.cond.timeMin = 7 * 60 + 30; S.cond.season = "summer"; S.cond.front = 0.05;
+    recomputeCond(); renderConditions(); seedFish(); resetToIdle();
+    S.tut = { step: -1 };
+    el.tutBanner.classList.remove("hidden");
+    tutShow(0);
+    save(); updateHUD();
+    toast("🎓 Let's catch your first bass!");
+  }
+  function tutShow(i) {
+    if (!S.tut || S.tut.step === i) return;
+    S.tut.step = i;
+    el.tutStep.textContent = (i + 1) + "/" + TUT_STEPS.length;
+    el.tutText.textContent = TUT_STEPS[i];
+  }
+  function endTutorial(done) {
+    if (!S.tut) return;
+    S.tut = null;
+    el.tutBanner.classList.add("hidden");
+    if (done) {
+      G.tutorialDone = true; save();
+      sfx("weighwin");
+      setTimeout(() => toast("🎓 Tutorial complete — you're a bass angler now! Tap 📍 to explore, 🧰 for tackle 🎉"), 1600);
+    }
+  }
+  el.tutSkip.addEventListener("click", () => { endTutorial(false); sfx("ui"); toast("Tutorial skipped — tight lines!"); });
+  function updateTutorial() {
+    const T = S.tut; if (!T) return;
+    if (S.mode === "caught" || S.mode === "landing") { endTutorial(true); return; }
+    if (S.mode === "fight") tutShow(4);
+    else if (S.mode === "strike") tutShow(3);
+    else if (S.mode === "retrieve") { if (S.rv.interest > 0.42) tutShow(2); else if (T.step !== 2) tutShow(1); }
+    else if (S.mode === "idle" && T.step > 0) { tutShow(0); el.tutText.textContent = "It got away — happens to the pros too. Cast again!"; }
+  }
 
   function openCircuit() {
     if (S.tournament && !S.tournament.ended) { toast("Tournament in progress ⏱️"); return; }
@@ -1989,7 +2074,7 @@
     const T = S.tournament; if (!T) return [];
     const e = clamp(1 - T.timeLeft / T.dur, 0, 1);
     const board = (T.rivals || []).map(rv => ({ name: rv.name, total: rivalTotal(rv, e), big: rivalBig(rv, e), me: false }));
-    board.push({ name: "You", total: wellTotal(), big: T.big, me: true, fish: T.well.length });
+    board.push({ name: G.name || "You", total: wellTotal(), big: T.big, me: true, fish: T.well.length });
     board.sort((a, b) => b.total - a.total || b.big - a.big);
     return board;
   }
@@ -2005,7 +2090,7 @@
         const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : (i + 1) + ".";
         return `<div class="tb-row ${b.me ? "me" : ""}"><span class="tb-r">${medal}</span><span class="tb-n">${b.name}</span><span class="tb-w">${b.total.toFixed(2)}</span></div>`;
       }).join("") +
-      (myPlace > 5 ? `<div class="tb-row me"><span class="tb-r">${myPlace}.</span><span class="tb-n">You</span><span class="tb-w">${wellTotal().toFixed(2)}</span></div>` : "");
+      (myPlace > 5 ? `<div class="tb-row me"><span class="tb-r">${myPlace}.</span><span class="tb-n">${G.name || "You"}</span><span class="tb-w">${wellTotal().toFixed(2)}</span></div>` : "");
   }
 
   function startTournament() {
@@ -2126,7 +2211,7 @@
     const myTotal = wellTotal();
     // the weigh-in: the same rivals you watched all day bring in their FINAL bags
     const board = (T.rivals || []).map(rv => ({ name: rv.name, total: +rivalTotal(rv, 1).toFixed(2), big: +rivalBig(rv, 1).toFixed(1), me: false }));
-    board.push({ name: "You", total: +myTotal.toFixed(2), big: +T.big.toFixed(1), me: true, fish: T.well.length });
+    board.push({ name: G.name || "You", total: +myTotal.toFixed(2), big: +T.big.toFixed(1), me: true, fish: T.well.length });
     board.sort((a, b) => b.total - a.total || b.big - a.big);
     const place = board.findIndex(x => x.me) + 1;
 
@@ -2432,6 +2517,7 @@
     if (S.tournament && !S.tournament.ended) updateTourClock(dt);
     else if (S.arcade && !S.arcade.ended) updateArcadeClock(dt);
     else tickClock(dt);                            // the day is always moving in free play
+    if (S.tut) updateTutorial();
     pollHold(now);
 
     // trolling-motor steering: hold a turn button to swing the boat
@@ -2564,7 +2650,8 @@
     const szBite = (SIZES[G.lure.size] || SIZES.med).bite;   // finesse = more bites, magnum = fewer
     const sFit = seasonFit();                                 // fishing the season's pattern?
     const lineMul = lineBiteMul() * (0.94 + line().sens * 0.06);   // line stealth vs clarity (+ topwater, feel)
-    const build = (R.action > 0.55 ? 1 : 0.3) * (0.25 + sc) * depthNow * struct * aimed * (S.castLuck || 1) * hot * szBite * sFit * lineMul;
+    const build = (R.action > 0.55 ? 1 : 0.3) * (0.25 + sc) * depthNow * struct * aimed * (S.castLuck || 1) * hot * szBite * sFit * lineMul
+      * (S.tut ? 1.6 : 1);   // tutorial fish are eager — the lesson shouldn't drag
     R.interest = clamp(R.interest + (build * 0.012 - 0.0016) * step, 0, 1);
     R.follower = R.interest;
 
@@ -3663,7 +3750,11 @@
     save();
   });
   // ---- Record book (tap the 🏆 winnings pill) ----
-  function openRecords() { renderRecords(); el.recordsModal.classList.remove("hidden"); }
+  function openRecords() {
+    const h = document.getElementById("recTitle");
+    if (h) h.textContent = G.name ? `🏆 ${G.name}'s Record Book` : "🏆 Record Book";
+    renderRecords(); el.recordsModal.classList.remove("hidden");
+  }
   function renderRecords() {
     const totalCaught = Object.values(G.caught || {}).reduce((s, n) => s + n, 0);
     const recVals = Object.values(G.records || {});
@@ -3986,6 +4077,7 @@
   updateHUD();
   showBtn(false);
   setStatus("Tap & hold the water to aim, release to cast 🎣");
+  showTitle();              // main menu greets every session
   requestAnimationFrame(frame);
 
   document.addEventListener("touchmove", e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
