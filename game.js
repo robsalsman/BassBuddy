@@ -1278,10 +1278,11 @@
   })();
 
   // ===========================================================================
-  // GLOBAL LEADERBOARD — a free kvdb.io bucket, one key per angler, readable by
-  // every copy of the game. The board id ships in lb-config.json; until it's
-  // baked in, the modal offers one-tap CREATE (runs from the player's browser)
-  // or JOIN with a shared board code.
+  // GLOBAL LEADERBOARD — a free kvdb.io bucket, one key per angler plus a
+  // player-maintained "_roster" index, readable by every copy of the game.
+  // The board id ships in lb-config.json; until it's baked in, the modal
+  // offers one-tap CREATE (runs from the player's browser) or JOIN with a
+  // shared board code.
   // ===========================================================================
   const LB = (() => {
     let baked = "", rows = null, sortKey = "s";
@@ -1320,23 +1321,54 @@
       if (!force && Date.now() - lastPush < 30000) return;
       lastPush = Date.now(); lastSent = payload;
       const id = pid();
-      fetch(base() + id, { method: "PUT", body: payload }).catch(() => {});
+      fetch(base() + id, { method: "PUT", body: payload })
+        .then(() => getRoster())
+        .then(ro => { if (!ro.includes(id)) return putRoster(ro.concat(id)); })
+        .catch(() => {});
+    }
+    // The board never depends on kvdb's key-list endpoint (the one piece that
+    // proved unreliable in the wild): the anglers maintain a tiny "_roster"
+    // index key themselves, and every profile is read by direct key GET — the
+    // primitives that demonstrably work. The list endpoint is only an extra
+    // discovery pass so anglers on older game versions still get found.
+    async function getJSON(url) {
+      const r = await fetch(url);
+      if (r.status === 404) return null;
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const t = await r.text();
+      try { return JSON.parse(t); } catch (e) { return null; }
+    }
+    async function getRoster() {
+      const v = await getJSON(base() + "_roster");
+      return Array.isArray(v) ? v.filter(x => typeof x === "string" && /^p[a-z0-9]{4,20}$/.test(x)) : [];
+    }
+    function putRoster(list) {
+      return fetch(base() + "_roster", { method: "PUT", body: JSON.stringify([...new Set(list)].slice(0, 500)) });
+    }
+    async function listPids() {
+      try {
+        const data = await getJSON(base() + "?format=json&limit=1000");
+        const keys = Array.isArray(data)
+          ? data.map(e => Array.isArray(e) ? e[0] : (e && typeof e === "object") ? (e.key != null ? e.key : e.k) : e)
+          : (data && typeof data === "object") ? Object.keys(data) : [];
+        return keys.filter(k => typeof k === "string" && /^p[a-z0-9]{4,20}$/.test(k));
+      } catch (e) { return []; }
     }
     async function fetchAll() {
-      const r = await fetch(base() + "?values=true&format=json&limit=1000");
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      const data = await r.json();
-      // kvdb's list shape varies — accept [[k,v]], [{key,value}], or {k: v, ...}
-      let pairs = [];
-      if (Array.isArray(data)) pairs = data.map(e => Array.isArray(e) ? e : (e && typeof e === "object" ? [e.key != null ? e.key : e.k, e.value != null ? e.value : e.v] : [e, null]));
-      else if (data && typeof data === "object") pairs = Object.entries(data);
-      const out = pairs.map(([k, v]) => {
-        try { if (typeof v === "string") v = JSON.parse(v); } catch (err) { return null; }
-        if (!v || !v.n) return null;
-        v.id = k; return v;
-      }).filter(Boolean);
+      const id = pid();
+      let roster = [], rosterErr = null;
+      try { roster = await getRoster(); } catch (e) { rosterErr = e; }
+      const extra = await listPids();
+      if (rosterErr && !extra.length) throw rosterErr;   // board truly unreachable
+      const all = [...new Set([...roster, ...extra, ...(G.name ? [id] : [])])];
+      const got = await Promise.all(all.map(k =>
+        getJSON(base() + k).then(v => { if (v && v.n) { v.id = k; return v; } return null; }).catch(() => null)));
+      const out = got.filter(Boolean);
+      // heal the roster so every angler we can see stays findable for everyone
+      const knew = new Set(roster);
+      if (!rosterErr && out.some(o => !knew.has(o.id))) putRoster(roster.concat(out.map(o => o.id))).catch(() => {});
       // fold our own latest numbers in — the PUT may still be in flight
-      const mine = myEntry(); mine.id = pid();
+      const mine = myEntry(); mine.id = id;
       const i = out.findIndex(o => o.id === mine.id);
       if (i >= 0) out[i] = mine; else if (G.name) out.push(mine);
       return out;
