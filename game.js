@@ -401,7 +401,7 @@
     rodModal: $("rodModal"), rodClose: $("rodClose"), rodList: $("rodList"), rodCond: $("rodCond"), rodCats: $("rodCats"),
     mapModal: $("mapModal"), daySummaryModal: $("daySummaryModal"), daySummaryBody: $("daySummaryBody"), newDayBtn: $("newDayBtn"), endDayBtn: $("endDayBtn"), mapClose: $("mapClose"), mapVenues: $("mapVenues"), posGrid: $("posGrid"), finder: $("finder"),
     tourneyBtn: $("tourneyBtn"), modeModal: $("modeModal"), modeClose: $("modeClose"),
-    tourHud: $("tourHud"), tourClock: $("tourClock"), livewell: $("livewell"), tourTotal: $("tourTotal"), tourBig: $("tourBig"), tourQuit: $("tourQuit"), tourBoard: $("tourBoard"),
+    tourHud: $("tourHud"), tourClock: $("tourClock"), livewell: $("livewell"), tourTotal: $("tourTotal"), tourBig: $("tourBig"), tourQuit: $("tourQuit"), tourPos: $("tourPos"),
     arcadeHud: $("arcadeHud"), arcTimer: $("arcTimer"), arcStage: $("arcStage"), arcQuota: $("arcQuota"), arcFill: $("arcFill"),
     arcadeModal: $("arcadeModal"), arcadeTitle: $("arcadeTitle"), arcadeBody: $("arcadeBody"), arcadeGo: $("arcadeGo"), arcadeAlt: $("arcadeAlt"),
     tourStartModal: $("tourStartModal"), tourField: $("tourField"),
@@ -1666,7 +1666,7 @@
     if (S.tournament && !S.tournament.ended) {
       G.pausedTour = { t: S.tournament, spot: G.spot, weather: S.cond.weather, hotLure: S.cond.hotLure };
       S.tournament = null;
-      el.tourHud.classList.add("hidden"); el.tourBoard.classList.add("hidden");
+      el.tourHud.classList.add("hidden");
       toast("🏁 Tournament saved — resume from the menu ▶");
     } else if (S.arcade && !S.arcade.ended) {
       G.pausedArcade = { a: S.arcade, prev: S.arcadePrev, hotLure: S.cond.hotLure };
@@ -2659,19 +2659,15 @@
     return board;
   }
   function renderTourBoard() {
+    // no floating leaderboard over the water — just a compact place chip on the
+    // tournament bar (full standings come at the weigh-in; lead changes toast)
     const T = S.tournament;
-    if (!T || T.ended) { el.tourBoard.classList.add("hidden"); return; }
+    if (!T || T.ended) { if (el.tourPos) el.tourPos.textContent = ""; return; }
     const board = tourStandings();
     const myPlace = board.findIndex(b => b.me) + 1;
-    el.tourBoard.classList.remove("hidden");
-    el.tourBoard.innerHTML =
-      `<div class="tb-head">Live · P${myPlace}/${board.length}</div>` +
-      board.slice(0, 5).map((b, i) => {
-        const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : (i + 1) + ".";
-        return `<div class="tb-row ${b.me ? "me" : ""}"><span class="tb-r">${medal}</span><span class="tb-n">${b.name}</span><span class="tb-w">${b.total.toFixed(2)}</span></div>`;
-      }).join("") +
-      (myPlace > 5 ? `<div class="tb-row me"><span class="tb-r">${myPlace}.</span><span class="tb-n">${G.name || "You"}</span><span class="tb-w">${wellTotal().toFixed(2)}</span></div>` : "");
+    if (el.tourPos) el.tourPos.textContent = `P${myPlace}/${board.length}`;
   }
+
 
   function startTournament() {
     const t = pendingTour; if (!t) { el.tourStartModal.classList.add("hidden"); return; }
@@ -2791,7 +2787,6 @@
     S.mode = "idle"; S.hookedFish = null;
     el.fightPanel.classList.add("hidden"); el.retrievePanel.classList.add("hidden"); el.castMeter.classList.add("hidden"); showBtn(false);
 
-    el.tourBoard.classList.add("hidden");
     const myTotal = wellTotal();
     // the weigh-in: the same rivals you watched all day bring in their FINAL bags
     const board = (T.rivals || []).map(rv => ({ name: rv.name, total: +rivalTotal(rv, 1).toFixed(2), big: +rivalBig(rv, 1).toFixed(1), me: false }));
@@ -2855,7 +2850,6 @@
     pendingTour = null;
     if (lbSubmitHook) lbSubmitHook(true);   // tournament winnings hit the global board right away
     el.tourHud.classList.add("hidden");
-    el.tourBoard.classList.add("hidden");
     document.getElementById("loadout").classList.remove("hidden");
     el.tourResultModal.classList.add("hidden");
     el.tourClock.parentElement.classList.remove("low");
