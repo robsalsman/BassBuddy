@@ -1031,7 +1031,9 @@ select, input, textarea { font-size: 16px; }
 #introSplash.done { opacity: 0; }
 .is-inner { text-align: center; animation: isSurface 1.6s cubic-bezier(.2,.9,.3,1.15) both; }
 @keyframes isSurface { from { opacity: 0; transform: translateY(60px) scale(.8); } 60% { opacity: 1; } to { opacity: 1; transform: none; } }
-.is-fish { font-size: 44px; animation: isSwim 2.2s ease-in-out infinite alternate; filter: drop-shadow(0 6px 14px rgba(0,0,0,.5)); }
+.is-fish { font-size: 44px; filter: drop-shadow(0 6px 14px rgba(0,0,0,.5)); }
+/* only the placeholder emoji sways — the 3D canvas must stay put (the flip keyframe reads as spinning) */
+#isFishEmoji { display: inline-block; animation: isSwim 2.2s ease-in-out infinite alternate; }
 @keyframes isSwim { from { transform: translateX(-26px) rotate(-8deg); } to { transform: translateX(26px) rotate(8deg) scaleX(-1); } }
 .is-logo { font-size: 46px; font-weight: 900; font-style: italic; letter-spacing: 1px; color: #fff;
   -webkit-text-stroke: 1.5px #06321a; text-shadow: 0 3px 0 #0a5c30, 0 10px 30px rgba(0,0,0,.65); }
