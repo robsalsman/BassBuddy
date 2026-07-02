@@ -388,7 +388,7 @@
     hookMeter: $("hookMeter"), hmMarker: $("hmMarker"), strikeFlash: $("strikeFlash"), catchHookset: $("catchHookset"),
     lureModal: $("lureModal"), lureClose: $("lureClose"), lureList: $("lureList"), colorRow: $("colorRow"), lureCond: $("lureCond"), lureCats: $("lureCats"), sizeRow: $("sizeRow"), lineRow: $("lineRow"), lineCats: $("lineCats"),
     rodModal: $("rodModal"), rodClose: $("rodClose"), rodList: $("rodList"), rodCond: $("rodCond"), rodCats: $("rodCats"),
-    mapModal: $("mapModal"), mapClose: $("mapClose"), mapVenues: $("mapVenues"), posGrid: $("posGrid"), finder: $("finder"),
+    mapModal: $("mapModal"), daySummaryModal: $("daySummaryModal"), daySummaryBody: $("daySummaryBody"), newDayBtn: $("newDayBtn"), endDayBtn: $("endDayBtn"), mapClose: $("mapClose"), mapVenues: $("mapVenues"), posGrid: $("posGrid"), finder: $("finder"),
     tourneyBtn: $("tourneyBtn"), modeModal: $("modeModal"), modeClose: $("modeClose"),
     tourHud: $("tourHud"), tourClock: $("tourClock"), livewell: $("livewell"), tourTotal: $("tourTotal"), tourBig: $("tourBig"), tourQuit: $("tourQuit"), tourBoard: $("tourBoard"),
     tourStartModal: $("tourStartModal"), tourField: $("tourField"),
@@ -956,7 +956,7 @@
   const sfx = n => Sound.play(n);
   function anyModalOpen() {
     return [el.catchModal, el.failModal, el.shopModal, el.lureModal, el.mapModal,
-            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal].some(m => !m.classList.contains("hidden"));
+            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal].some(m => !m.classList.contains("hidden"));
   }
 
   function floatText(txt, color) {
@@ -1597,6 +1597,10 @@
     f.score = Math.round((scoreBase * hookMul * presMul + scoreBonus) / 10) * 10;
     f.scoreInfo = { base: scoreBase, hookMul, presMul, bonus: scoreBonus, hq, presQ };
     S.hookQuality = 0;
+    // the day's running tally (shown on the end-of-day summary)
+    S.dayCatches = (S.dayCatches || 0) + 1;
+    S.dayPts = (S.dayPts || 0) + f.score;
+    S.dayBest = Math.max(S.dayBest || 0, f.weight);
 
     const lunk = f.bass && f.weight >= LUNKER_LB;
     sfx(lunk ? "lunker" : "land"); setTimeout(() => sfx("coin"), 450);
@@ -1722,6 +1726,53 @@
     setStatus("Tap & hold the water to aim, release to cast 🎣");
   }
 
+  // ---- the running clock (Sega Original-mode style): game time flows at one
+  // game-minute per real second, so a full day plays out in ~15 real minutes.
+  // Conditions recompute as it flows — the morning bite dies, fish slide deep at
+  // midday, the dusk window fires — so the right lure/spot keeps changing.
+  function tickClock(dt) {
+    if (S.tournament || anyModalOpen()) return;      // tournaments sweep their own day; modals pause it
+    S._min = (S._min || 0) + dt / 1000;
+    if (S._min < 1) return;
+    const mins = Math.floor(S._min); S._min -= mins;
+    S.cond.timeMin += mins;
+    S.cond.front = (S.cond.front || 0) * Math.pow(0.995, mins);
+    S._wxMin = (S._wxMin || 0) + mins;
+    if (S._wxMin >= 25) { S._wxMin = 0; maybeShiftWeather(); }   // fronts drift every ~25 game-min
+    // free play is "a day on the water": it ends at dusk (Trophy Lake's night
+    // bite runs till dawn) — waits for an idle moment so it never cuts a fight
+    const endMin = spot().id === "deep" ? 29 * 60 : 21 * 60;
+    if (S.cond.timeMin >= endMin && S.mode === "idle") { endDay(); return; }
+    recomputeCond(); renderConditions();
+  }
+  function endDay() {
+    S._min = 0;
+    const bag = (S.bag || []).slice().sort((a, b) => b - a);
+    const dayN = (S.cond.day || 0) + 1;
+    const w = WEATHER[S.cond.weather] || {};
+    el.daySummaryBody.innerHTML =
+      `<p class="muted" style="text-align:center">Day ${dayN} · ${spot().ico} ${spot().name} · ${w.ico || ""} ${w.name || ""} · ${(SEASONS[S.cond.season] || SEASONS.summer).ico} ${(SEASONS[S.cond.season] || SEASONS.summer).name}</p>
+      <div class="rec-stats" style="grid-template-columns:repeat(2,1fr)">
+        <div class="rec-stat"><div class="rs-ico">🐟</div><div class="rs-v">${S.dayCatches || 0}</div><div class="rs-l">Bass boated</div></div>
+        <div class="rec-stat"><div class="rs-ico">🎯</div><div class="rs-v">${(S.dayPts || 0).toLocaleString()}</div><div class="rs-l">Points earned</div></div>
+        <div class="rec-stat"><div class="rs-ico">🏅</div><div class="rs-v">${S.dayBest ? S.dayBest.toFixed(1) + " lb" : "—"}</div><div class="rs-l">Best bass</div></div>
+        <div class="rec-stat"><div class="rs-ico">🪣</div><div class="rs-v">${bag.length ? bagTotal().toFixed(2) + " lb" : "—"}</div><div class="rs-l">Top-5 bag</div></div>
+      </div>` +
+      (bag.length ? `<div class="tr-bits" style="margin-bottom:6px">${bag.map(x => `<span>🐟 ${x.toFixed(1)} lb</span>`).join("")}</div>` : `<p class="muted" style="text-align:center">Skunked — tomorrow's another day.</p>`);
+    el.daySummaryModal.classList.remove("hidden");
+    sfx("weighin");
+  }
+  function startNewDay() {
+    el.daySummaryModal.classList.add("hidden");
+    S.cond.day = (S.cond.day || 0) + 1;
+    if (S.cond.day % 3 === 0) S.cond.season = SEASON_ORDER[(SEASON_ORDER.indexOf(S.cond.season) + 1) % 4];
+    S.cond.moon = (((S.cond.moon || 0) + 1) % 8);
+    rollConditions();                              // fresh weather, fresh pattern-of-the-day
+    S.bag = []; S.dayCatches = 0; S.dayPts = 0; S.dayBest = 0; S._wxMin = 0;
+    seedFish(); resetToIdle(); save(); updateHUD();
+    toast(`☀️ Day ${S.cond.day + 1} — fresh conditions, fresh pattern`);
+  }
+
   function advanceTime(min) {
     S.cond.timeMin += min;
     if (S.cond.timeMin >= 24 * 60) {           // a new day — the season drifts forward over time
@@ -1799,7 +1850,11 @@
     const sp = SPOTS.find(s => s.id === t.spot) || spot();
     const tier = sp.id === "deep" || sp.id === "highland" ? 1.7 : sp.id === "river" || sp.id === "bayou" ? 1.25 : 1.0;
     el.tourStartModal.classList.add("hidden");
-    S.tournament = { timeLeft: t.dur, dur: t.dur, well: [], big: 0, culls: 0, field: t.field, fee, spotId: t.spot, name: t.name, eventId: t.id, ended: false, tier, rivals: buildRivals(t.field, tier), lastLead: null };
+    // Sega Original-mode day sweep: the event's countdown maps onto a full fishing
+    // day (Morning -> Noon -> Evening; Trophy Lake runs Dusk -> Midnight -> Dawn)
+    const sweepStart = t.spot === "deep" ? 21 * 60 : 6 * 60;
+    S.tournament = { timeLeft: t.dur, dur: t.dur, well: [], big: 0, culls: 0, field: t.field, fee, spotId: t.spot, name: t.name, eventId: t.id, ended: false, tier, rivals: buildRivals(t.field, tier), lastLead: null, sweepStart, period: 0 };
+    S.cond.timeMin = sweepStart; recomputeCond(); renderConditions();
     el.tourHud.classList.remove("hidden");
     renderWell();
     renderTourBoard();
@@ -1868,6 +1923,18 @@
     const sec = Math.max(0, Math.ceil(T.timeLeft / 1000));
     el.tourClock.textContent = Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
     el.tourClock.parentElement.classList.toggle("low", sec <= 30);
+    // sweep the in-game day across the event: the light moves, fish move with it
+    const prog = clamp(1 - T.timeLeft / T.dur, 0, 1);
+    S.cond.timeMin = (T.sweepStart != null ? T.sweepStart : 6 * 60) + prog * 12 * 60;
+    T._condT = (T._condT || 0) + dt;
+    if (T._condT >= 900) { T._condT = 0; recomputeCond(); renderConditions(); }
+    const period = Math.min(2, Math.floor(prog * 3));
+    if (period !== T.period) {
+      T.period = period;
+      const names = (T.sweepStart || 0) >= 17 * 60 ? ["DUSK", "MIDNIGHT", "DAWN"] : ["MORNING", "NOON", "EVENING"];
+      toast(`🕐 <b>${names[period]}</b> — ${period === 1 ? "fish slide to their midday holds" : "prime light, the bite window is open!"}`);
+      sfx("good"); vibrate(20);
+    }
     // refresh the live leaderboard a couple times a second as rivals boat fish
     T._boardT = (T._boardT || 0) + dt;
     if (T._boardT >= 450) {
@@ -2197,6 +2264,7 @@
 
   function update(dt, now) {
     if (S.tournament && !S.tournament.ended) updateTourClock(dt);
+    else tickClock(dt);                            // the day is always moving in free play
     pollHold(now);
 
     // trolling-motor steering: hold a turn button to swing the boat
@@ -3345,6 +3413,12 @@
   }
   el.spotChip.addEventListener("click", openMap);
   el.mapClose.addEventListener("click", () => el.mapModal.classList.add("hidden"));
+  el.newDayBtn.addEventListener("click", () => { sfx("ui"); startNewDay(); });
+  el.endDayBtn.addEventListener("click", () => {
+    if (S.tournament && !S.tournament.ended) { toast("Finish the tournament first ⏱️"); return; }
+    el.mapModal.classList.add("hidden");
+    endDay();
+  });
   el.mapModal.addEventListener("click", (e) => {
     const v = e.target.closest(".venue");
     const p = e.target.closest(".pos-cell");

@@ -8,8 +8,8 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>BassBuddy — Bass Fishing</title>
-<script>window.BB_V = "20260702c";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
-<link rel="stylesheet" href="style.css?v=20260702c" />
+<script>window.BB_V = "20260702d";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
+<link rel="stylesheet" href="style.css?v=20260702d" />
 </head>
 <body>
 <div id="game">
@@ -208,6 +208,16 @@
       <div class="pos-grid" id="posGrid"></div>
       <div class="color-head">📡 Fish Finder</div>
       <div class="finder" id="finder"></div>
+      <button class="text-btn" id="endDayBtn" style="width:100%;margin-top:8px">🌙 Call it a day — head in</button>
+    </div>
+  </div>
+
+  <!-- End-of-day summary (free play: the day runs dawn to dusk) -->
+  <div id="daySummaryModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="shop-head"><h2>🌙 End of the Day</h2></div>
+      <div id="daySummaryBody"></div>
+      <button class="big-btn" id="newDayBtn">☀️ START THE NEW DAY</button>
     </div>
   </div>
 
@@ -362,7 +372,7 @@
 </div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=20260702c"></script>
-<script src="game.js?v=20260702c"></script>
+<script type="module" src="render3d.js?v=20260702d"></script>
+<script src="game.js?v=20260702d"></script>
 </body>
 </html>
