@@ -2665,6 +2665,8 @@
     if (!T || T.ended) { if (el.tourPos) el.tourPos.textContent = ""; return; }
     const board = tourStandings();
     const myPlace = board.findIndex(b => b.me) + 1;
+    const who = document.getElementById("tourWho");
+    if (who) who.textContent = G.name || "YOU";
     if (el.tourPos) el.tourPos.textContent = `P${myPlace}/${board.length}`;
   }
 

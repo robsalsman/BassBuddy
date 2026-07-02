@@ -8,8 +8,8 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>BassBuddy — Bass Fishing</title>
-<script>window.BB_V = "20260702v";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
-<link rel="stylesheet" href="style.css?v=20260702v" />
+<script>window.BB_V = "20260702w";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
+<link rel="stylesheet" href="style.css?v=20260702w" />
 </head>
 <body>
 <div id="game">
@@ -40,7 +40,7 @@
   <!-- Tournament HUD (hidden until a tournament is running) -->
   <div id="tourHud" class="tour-hud hidden">
     <div class="tour-clock"><span>⏱️</span><b id="tourClock">2:30</b></div>
-    <b id="tourPos" class="arc-stage">P–</b>
+    <div class="tour-me"><b id="tourWho">YOU</b><small id="tourPos">P–</small></div>
     <div class="livewell" id="livewell"></div>
     <div class="tour-total"><span id="tourTotal">0.00</span> lb<small id="tourBig"></small></div>
     <button id="tourQuit" class="tour-quit">End</button>
@@ -468,7 +468,7 @@
 </div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=20260702v"></script>
-<script src="game.js?v=20260702v"></script>
+<script type="module" src="render3d.js?v=20260702w"></script>
+<script src="game.js?v=20260702w"></script>
 </body>
 </html>
