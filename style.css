@@ -968,3 +968,10 @@ select, input, textarea { font-size: 16px; }
 .tut-text { flex: 1; font-size: 13px; font-weight: 800; line-height: 1.35; color: #ffefc4; }
 .tut-skip { flex: 0 0 auto; width: 26px; height: 26px; border: none; border-radius: 50%; cursor: pointer;
   background: rgba(255,255,255,.14); color: #cfe6f0; font-weight: 900; font-size: 12px; }
+
+/* ===== Title-screen volume settings ===== */
+.vol-box { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--ui-line); border-radius: 14px; background: rgba(255,255,255,.05); }
+.vol-row { display: flex; align-items: center; gap: 9px; padding: 4px 0; }
+.vol-row span { flex: 0 0 78px; text-align: left; font-size: 12px; font-weight: 800; color: #cfe6f0; }
+.vol-row b { flex: 0 0 30px; font-size: 12px; font-weight: 900; color: var(--gold); text-align: right; }
+.vol-row input[type="range"] { flex: 1; min-width: 0; accent-color: var(--gold); height: 26px; }

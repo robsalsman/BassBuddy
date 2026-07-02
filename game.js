@@ -301,7 +301,7 @@
       season: { best: {}, titles: 0 },   // circuit season: best points per event + championships won
       challenges: {}, lakes: {}, arcadeClears: 0, arcadeNC: false, arcadeBestScore: 0,
       mode: "free",     // "free" fishing (default) — tournaments are entered from the circuit
-      muted: false, musicOn: true,
+      muted: false, musicOn: true, musicVol: 0.6, sfxVol: 1,
       name: "", tutorialDone: false,
     };
   }
@@ -797,14 +797,17 @@
         if (!ctx) {
           const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
           ctx = new AC();
-          master = ctx.createGain(); master.gain.value = G.muted ? 0 : 0.45; master.connect(ctx.destination);
+          master = ctx.createGain(); master.connect(ctx.destination); applyGain();
           ready = true;
           ambientStart();
         }
         if (ctx.state === "suspended") ctx.resume();
       } catch (e) {}
     }
-    function setMuted(m) { if (master) master.gain.value = m ? 0 : 0.45; }
+    // one master gain covers every effect + the ambience bed: mute × user volume
+    function applyGain() { if (master) master.gain.value = G.muted ? 0 : 0.45 * (G.sfxVol != null ? G.sfxVol : 1); }
+    function setMuted(m) { applyGain(); }
+    function setVolume() { applyGain(); }
     // continuous gentle-water ambience (looping filtered noise with a slow swell)
     function ambientStart() {
       if (!ready || ambBed) return;
@@ -959,7 +962,7 @@
         }
       } catch (e) {}
     }
-    return { ensure, play, ambientCall, setMuted, setNight, windGust, setVenue, setRain };
+    return { ensure, play, ambientCall, setMuted, setVolume, setNight, windGust, setVenue, setRain };
   })();
   const sfx = n => Sound.play(n);
   function anyModalOpen() {
@@ -984,50 +987,70 @@
   }
 
   // ===========================================================================
-  // Soundtrack — drop audio files in music/ and list them in music/playlist.json
-  // ([{ "file": "song.mp3", "title": "Song", "artist": "..." }]). Playback starts
-  // from a title-screen tap (mobile browsers need a gesture) and shuffles forever.
+  // Soundtrack — audio files live in music/, listed in music/playlist.json:
+  //   [{ "file": "song.mp3", "title": "Song", "artist": "…", "when": "title" }]
+  // "when":"title" tracks loop on the main menu; the rest shuffle in-game.
+  // Mobile browsers block audio until a tap, so playback arms on the first
+  // pointerdown and follows the screen you're on from then on.
   // ===========================================================================
   const Music = (() => {
-    let tracks = [], order = [], idx = 0, audio = null, armed = false;
+    let titleTracks = [], gameTracks = [], order = [], idx = 0, audio = null;
+    let armed = false;              // a user gesture has happened — audio is allowed
+    let scene = "title";            // which soundtrack the game wants right now
     fetch("music/playlist.json" + (window.BB_V ? "?v=" + window.BB_V : ""))
       .then(r => (r.ok ? r.json() : []))
       .then(list => {
-        tracks = (Array.isArray(list) ? list : []).filter(t => t && t.file);
+        const tracks = (Array.isArray(list) ? list : []).filter(t => t && t.file);
+        titleTracks = tracks.filter(t => t.when === "title");
+        gameTracks = tracks.filter(t => t.when !== "title");
         const b = document.getElementById("musicBtn");
         if (b && tracks.length) { b.classList.remove("hidden"); updateBtn(); }
       })
       .catch(() => {});
+    function vol() { return G.musicVol != null ? G.musicVol : 0.6; }
+    function ensureEl() {
+      if (!audio) { audio = new Audio(); audio.addEventListener("ended", () => { if (!audio.loop) nextGame(); }); }
+      audio.volume = vol();
+    }
     function shuffle() {
-      order = tracks.map((_, i) => i);
+      order = gameTracks.map((_, i) => i);
       for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
       idx = 0;
     }
-    function next() {
-      if (!tracks.length) return;
-      if (!order.length || idx >= order.length) shuffle();
-      const t = tracks[order[idx++]];
+    function playTrack(t, loop) {
+      ensureEl();
+      audio.loop = !!loop;
       audio.src = "music/" + t.file;
       audio.play().catch(() => {});
-      if (t.title) toast(`🎵 ${t.title}${t.artist ? " — " + t.artist : ""}`);
+      if (t.title && !playTrack._did) { playTrack._did = true; toast(`🎵 ${t.title}${t.artist ? " — " + t.artist : ""}`); setTimeout(() => { playTrack._did = false; }, 4000); }
     }
-    function start() {   // must be called from inside a user gesture
-      if (!tracks.length || G.musicOn === false || armed) return;
-      if (!audio) { audio = new Audio(); audio.volume = 0.4; audio.addEventListener("ended", next); }
-      armed = true;
-      shuffle(); next();
+    function nextGame() {
+      if (!gameTracks.length) { if (audio) audio.pause(); return; }
+      if (!order.length || idx >= order.length) shuffle();
+      playTrack(gameTracks[order[idx++]], false);
     }
+    // play whatever the current scene calls for (title theme loops; game shuffles)
+    function sync() {
+      if (!armed || G.musicOn === false) return;
+      if (scene === "title" && titleTracks.length) playTrack(titleTracks[0], true);
+      else if (scene === "game") { shuffle(); nextGame(); }
+      else if (audio) audio.pause();
+    }
+    function setScene(s) { if (scene === s) return; scene = s; if (armed && G.musicOn !== false) sync(); }
+    function onGesture() { if (armed) return; armed = true; sync(); }
     function setOn(on) {
       G.musicOn = on; save();
-      if (on) start();
-      else { if (audio) audio.pause(); armed = false; }
+      if (on) sync();
+      else if (audio) audio.pause();
       updateBtn();
     }
+    function setVolume() { if (audio) audio.volume = vol(); }
     function updateBtn() {
       const b = document.getElementById("musicBtn");
       if (b) b.textContent = G.musicOn === false ? "🎵 Music: OFF" : "🎵 Music: ON";
     }
-    return { start, setOn };
+    document.addEventListener("pointerdown", onGesture, { capture: true });
+    return { setScene, setOn, setVolume };
   })();
 
   function updateHUD() {
@@ -1229,6 +1252,7 @@
     el.titleStats.innerHTML = bits.map(b => `<span>${b}</span>`).join("");
     el.titleStats.classList.toggle("hidden", !bits.length);
     el.titleScreen.classList.remove("hidden");
+    Music.setScene("title");
   }
   function closeTitle() {
     const n = (el.anglerName.value || "").trim().toUpperCase().slice(0, 12);
@@ -1236,7 +1260,7 @@
     if (!G.name) G.name = "ANGLER";
     el.anglerName.blur();
     el.titleScreen.classList.add("hidden");
-    Music.start();   // leaving the menu is a tap — mobile lets audio begin here
+    Music.setScene("game");   // title theme out, lake playlist in
     save(); updateHUD();
   }
   el.tsFree.addEventListener("click", () => { closeTitle(); sfx("ui"); openMap(); });
@@ -1246,6 +1270,16 @@
   el.menuBtn.addEventListener("click", () => { el.mapModal.classList.add("hidden"); sfx("ui"); showTitle(); });
   const musicBtn = document.getElementById("musicBtn");
   if (musicBtn) musicBtn.addEventListener("click", () => { Music.setOn(G.musicOn === false); sfx("ui"); });
+  // volume sliders — live while you drag, saved when you let go
+  const volCtl = (id, pctId, get, set) => {
+    const r = document.getElementById(id), p = document.getElementById(pctId);
+    if (!r) return;
+    r.value = Math.round(get() * 100); p.textContent = r.value;
+    r.addEventListener("input", () => { set(r.value / 100); p.textContent = r.value; });
+    r.addEventListener("change", () => { save(); sfx("ui"); });
+  };
+  volCtl("musicVol", "musicVolPct", () => (G.musicVol != null ? G.musicVol : 0.6), v => { G.musicVol = v; Music.setVolume(); });
+  volCtl("sfxVol", "sfxVolPct", () => (G.sfxVol != null ? G.sfxVol : 1), v => { G.sfxVol = v; Sound.setVolume(); });
   el.anglerName.addEventListener("keydown", (e) => { if (e.key === "Enter") el.anglerName.blur(); });
 
   // ===========================================================================
