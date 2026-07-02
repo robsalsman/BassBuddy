@@ -407,6 +407,8 @@
     tsFree: $("tsFree"), tsArcade: $("tsArcade"), tsTour: $("tsTour"), tsTutorial: $("tsTutorial"),
     tsResume: $("tsResume"), tsBoard: $("tsBoard"), homeBtn: $("homeBtn"),
     lbModal: $("lbModal"), lbClose: $("lbClose"), lbBody: $("lbBody"), lbSorts: $("lbSorts"),
+    lbProfileModal: $("lbProfileModal"), lbpName: $("lbpName"), lbpClose: $("lbpClose"),
+    lbpStats: $("lbpStats"), lbpFav: $("lbpFav"), lbpSorts: $("lbpSorts"), lbpList: $("lbpList"),
     mapTitle: $("mapTitle"), mapCond: $("mapCond"), posHead: $("posHead"), finderHead: $("finderHead"), mapNext: $("mapNext"), lureFish: $("lureFish"),
     tutBanner: $("tutBanner"), tutStep: $("tutStep"), tutText: $("tutText"), tutSkip: $("tutSkip"), menuBtn: $("menuBtn"),
     fx: $("fx"),
@@ -1069,7 +1071,7 @@
   const sfx = n => Sound.play(n);
   function anyModalOpen() {
     return [el.catchModal, el.failModal, el.lureModal, el.mapModal,
-            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal, el.titleScreen, el.lbModal].some(m => !m.classList.contains("hidden"));
+            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal, el.titleScreen, el.lbModal, el.lbProfileModal].some(m => !m.classList.contains("hidden"));
   }
 
   function floatText(txt, color) {
@@ -1188,8 +1190,23 @@
     const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
     function pid() { if (!G.pid) { G.pid = "p" + Math.random().toString(36).slice(2, 10); save(); } return G.pid; }
     function biggest() { const v = Object.values(G.records || {}); return v.length ? Math.max(...v) : 0; }
+    function topKey(o) { let k = null, m = 0; for (const key in (o || {})) { if (o[key] > m) { m = o[key]; k = key; } } return k; }
+    // the full public profile — everyone on the board can browse everyone's stats
     function myEntry() {
-      return { n: G.name || "ANGLER", s: G.coins || 0, b: +biggest().toFixed(2), a: G.arcadeBestScore || 0, w: G.tourWins || 0, t: Date.now() };
+      const t = G.tally || {}, ch = G.challenges || {};
+      const top = (G.catchLog || []).slice().sort((x, y) => y.w - x.w).slice(0, 12)
+        .map(e => ({ w: e.w, l: e.lure, sp: e.spot, se: e.season, wx: e.weather, h: Math.floor((e.timeMin || 0) / 60), sc: e.score || 0 }));
+      return {
+        n: G.name || "ANGLER", s: G.coins || 0, b: +biggest().toFixed(2), a: G.arcadeBestScore || 0, w: G.tourWins || 0, t: Date.now(),
+        st: {
+          c: Object.values(G.caught || {}).reduce((s2, n2) => s2 + n2, 0),
+          lk: G.lunkers || 0, bb: +(G.bestBag || 0).toFixed(2), ti: (G.season && G.season.titles) || 0,
+          ac: G.arcadeClears || 0, ach: ACH.filter(x => ch[x.id]).length,
+          ph: G.perfectHooks || 0, bd: G.bestDayCatches || 0, bc: G.bestCatchScore || 0,
+        },
+        fav: { l: topKey(t.lure), sp: topKey(t.spot) },
+        top,
+      };
     }
     let lastPush = 0, lastSent = "";
     function submit(force) {
@@ -1228,14 +1245,70 @@
       const key = sortKey;
       const fmtV = key === "b" ? v => (v || 0).toFixed(1) + " lb" : v => (v || 0).toLocaleString();
       const sorted = rows.slice().sort((x, y) => (y[key] || 0) - (x[key] || 0));
-      el.lbBody.innerHTML = sorted.map((o, i) => {
+      // the community at a glance, pooled from every angler's public profile
+      const commTotal = rows.reduce((s2, o) => s2 + ((o.st && o.st.c) || 0), 0);
+      const commBig = Math.max(...rows.map(o => +o.b || 0), 0);
+      const comm = `<p class="muted" style="text-align:center;font-size:11px;margin:0 0 8px">🌎 ${rows.length} angler${rows.length > 1 ? "s" : ""} · ${commTotal.toLocaleString()} bass boated · biggest ${commBig.toFixed(1)} lb<br>tap an angler for their full stats</p>`;
+      el.lbBody.innerHTML = comm + sorted.map((o, i) => {
         const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : (i + 1) + ".";
-        return `<div class="lb-row ${o.id === G.pid ? "me" : ""}">
+        return `<div class="lb-row ${o.id === G.pid ? "me" : ""}" data-pid="${esc(o.id)}">
           <b class="lb-r">${medal}</b>
           <div class="lb-n">${esc(o.n)}<small>🎯 ${(o.s || 0).toLocaleString()} · 🏅 ${(+o.b || 0).toFixed(1)} lb · 🕹️ ${(o.a || 0).toLocaleString()}</small></div>
           <b class="lb-v">${fmtV(o[key])}</b></div>`;
       }).join("") + codeFoot();
     }
+    // ---- public angler profile: stats grid + favourites + sortable best catches ----
+    let profRows = [], profSort = "w";
+    function openProfile(o) {
+      if (!o) return;
+      el.lbpName.textContent = `🎣 ${o.n || "ANGLER"}`;
+      const st = o.st || {};
+      const tiles = [
+        ["🎯", "Angler score", (o.s || 0).toLocaleString()],
+        ["🏅", "Biggest bass", o.b ? (+o.b).toFixed(1) + " lb" : "—"],
+        ["🕹️", "Arcade best", o.a ? (o.a).toLocaleString() : "—"],
+        ["🐟", "Bass caught", st.c != null ? st.c.toLocaleString() : "—"],
+        ["💪", "Lunkers", st.lk != null ? st.lk : "—"],
+        ["🪣", "Best livewell", st.bb ? st.bb.toFixed(2) + " lb" : "—"],
+        ["🏁", "Tourney wins", o.w || 0],
+        ["👑", "Titles", st.ti != null ? st.ti : "—"],
+        ["🏆", "Achievements", st.ach != null ? `${st.ach}/${ACH.length}` : "—"],
+      ];
+      el.lbpStats.innerHTML = tiles.map(([i, l, v]) =>
+        `<div class="rec-stat"><div class="rs-ico">${i}</div><div class="rs-v">${v}</div><div class="rs-l">${l}</div></div>`).join("");
+      const favL = o.fav && LURES.find(x => x.id === o.fav.l), favS = o.fav && SPOTS.find(x => x.id === o.fav.sp);
+      const bits = [];
+      if (favL) bits.push(`❤️ Go-to lure: ${favL.ico} ${favL.name}`);
+      if (favS) bits.push(`🗺️ Home water: ${favS.ico} ${favS.name}`);
+      if (st.ph) bits.push(`✨ ${st.ph} perfect hooksets`);
+      if (st.bd) bits.push(`🔥 best day: ${st.bd} bass`);
+      el.lbpFav.innerHTML = bits.map(x => `<span>${x}</span>`).join("");
+      profRows = Array.isArray(o.top) ? o.top.filter(e => e && e.w) : [];
+      profSort = "w";
+      el.lbpSorts.querySelectorAll(".clog-sbtn").forEach(x => x.classList.toggle("active", x.dataset.lbps === "w"));
+      renderProfCatches();
+      el.lbProfileModal.classList.remove("hidden");
+    }
+    function renderProfCatches() {
+      if (!profRows.length) { el.lbpList.innerHTML = `<p class="muted" style="text-align:center">No catches shared yet.</p>`; return; }
+      const rowsS = profRows.slice().sort((x, y) => (y[profSort] || 0) - (x[profSort] || 0));
+      el.lbpList.innerHTML = rowsS.map(e => {
+        const l = LURES.find(x => x.id === e.l), sp = SPOTS.find(x => x.id === e.sp);
+        const wx = WEATHER[e.wx], sea = SEASONS[e.se];
+        const bits = [sea ? sea.ico + " " + sea.name : "", wx ? wx.ico + " " + wx.name : "", e.h != null ? fmtClock(e.h * 60) : ""].filter(Boolean).join(" · ");
+        return `<div class="lb-row" style="cursor:default">
+          <b class="lb-r">${l ? l.ico : "🎣"}${sp ? sp.ico : ""}</b>
+          <div class="lb-n">${(+e.w).toFixed(2)} lb${l ? " · " + esc(l.name) : ""}<small>${bits}</small></div>
+          <b class="lb-v">🎯 ${(e.sc || 0).toLocaleString()}</b></div>`;
+      }).join("");
+    }
+    el.lbpClose.addEventListener("click", () => el.lbProfileModal.classList.add("hidden"));
+    el.lbpSorts.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-lbps]"); if (!b) return;
+      profSort = b.dataset.lbps; sfx("ui");
+      el.lbpSorts.querySelectorAll(".clog-sbtn").forEach(x => x.classList.toggle("active", x === b));
+      renderProfCatches();
+    });
     function renderSetup() {
       el.lbBody.innerHTML = `
         <p class="muted">No global board is linked yet. Create it once — every player lands on the same rankings.</p>
@@ -1287,7 +1360,10 @@
       if (e.target.closest("#lbJoinBtn")) {
         const v = (document.getElementById("lbJoin").value || "").trim();
         if (v) { G.lbBucket = v; save(); sfx("good"); refresh(); }
+        return;
       }
+      const row = e.target.closest(".lb-row[data-pid]");
+      if (row && rows) { sfx("ui"); openProfile(rows.find(o => o.id === row.dataset.pid)); }
     });
     lbSubmitHook = submit;
     return { open, submit };
@@ -1343,6 +1419,7 @@
     if (S.arcade && !S.arcade.ended) { toast("Arcade run in progress 🕹️"); return; }
     if (S.tut) { S.tut = null; el.tutBanner.classList.add("hidden"); }
     dropPausedRuns();
+    Music.setScene("game");   // in case we arrived via a menu deep-link with the theme still on
     el.modeModal.classList.add("hidden");
     S.arcadePrev = { spot: G.spot };
     S.arcade = { stage: 0, timeLeft: 0, bag: 0, quota: 0, bump: 0, continues: 0, score: 0, ended: false };
@@ -1487,12 +1564,12 @@
   function showTitle() {
     el.anglerName.value = G.name || "";
     const biggest = Object.values(G.records || {}).reduce((m, w) => Math.max(m, w), 0);
-    const bits = [];
-    if (G.coins) bits.push(`🏆 ${G.coins.toLocaleString()} pts`);
-    if (biggest) bits.push(`🐟 best ${biggest.toFixed(1)} lb`);
-    if (G.arcadeBestScore) bits.push(`🕹️ ${G.arcadeBestScore.toLocaleString()}`);
-    if ((G.season || {}).titles) bits.push(`👑 ${G.season.titles}`);
-    el.titleStats.innerHTML = bits.map(b => `<span>${b}</span>`).join("");
+    const bits = [];   // each chip deep-links to the screen that tells its story
+    if (G.coins) bits.push([`🏆 ${G.coins.toLocaleString()} pts`, "records"]);
+    if (biggest) bits.push([`🐟 best ${biggest.toFixed(1)} lb`, "trophy"]);
+    if (G.arcadeBestScore) bits.push([`🕹️ ${G.arcadeBestScore.toLocaleString()}`, "circuit"]);
+    if ((G.season || {}).titles) bits.push([`👑 ${G.season.titles}`, "circuit"]);
+    el.titleStats.innerHTML = bits.map(([b, act]) => `<span data-open="${act}">${b}</span>`).join("");
     el.titleStats.classList.toggle("hidden", !bits.length);
     // a suspended tournament or arcade run resumes right from the menu
     const pr = G.pausedTour ? `▶ RESUME ${G.pausedTour.t.name.toUpperCase()} · ${fmtT(G.pausedTour.t.timeLeft)} LEFT`
@@ -1517,6 +1594,14 @@
   el.tsTutorial.addEventListener("click", () => { closeTitle(); sfx("ui"); startTutorial(); });
   el.tsResume.addEventListener("click", () => { closeTitle(); sfx("good"); resumeRun(); });
   el.tsBoard.addEventListener("click", () => { sfx("ui"); LB.open(); });
+  // the stat chips on the menu deep-link to the screens behind the numbers
+  el.titleStats.addEventListener("click", (e) => {
+    const s2 = e.target.closest("[data-open]"); if (!s2) return;
+    sfx("ui");
+    if (s2.dataset.open === "records") openRecords();
+    else if (s2.dataset.open === "trophy") openTrophyRoom();
+    else { closeTitle(true); openCircuit(); }
+  });
   el.menuBtn.addEventListener("click", () => { el.mapModal.classList.add("hidden"); sfx("ui"); showTitle(); });
   // 🏠 from anywhere: an active tournament/arcade run is saved, not lost
   el.homeBtn.addEventListener("click", () => {
@@ -2496,6 +2581,7 @@
   function startTournament() {
     const t = pendingTour; if (!t) { el.tourStartModal.classList.add("hidden"); return; }
     dropPausedRuns();
+    Music.setScene("game");   // lines in — theme out, even off a menu deep-link
     if (G.spot !== t.spot) { G.spot = t.spot; seedFish(); rollConditions(); }
     // a fee still seeds the purse maths, but the player never pays it
     const fee = t.spot === "deep" ? 150 : t.spot === "river" ? 90 : 50;
@@ -4151,21 +4237,21 @@
     const seasonPts = Object.values(season.best || {}).reduce((s, p) => s + p, 0);
     const seasonEvents = Object.keys(season.best || {}).length;
     const bestCatch = (G.catchLog || []).reduce((m, c) => Math.max(m, c.score || 0), 0);
+    // every tile links onward to the screen with the detail behind it
     const stats = [
-      ["🐟", "Bass caught", totalCaught],
-      ["🏅", "Biggest bass", biggest ? biggest.toFixed(1) + " lb" : "—"],
-      ["🪣", "Best livewell", (G.bestBag || 0) ? G.bestBag.toFixed(2) + " lb" : "—"],
-      ["🏁", "Tournament wins", G.tourWins || 0],
-      ["👑", "Circuit titles", season.titles || 0],
-      ["📋", "Season", `${seasonPts} pts · ${seasonEvents}/${TOURNAMENTS.length}`],
-      ["🎯", "Angler score", (G.coins || 0).toLocaleString()],
-      ["💥", "Best catch", bestCatch ? bestCatch.toLocaleString() : "—"],
-      ["🕹️", "Arcade best", G.arcadeBestScore ? G.arcadeBestScore.toLocaleString() : "—"],
+      ["🐟", "Bass caught", totalCaught, totalCaught > 0 && "log"],
+      ["🏅", "Biggest bass", biggest ? biggest.toFixed(1) + " lb" : "—", biggest > 0 && "trophy"],
+      ["🪣", "Best livewell", (G.bestBag || 0) ? G.bestBag.toFixed(2) + " lb" : "—", totalCaught > 0 && "logw"],
+      ["🏁", "Tournament wins", G.tourWins || 0, "circuit"],
+      ["👑", "Circuit titles", season.titles || 0, "circuit"],
+      ["📋", "Season", `${seasonPts} pts · ${seasonEvents}/${TOURNAMENTS.length}`, "circuit"],
+      ["🎯", "Angler score", (G.coins || 0).toLocaleString(), totalCaught > 0 && "logs"],
+      ["💥", "Best catch", bestCatch ? bestCatch.toLocaleString() : "—", bestCatch > 0 && "logs"],
+      ["🕹️", "Arcade best", G.arcadeBestScore ? G.arcadeBestScore.toLocaleString() : "—", "circuit"],
     ];
-    el.recStats.innerHTML = stats.map(([i, l, v]) => {
-      const tap = l === "Bass caught" && totalCaught > 0;   // tap to open the full catch log
-      return `<div class="rec-stat ${tap ? "tap" : ""}" ${tap ? 'data-act="log"' : ""}><div class="rs-ico">${i}</div><div class="rs-v">${v}${tap ? " ›" : ""}</div><div class="rs-l">${l}</div></div>`;
-    }).join("");
+    el.recStats.innerHTML = stats.map(([i, l, v, act]) =>
+      `<div class="rec-stat ${act ? "tap" : ""}" ${act ? `data-act="${act}"` : ""}><div class="rs-ico">${i}</div><div class="rs-v">${v}${act ? " ›" : ""}</div><div class="rs-l">${l}</div></div>`
+    ).join("");
     const seenName = new Set();
     const fishRows = Object.keys(F).filter(k => { if (seenName.has(F[k].name)) return false; seenName.add(F[k].name); return true; }).map(k => {
       const def = F[k], best = G.records[def.name], n = G.caught[def.name];
@@ -4185,7 +4271,17 @@
     el.recBody.innerHTML = fishRows + `<h3 class="rec-h" style="margin-top:14px">Trophy Room &amp; Achievements</h3>` + trophyBtn;
   }
   el.recordsClose && el.recStats.addEventListener("click", (e) => {
-    if (e.target.closest('[data-act="log"]')) openCatchLog();
+    const tile = e.target.closest("[data-act]"); if (!tile) return;
+    const act = tile.dataset.act; sfx("ui");
+    if (act === "log") openCatchLog();
+    else if (act === "logw") openCatchLog("weight");
+    else if (act === "logs") openCatchLog("score");
+    else if (act === "trophy") openTrophyRoom();
+    else if (act === "circuit") {
+      el.recordsModal.classList.add("hidden");
+      if (!el.titleScreen.classList.contains("hidden")) closeTitle(true);
+      openCircuit();
+    }
   });
   el.recBody && el.recBody.addEventListener("click", (e) => {
     if (e.target.closest('[data-act="trophy"]')) openTrophyRoom();
@@ -4272,9 +4368,10 @@
   let clogSort = "recent";
   let clogView = [];   // the current filtered+sorted rows, for tap-to-detail
   const clogFilters = { spot: "", lure: "", rod: "", time: "", weather: "" };
-  function openCatchLog() {
-    clogSort = "recent";
+  function openCatchLog(sort) {
+    clogSort = sort || "recent";
     clogFilters.spot = clogFilters.lure = clogFilters.rod = clogFilters.time = clogFilters.weather = "";
+    el.catchLogModal.querySelectorAll(".clog-sbtn").forEach(b => b.classList.toggle("active", b.dataset.sort === clogSort));
     buildClogFilters();
     renderCatchLog();
     el.catchLogModal.classList.remove("hidden");
@@ -4300,6 +4397,7 @@
       (!clogFilters.weather || e.weather === clogFilters.weather));
     if (clogSort === "weight") rows.sort((a, b) => b.w - a.w);
     else if (clogSort === "length") rows.sort((a, b) => b.len - a.len);
+    else if (clogSort === "score") rows.sort((a, b) => (b.score || 0) - (a.score || 0));
     else rows.sort((a, b) => b.ts - a.ts);
     clogView = rows;
     el.clogCount.textContent = `${rows.length} bass · tap one for details`;

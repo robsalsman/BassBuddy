@@ -8,8 +8,8 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>BassBuddy — Bass Fishing</title>
-<script>window.BB_V = "20260702o";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
-<link rel="stylesheet" href="style.css?v=20260702o" />
+<script>window.BB_V = "20260702p";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
+<link rel="stylesheet" href="style.css?v=20260702p" />
 </head>
 <body>
 <div id="game">
@@ -259,6 +259,24 @@
     </div>
   </div>
 
+  <!-- Angler profile (tap any name on the rankings — everyone's stats are public) -->
+  <div id="lbProfileModal" class="modal hidden">
+    <div class="modal-card shop-card">
+      <div class="shop-head">
+        <h2 id="lbpName">🎣 ANGLER</h2>
+        <button class="close-btn" id="lbpClose">✕</button>
+      </div>
+      <div class="rec-stats" id="lbpStats" style="grid-template-columns:repeat(3,1fr)"></div>
+      <div class="tr-bits" id="lbpFav"></div>
+      <h3 class="rec-h" style="margin-top:10px">Best catches</h3>
+      <div class="clog-sort" id="lbpSorts">
+        <button class="clog-sbtn active" data-lbps="w">🏅 Heaviest</button>
+        <button class="clog-sbtn" data-lbps="sc">🎯 Top Score</button>
+      </div>
+      <div class="shop-body" id="lbpList"></div>
+    </div>
+  </div>
+
   <!-- End-of-day summary (free play: the day runs dawn to dusk) -->
   <div id="daySummaryModal" class="modal hidden">
     <div class="modal-card">
@@ -356,6 +374,7 @@
         <button class="clog-sbtn active" data-sort="recent">Recent</button>
         <button class="clog-sbtn" data-sort="weight">Heaviest</button>
         <button class="clog-sbtn" data-sort="length">Longest</button>
+        <button class="clog-sbtn" data-sort="score">Top Score</button>
       </div>
       <div class="clog-filters">
         <select id="fLake" class="clog-sel"></select>
@@ -430,7 +449,7 @@
 </div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=20260702o"></script>
-<script src="game.js?v=20260702o"></script>
+<script type="module" src="render3d.js?v=20260702p"></script>
+<script src="game.js?v=20260702p"></script>
 </body>
 </html>
