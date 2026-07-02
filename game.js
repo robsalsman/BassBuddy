@@ -1114,7 +1114,7 @@
     let titleTracks = [], gameTracks = [], order = [], idx = 0, audio = null;
     let armed = false;              // a user gesture has happened — audio is allowed
     let scene = "title";            // which soundtrack the game wants right now
-    let wantAuto = false;           // boot asked for autoplay before the playlist arrived
+    let wantAuto = true;            // start the theme as part of page load, before any tap
     fetch("music/playlist.json" + (window.BB_V ? "?v=" + window.BB_V : ""))
       .then(r => (r.ok ? r.json() : []))
       .then(list => {
@@ -1191,17 +1191,29 @@
       if (!titleTracks.length) { wantAuto = true; return; }
       ensureEl();
       audio.loop = true;
-      audio.src = "music/" + titleTracks[0].file;
+      audio.preload = "auto";
+      if (!audio.src) audio.src = "music/" + titleTracks[0].file;
       const p = audio.play();
       if (p && p.then) p.then(() => { armed = true; }).catch(() => {});
     }
+    // keep knocking through the load window — some engines only allow playback
+    // after the load event, after buffering, or on a visibility/focus change
+    ["visibilitychange", "focus", "pageshow"].forEach(ev =>
+      window.addEventListener(ev, () => { if (!armed) attemptAuto(); }));
+    let autoTries = 0;
+    const autoTimer = setInterval(() => {
+      if (armed || G.musicOn === false || ++autoTries > 12) { clearInterval(autoTimer); return; }
+      attemptAuto();
+    }, 450);
     function setOn(on) {
       G.musicOn = on; save();
       if (on) { if (armed) sync(); else attemptAuto(); }
       else if (audio) audio.pause();
     }
     function setVolume() { applyVol(); }
-    document.addEventListener("pointerdown", onGesture, { capture: true });
+    // any first interaction arms audio where autoplay was refused
+    ["pointerdown", "touchstart", "keydown"].forEach(ev =>
+      document.addEventListener(ev, onGesture, { capture: true, passive: true }));
     return { setScene, setOn, setVolume, tryAutoplay: attemptAuto };
   })();
 
