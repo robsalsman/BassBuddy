@@ -815,7 +815,7 @@
     const c = achCtx(); let changed = false;
     for (const a of ACH) {
       if (G.challenges[a.id]) continue;
-      if (a.test(c)) { G.challenges[a.id] = true; changed = true; if (!silent) toast(`🏅 Achievement: ${a.name}`); }
+      if (a.test(c)) { G.challenges[a.id] = true; changed = true; if (!silent) { toast(`🏅 ${a.name} — +1 skill point!`); grantAchSP(); } }
     }
     if (changed && !silent) save();
     return changed;
@@ -825,7 +825,7 @@
     if (G.challenges[id]) return;
     G.challenges[id] = true;
     const a = ACH.find(x => x.id === id);
-    if (a) toast(`🏅 Achievement: ${a.name}`);
+    if (a) { toast(`🏅 ${a.name} — +1 skill point!`); grantAchSP(); }
     save();
   }
   // catch-driven achievements (called whenever a bass is boated)
@@ -1720,18 +1720,25 @@
     sense:   { ico: "🧭", name: "Fish Sense" },
   };
   const ANGLERS = [
+    // every base kit totals 18 — nobody is flatly better, just built different
     { id: "roberto",  name: "Roberto",     tag: "The Captain",    desc: "Steady hand, no weak suit — the boat's in good hands.",
-      w: { hookset: 1.05, finesse: 1.05, power: 1.05, casting: 1.05, sense: 1.05 }, hue: "#5d7a45" },
+      w: { hookset: 1.05, finesse: 1.05, power: 1.05, casting: 1.05, sense: 1.05 }, hue: "#5d7a45",
+      base: { hookset: 4, finesse: 3, power: 4, casting: 4, sense: 3 } },
     { id: "hotrod",   name: "Hot Rod",     tag: "Full Throttle",  desc: "Big swings and long bombs — subtle is for other people.",
-      w: { hookset: 1.0, finesse: 0.6, power: 1.5, casting: 1.3, sense: 0.8 }, hue: "#8f3b2c" },
+      w: { hookset: 1.0, finesse: 0.6, power: 1.5, casting: 1.3, sense: 0.8 }, hue: "#8f3b2c",
+      base: { hookset: 3, finesse: 1, power: 6, casting: 5, sense: 3 } },
     { id: "wildwest", name: "Wild West",   tag: "The Gunslinger", desc: "Fastest cast in the county — dares any target, hits most.",
-      w: { hookset: 1.2, finesse: 0.7, power: 1.1, casting: 1.5, sense: 0.7 }, hue: "#a4762c" },
+      w: { hookset: 1.2, finesse: 0.7, power: 1.1, casting: 1.5, sense: 0.7 }, hue: "#a4762c",
+      base: { hookset: 4, finesse: 2, power: 4, casting: 6, sense: 2 } },
     { id: "drg",      name: "Dr. G",       tag: "The Surgeon",    desc: "Light line, small baits, hooksets like sutures.",
-      w: { hookset: 1.4, finesse: 1.5, power: 0.6, casting: 0.9, sense: 1.0 }, hue: "#3f8f6a" },
+      w: { hookset: 1.4, finesse: 1.5, power: 0.6, casting: 0.9, sense: 1.0 }, hue: "#3f8f6a",
+      base: { hookset: 6, finesse: 6, power: 1, casting: 3, sense: 2 } },
     { id: "jpbasser", name: "J.P. Basser", tag: "The Pro",        desc: "Reads water like a tournament sheet — always on fish.",
-      w: { hookset: 1.1, finesse: 1.1, power: 0.9, casting: 1.0, sense: 1.4 }, hue: "#39557f" },
+      w: { hookset: 1.1, finesse: 1.1, power: 0.9, casting: 1.0, sense: 1.4 }, hue: "#39557f",
+      base: { hookset: 4, finesse: 4, power: 2, casting: 3, sense: 5 } },
     { id: "olddog",   name: "Old Dog",     tag: "The Veteran",    desc: "Seen every trick a bass has. Slow, sure, never fooled.",
-      w: { hookset: 1.3, finesse: 1.2, power: 0.7, casting: 0.7, sense: 1.5 }, hue: "#6b5a44" },
+      w: { hookset: 1.3, finesse: 1.2, power: 0.7, casting: 0.7, sense: 1.5 }, hue: "#6b5a44",
+      base: { hookset: 5, finesse: 4, power: 1, casting: 2, sense: 6 } },
   ];
   const angler = () => ANGLERS.find(a => a.id === G.angler) || ANGLERS[0];
   const anglerXP = id => (G.anglerXP || {})[id] || 0;
@@ -1740,9 +1747,27 @@
     if (!G.anglerXP) G.anglerXP = {};
     G.anglerXP[angler().id] = (G.anglerXP[angler().id] || 0) + pts;
   }
-  // category level 0–10; a specialist's strong suits climb much faster
-  const skillLvl = (a, k) => Math.min(10, Math.floor(Math.sqrt(anglerXP(a.id) * a.w[k] / 250)));
+  // level-up economy: every 2,000 XP fished as an angler earns them a skill
+  // point, plus a bonus point for each achievement won in their boat. Points
+  // are spent by hand on any category (cap 10) — the player builds the angler.
+  const SP_PER = 2000;
+  const upSpent = id => { const u = (G.anglerUp || {})[id] || {}; return Object.values(u).reduce((s2, n) => s2 + n, 0); };
+  const spEarned = id => Math.floor(anglerXP(id) / SP_PER) + ((G.anglerAchSP || {})[id] || 0);
+  const spAvail = id => Math.max(0, spEarned(id) - upSpent(id));
+  const skillLvl = (a, k) => Math.min(10, (a.base[k] || 0) + (((G.anglerUp || {})[a.id] || {})[k] || 0));
   const skill = k => skillLvl(angler(), k) / 10;   // 0..1 bonus strength right now
+  function grantAchSP() {
+    if (!G.anglerAchSP) G.anglerAchSP = {};
+    G.anglerAchSP[angler().id] = (G.anglerAchSP[angler().id] || 0) + 1;
+  }
+  function spendSP(id, k) {
+    const a = ANGLERS.find(x => x.id === id); if (!a) return;
+    if (spAvail(id) <= 0 || skillLvl(a, k) >= 10) return;
+    if (!G.anglerUp) G.anglerUp = {};
+    if (!G.anglerUp[id]) G.anglerUp[id] = {};
+    G.anglerUp[id][k] = (G.anglerUp[id][k] || 0) + 1;
+    save();
+  }
   // sense finds fish anywhere; finesse pays off on small (and lightly on medium) baits
   function anglerBiteMul() {
     const fin = (G.lure.size || "med") === "small" ? 1 : (G.lure.size || "med") === "med" ? 0.35 : 0;
@@ -1867,8 +1892,18 @@
       const sel = angler().id === a.id;
       const xp = anglerXP(a.id);
       const spec = Object.keys(SKILLS).filter(k => a.w[k] >= 1.25).map(k => SKILLS[k].ico + " " + SKILLS[k].name).join(" · ");
-      const detail = sel ? `<div class="opt-detail">${catBars(Object.keys(SKILLS).map(k => ({ label: SKILLS[k].name, pct: skillLvl(a, k) * 10 })))}
-        <div class="cats-tip">${a.desc}<br>${xp ? `🎯 ${xp.toLocaleString()} XP — points earned fishing as ${a.name} keep leveling these skills` : "🎯 New — points earned fishing level these skills, specialties fastest"}</div></div>` : "";
+      const av = spAvail(a.id);
+      const rows = Object.keys(SKILLS).map(k => {
+        const lvl = skillLvl(a, k);
+        const plus = sel && av > 0 && lvl < 10 ? `<button class="sp-plus" data-up="${a.id}:${k}">＋</button>` : "";
+        return `<div class="cat"><span>${SKILLS[k].ico} ${SKILLS[k].name}</span>
+          <div class="cat-bar"><i style="width:${lvl * 10}%;background:${ratingColor(lvl * 10)}"></i></div>
+          <b style="color:${ratingColor(lvl * 10)}">${lvl}</b>${plus}</div>`;
+      }).join("");
+      const spLine = av > 0
+        ? `<div class="sp-line hot">🔺 ${av} skill point${av > 1 ? "s" : ""} to spend — tap ＋ on a skill</div>`
+        : `<div class="sp-line">Next skill point: ${(xp % SP_PER).toLocaleString()} / ${SP_PER.toLocaleString()} XP fished as ${a.name} · achievements won in their boat are +1 each</div>`;
+      const detail = sel ? `<div class="opt-detail"><div class="cats">${rows}</div>${spLine}<div class="cats-tip">${a.desc}</div></div>` : "";
       return `<div class="lure-opt angler-opt ${sel ? "sel" : ""}" data-angler="${a.id}">
         <div class="angler-face">${anglerSVG(a, true)}</div>
         <div class="info">
@@ -1879,6 +1914,8 @@
     }).join("");
   }
   el.anglerModal.addEventListener("click", (e) => {
+    const up = e.target.closest("[data-up]");
+    if (up) { const [id, k] = up.dataset.up.split(":"); spendSP(id, k); sfx("good"); renderAnglers(); return; }
     const o = e.target.closest(".angler-opt"); if (!o) return;
     if (G.angler !== o.dataset.angler) { G.angler = o.dataset.angler; save(); sfx("ui"); renderAnglers(); }
   });
