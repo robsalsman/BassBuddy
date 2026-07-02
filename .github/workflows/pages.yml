@@ -38,3 +38,7 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          # Pages deployment queue sometimes backs up for a while upstream;
+          # wait out a slow drain instead of aborting at the default 10 min.
+          timeout: 1800000
