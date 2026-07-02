@@ -975,3 +975,17 @@ select, input, textarea { font-size: 16px; }
 .vol-row span { flex: 0 0 78px; text-align: left; font-size: 12px; font-weight: 800; color: #cfe6f0; }
 .vol-row b { flex: 0 0 30px; font-size: 12px; font-weight: 900; color: var(--gold); text-align: right; }
 .vol-row input[type="range"] { flex: 1; min-width: 0; accent-color: var(--gold); height: 26px; }
+
+/* ===== Global leaderboard ===== */
+.lb-row { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 12px;
+  border: 1px solid var(--ui-line); background: rgba(255,255,255,.04); margin-bottom: 7px; }
+.lb-row.me { border-color: var(--gold); background: rgba(255,211,92,.10); }
+.lb-r { flex: 0 0 34px; font-size: 15px; font-weight: 900; color: #cfe6f0; text-align: center; }
+.lb-n { flex: 1; min-width: 0; font-size: 14px; font-weight: 900; color: #eaf3ff; letter-spacing: .5px; }
+.lb-n small { display: block; font-size: 10px; font-weight: 700; color: #9fc3d2; margin-top: 2px; letter-spacing: 0; }
+.lb-row.me .lb-n { color: var(--gold); }
+.lb-v { flex: 0 0 auto; font-size: 15px; font-weight: 900; color: var(--gold); }
+.title-resume { background: linear-gradient(135deg, #5be37a, #2ec7c7); color: #06321a; }
+
+/* rankings opens over the title screen */
+#lbModal { z-index: 70; }

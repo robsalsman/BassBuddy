@@ -8,8 +8,8 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>BassBuddy — Bass Fishing</title>
-<script>window.BB_V = "20260702j";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
-<link rel="stylesheet" href="style.css?v=20260702j" />
+<script>window.BB_V = "20260702k";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
+<link rel="stylesheet" href="style.css?v=20260702k" />
 </head>
 <body>
 <div id="game">
@@ -23,6 +23,7 @@
       <span id="coins">0</span>
     </button>
     <div class="hud-spacer"></div>
+    <button id="homeBtn" class="hud-btn" title="Main menu">🏠</button>
     <button id="tourneyBtn" class="hud-btn alt" title="Tournament circuit">🏁</button>
     <button id="muteBtn" class="hud-btn" title="Sound">🔊</button>
     <button id="shopBtn" class="hud-btn" title="Tackle box">🧰</button>
@@ -200,6 +201,7 @@
       <div class="color-row" id="colorRow"></div>
       <div class="color-head">Scent / Flavor</div>
       <div class="scent-row" id="scentRow"></div>
+      <button class="big-btn hidden" id="lureFish" style="margin-top:10px">🎣 GO FISH!</button>
     </div>
   </div>
 
@@ -222,20 +224,38 @@
     </div>
   </div>
 
-  <!-- Map / spot + position picker -->
+  <!-- Map / spot + position picker (doubles as the GO FISHING prep wizard) -->
   <div id="mapModal" class="modal hidden">
     <div class="modal-card">
       <div class="shop-head">
-        <h2>🗺️ Where to Fish</h2>
+        <h2 id="mapTitle">🗺️ Where to Fish</h2>
         <button class="close-btn" id="mapClose">✕</button>
       </div>
+      <div class="lure-cond" id="mapCond"></div>
       <div class="map-venues" id="mapVenues"></div>
-      <div class="color-head">Spot on the water</div>
+      <div class="color-head" id="posHead">Spot on the water</div>
       <div class="pos-grid" id="posGrid"></div>
-      <div class="color-head">📡 Fish Finder</div>
+      <div class="color-head" id="finderHead">📡 Fish Finder</div>
       <div class="finder" id="finder"></div>
+      <button class="big-btn hidden" id="mapNext">NEXT ▸</button>
       <button class="text-btn" id="endDayBtn" style="width:100%;margin-top:8px">🌙 Call it a day — head in</button>
       <button class="text-btn" id="menuBtn" style="width:100%">🏠 Main menu</button>
+    </div>
+  </div>
+
+  <!-- Global leaderboard -->
+  <div id="lbModal" class="modal hidden">
+    <div class="modal-card shop-card">
+      <div class="shop-head">
+        <h2>🌎 Global Rankings</h2>
+        <button class="close-btn" id="lbClose">✕</button>
+      </div>
+      <div class="clog-sort" id="lbSorts">
+        <button class="clog-sbtn active" data-lbsort="s">🎯 Score</button>
+        <button class="clog-sbtn" data-lbsort="b">🏅 Big Bass</button>
+        <button class="clog-sbtn" data-lbsort="a">🕹️ Arcade</button>
+      </div>
+      <div class="shop-body" id="lbBody"></div>
     </div>
   </div>
 
@@ -386,12 +406,16 @@
       <div id="titleStats" class="title-stats hidden"></div>
       <input id="anglerName" class="title-name" maxlength="12" placeholder="ENTER YOUR NAME"
              autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" />
+      <button class="big-btn title-resume hidden" id="tsResume" style="margin:0 0 10px">▶ RESUME</button>
       <button class="big-btn title-go" id="tsFree">🎣 GO FISHING</button>
       <div class="title-row">
         <button class="title-btn" id="tsArcade">🕹️ ARCADE</button>
         <button class="title-btn" id="tsTour">🏆 CIRCUIT</button>
       </div>
-      <button class="title-btn title-wide" id="tsTutorial">🎓 LEARN TO FISH</button>
+      <div class="title-row">
+        <button class="title-btn" id="tsTutorial">🎓 TUTORIAL</button>
+        <button class="title-btn" id="tsBoard">🌎 RANKINGS</button>
+      </div>
       <button class="title-btn title-wide hidden" id="musicBtn">🎵 Music: ON</button>
       <div class="vol-box">
         <div class="vol-row"><span>🎵 Music</span><input type="range" id="musicVol" min="0" max="100" step="5" /><b id="musicVolPct">60</b></div>
@@ -406,7 +430,7 @@
 </div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=20260702j"></script>
-<script src="game.js?v=20260702j"></script>
+<script type="module" src="render3d.js?v=20260702k"></script>
+<script src="game.js?v=20260702k"></script>
 </body>
 </html>

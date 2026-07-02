@@ -303,6 +303,8 @@
       mode: "free",     // "free" fishing (default) — tournaments are entered from the circuit
       muted: false, musicOn: true, musicVol: 0.6, sfxVol: 1,
       name: "", tutorialDone: false,
+      pausedTour: null, pausedArcade: null,     // suspended runs, resumable from the menu
+      pid: "", lbBucket: "",                    // global-leaderboard identity + board code
     };
   }
   function load() {
@@ -340,7 +342,11 @@
     } catch (e) {}
     return defaultSave();
   }
-  function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(G)); } catch (e) {} }
+  var lbSubmitHook = null;   // set by the leaderboard module once it's up
+  function save() {
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(G)); } catch (e) {}
+    if (lbSubmitHook) lbSubmitHook();   // throttled — pushes score changes to the global board
+  }
   const G = load();
 
   const rod  = () => RODS.find(r => r.id === G.rod) || RODS[0];
@@ -399,6 +405,9 @@
     tourBag: $("tourBag"), tourResultStats: $("tourResultStats"), tourStandings: $("tourStandings"), tourResultOk: $("tourResultOk"),
     titleScreen: $("titleScreen"), anglerName: $("anglerName"), titleStats: $("titleStats"),
     tsFree: $("tsFree"), tsArcade: $("tsArcade"), tsTour: $("tsTour"), tsTutorial: $("tsTutorial"),
+    tsResume: $("tsResume"), tsBoard: $("tsBoard"), homeBtn: $("homeBtn"),
+    lbModal: $("lbModal"), lbClose: $("lbClose"), lbBody: $("lbBody"), lbSorts: $("lbSorts"),
+    mapTitle: $("mapTitle"), mapCond: $("mapCond"), posHead: $("posHead"), finderHead: $("finderHead"), mapNext: $("mapNext"), lureFish: $("lureFish"),
     tutBanner: $("tutBanner"), tutStep: $("tutStep"), tutText: $("tutText"), tutSkip: $("tutSkip"), menuBtn: $("menuBtn"),
     fx: $("fx"),
   };
@@ -967,7 +976,7 @@
   const sfx = n => Sound.play(n);
   function anyModalOpen() {
     return [el.catchModal, el.failModal, el.lureModal, el.mapModal,
-            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal, el.titleScreen].some(m => !m.classList.contains("hidden"));
+            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal, el.titleScreen, el.lbModal].some(m => !m.classList.contains("hidden"));
   }
 
   function floatText(txt, color) {
@@ -1008,9 +1017,25 @@
       })
       .catch(() => {});
     function vol() { return G.musicVol != null ? G.musicVol : 0.6; }
+    // iOS makes HTMLMediaElement.volume read-only, so the slider must control a
+    // WebAudio gain node instead — the element pipes through it where possible
+    let mctx = null, mgain = null, msrc = null;
+    function ensureGraph() {
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext; if (!AC || !audio) return;
+        if (!mctx) { mctx = new AC(); mgain = mctx.createGain(); mgain.connect(mctx.destination); }
+        if (!msrc) { msrc = mctx.createMediaElementSource(audio); msrc.connect(mgain); }
+        if (mctx.state === "suspended") mctx.resume();
+      } catch (e) {}
+    }
+    function applyVol() {
+      if (mgain) { mgain.gain.value = vol(); if (audio) try { audio.volume = 1; } catch (e) {} }
+      else if (audio) try { audio.volume = vol(); } catch (e) {}
+    }
     function ensureEl() {
       if (!audio) { audio = new Audio(); audio.addEventListener("ended", () => { if (!audio.loop) nextGame(); }); }
-      audio.volume = vol();
+      ensureGraph();
+      applyVol();
     }
     function shuffle() {
       order = gameTracks.map((_, i) => i);
@@ -1044,13 +1069,127 @@
       else if (audio) audio.pause();
       updateBtn();
     }
-    function setVolume() { if (audio) audio.volume = vol(); }
+    function setVolume() { applyVol(); }
     function updateBtn() {
       const b = document.getElementById("musicBtn");
       if (b) b.textContent = G.musicOn === false ? "🎵 Music: OFF" : "🎵 Music: ON";
     }
     document.addEventListener("pointerdown", onGesture, { capture: true });
     return { setScene, setOn, setVolume };
+  })();
+
+  // ===========================================================================
+  // GLOBAL LEADERBOARD — a free kvdb.io bucket, one key per angler, readable by
+  // every copy of the game. The board id ships in lb-config.json; until it's
+  // baked in, the modal offers one-tap CREATE (runs from the player's browser)
+  // or JOIN with a shared board code.
+  // ===========================================================================
+  const LB = (() => {
+    let baked = "", rows = null, sortKey = "s";
+    fetch("lb-config.json" + (window.BB_V ? "?v=" + window.BB_V : ""))
+      .then(r => (r.ok ? r.json() : {}))
+      .then(c => { baked = (c && c.bucket) || ""; })
+      .catch(() => {});
+    const bucket = () => baked || G.lbBucket || "";
+    const base = () => "https://kvdb.io/" + bucket() + "/";
+    const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+    function pid() { if (!G.pid) { G.pid = "p" + Math.random().toString(36).slice(2, 10); save(); } return G.pid; }
+    function biggest() { const v = Object.values(G.records || {}); return v.length ? Math.max(...v) : 0; }
+    function myEntry() {
+      return { n: G.name || "ANGLER", s: G.coins || 0, b: +biggest().toFixed(2), a: G.arcadeBestScore || 0, w: G.tourWins || 0, t: Date.now() };
+    }
+    let lastPush = 0, lastSent = "";
+    function submit(force) {
+      if (!bucket() || !G.name) return;
+      const payload = JSON.stringify(myEntry());
+      if (!force && payload === lastSent) return;
+      if (!force && Date.now() - lastPush < 30000) return;
+      lastPush = Date.now(); lastSent = payload;
+      const id = pid();
+      fetch(base() + id, { method: "PUT", body: payload }).catch(() => {});
+    }
+    async function fetchAll() {
+      const r = await fetch(base() + "?values=true&format=json&limit=1000");
+      if (!r.ok) throw new Error("board fetch failed");
+      const arr = await r.json();
+      const out = (Array.isArray(arr) ? arr : []).map(e => {
+        const k = Array.isArray(e) ? e[0] : (e && (e.key || e.k));
+        let v = Array.isArray(e) ? e[1] : (e && (e.value || e.v));
+        try { if (typeof v === "string") v = JSON.parse(v); } catch (err) { return null; }
+        if (!v || !v.n) return null;
+        v.id = k; return v;
+      }).filter(Boolean);
+      // fold our own latest numbers in — the PUT may still be in flight
+      const mine = myEntry(); mine.id = pid();
+      const i = out.findIndex(o => o.id === mine.id);
+      if (i >= 0) out[i] = mine; else if (G.name) out.push(mine);
+      return out;
+    }
+    function codeFoot() {
+      return `<p class="muted" style="text-align:center;margin-top:10px;font-size:11px">Board code: <b>${esc(bucket())}</b><br>Anyone on this game version is on this board automatically.</p>`;
+    }
+    function render() {
+      if (!bucket()) { renderSetup(); return; }
+      if (!rows) { el.lbBody.innerHTML = `<p class="muted" style="text-align:center">Casting out to the board…</p>`; return; }
+      if (!rows.length) { el.lbBody.innerHTML = `<p class="muted" style="text-align:center">Nobody on the board yet — go catch one!</p>` + codeFoot(); return; }
+      const key = sortKey;
+      const fmtV = key === "b" ? v => (v || 0).toFixed(1) + " lb" : v => (v || 0).toLocaleString();
+      const sorted = rows.slice().sort((x, y) => (y[key] || 0) - (x[key] || 0));
+      el.lbBody.innerHTML = sorted.map((o, i) => {
+        const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : (i + 1) + ".";
+        return `<div class="lb-row ${o.id === G.pid ? "me" : ""}">
+          <b class="lb-r">${medal}</b>
+          <div class="lb-n">${esc(o.n)}<small>🎯 ${(o.s || 0).toLocaleString()} · 🏅 ${(+o.b || 0).toFixed(1)} lb · 🕹️ ${(o.a || 0).toLocaleString()}</small></div>
+          <b class="lb-v">${fmtV(o[key])}</b></div>`;
+      }).join("") + codeFoot();
+    }
+    function renderSetup() {
+      el.lbBody.innerHTML = `
+        <p class="muted">No global board is linked yet. Create it once — every player lands on the same rankings.</p>
+        <button class="big-btn" id="lbCreate">🌎 CREATE THE GLOBAL BOARD</button>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <input id="lbJoin" class="clog-sel" style="flex:1" placeholder="…or paste a board code" autocomplete="off">
+          <button class="item-btn owned" id="lbJoinBtn" style="flex:0 0 auto">JOIN</button>
+        </div>`;
+    }
+    async function create() {
+      el.lbBody.innerHTML = `<p class="muted" style="text-align:center">Setting up the board…</p>`;
+      try {
+        const r = await fetch("https://kvdb.io", { method: "POST", body: "email=" });
+        const id = (await r.text()).trim();
+        if (!r.ok || !/^[A-Za-z0-9_-]{8,64}$/.test(id)) throw new Error("bad id");
+        G.lbBucket = id; save();
+        toast("🌎 Global board created!");
+        refresh();
+      } catch (e) {
+        el.lbBody.innerHTML = `<p class="muted" style="text-align:center">Couldn't reach the leaderboard service — check your connection and try again.</p>`;
+        setTimeout(renderSetup, 2200);
+      }
+    }
+    async function refresh() {
+      rows = null; render();
+      if (!bucket()) return;
+      submit(true);
+      try { rows = await fetchAll(); } catch (e) { rows = []; }
+      render();
+    }
+    function open() { el.lbModal.classList.remove("hidden"); refresh(); }
+    el.lbClose.addEventListener("click", () => el.lbModal.classList.add("hidden"));
+    el.lbSorts.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-lbsort]"); if (!b) return;
+      sortKey = b.dataset.lbsort; sfx("ui");
+      el.lbSorts.querySelectorAll(".clog-sbtn").forEach(x => x.classList.toggle("active", x === b));
+      render();
+    });
+    el.lbBody.addEventListener("click", (e) => {
+      if (e.target.closest("#lbCreate")) { sfx("ui"); create(); return; }
+      if (e.target.closest("#lbJoinBtn")) {
+        const v = (document.getElementById("lbJoin").value || "").trim();
+        if (v) { G.lbBucket = v; save(); sfx("good"); refresh(); }
+      }
+    });
+    lbSubmitHook = submit;
+    return { open, submit };
   })();
 
   function updateHUD() {
@@ -1102,6 +1241,7 @@
     if (S.tournament && !S.tournament.ended) { toast("Tournament in progress ⏱️"); return; }
     if (S.arcade && !S.arcade.ended) { toast("Arcade run in progress 🕹️"); return; }
     if (S.tut) { S.tut = null; el.tutBanner.classList.add("hidden"); }
+    dropPausedRuns();
     el.modeModal.classList.add("hidden");
     S.arcadePrev = { spot: G.spot };
     S.arcade = { stage: 0, timeLeft: 0, bag: 0, quota: 0, bump: 0, continues: 0, score: 0, ended: false };
@@ -1212,6 +1352,7 @@
     el.arcadeAlt.classList.add("hidden");
     el.arcadeModal.classList.remove("hidden");
     save(); updateHUD();
+    if (lbSubmitHook) lbSubmitHook(true);   // fresh arcade best goes straight to the global board
   }
   function exitArcade() {
     const prev = S.arcadePrev || {};
@@ -1251,23 +1392,90 @@
     if ((G.season || {}).titles) bits.push(`👑 ${G.season.titles}`);
     el.titleStats.innerHTML = bits.map(b => `<span>${b}</span>`).join("");
     el.titleStats.classList.toggle("hidden", !bits.length);
+    // a suspended tournament or arcade run resumes right from the menu
+    const pr = G.pausedTour ? `▶ RESUME ${G.pausedTour.t.name.toUpperCase()} · ${fmtT(G.pausedTour.t.timeLeft)} LEFT`
+      : G.pausedArcade ? `▶ RESUME ARCADE · S${G.pausedArcade.a.stage + 1}/4 · ${fmtT(G.pausedArcade.a.timeLeft)}` : null;
+    el.tsResume.classList.toggle("hidden", !pr);
+    if (pr) el.tsResume.textContent = pr;
     el.titleScreen.classList.remove("hidden");
     Music.setScene("title");
   }
-  function closeTitle() {
+  function closeTitle(keepTheme) {
     const n = (el.anglerName.value || "").trim().toUpperCase().slice(0, 12);
     if (n) G.name = n;
     if (!G.name) G.name = "ANGLER";
     el.anglerName.blur();
     el.titleScreen.classList.add("hidden");
-    Music.setScene("game");   // title theme out, lake playlist in
+    if (!keepTheme) Music.setScene("game");   // theme keeps playing through lake/spot/tackle prep
     save(); updateHUD();
   }
-  el.tsFree.addEventListener("click", () => { closeTitle(); sfx("ui"); openMap(); });
+  el.tsFree.addEventListener("click", () => { closeTitle(true); sfx("ui"); startPrep(); });
   el.tsArcade.addEventListener("click", () => { closeTitle(); sfx("ui"); startArcade(); });
   el.tsTour.addEventListener("click", () => { closeTitle(); sfx("ui"); openCircuit(); });
   el.tsTutorial.addEventListener("click", () => { closeTitle(); sfx("ui"); startTutorial(); });
+  el.tsResume.addEventListener("click", () => { closeTitle(); sfx("good"); resumeRun(); });
+  el.tsBoard.addEventListener("click", () => { sfx("ui"); LB.open(); });
   el.menuBtn.addEventListener("click", () => { el.mapModal.classList.add("hidden"); sfx("ui"); showTitle(); });
+  // 🏠 from anywhere: an active tournament/arcade run is saved, not lost
+  el.homeBtn.addEventListener("click", () => {
+    if ((S.tournament && !S.tournament.ended) || (S.arcade && !S.arcade.ended)) suspendRun();
+    if (S.tut) endTutorial(false);
+    sfx("ui"); showTitle();
+  });
+
+  // ---- suspend & resume: a run in progress survives leaving to the menu (and
+  // the save), so you can put the phone down mid-tournament and pick it up later
+  function suspendRun() {
+    if (S.tournament && !S.tournament.ended) {
+      G.pausedTour = { t: S.tournament, spot: G.spot, weather: S.cond.weather, hotLure: S.cond.hotLure };
+      S.tournament = null;
+      el.tourHud.classList.add("hidden"); el.tourBoard.classList.add("hidden");
+      toast("🏁 Tournament saved — resume from the menu ▶");
+    } else if (S.arcade && !S.arcade.ended) {
+      G.pausedArcade = { a: S.arcade, prev: S.arcadePrev, hotLure: S.cond.hotLure };
+      S.arcade = null; S.arcadePrev = null;
+      el.arcadeHud.classList.add("hidden");
+      toast("🕹️ Arcade run saved — resume from the menu ▶");
+    }
+    resetToIdle(); save(); updateHUD();
+  }
+  function resumeRun() {
+    if (G.pausedTour) {
+      const p = G.pausedTour; G.pausedTour = null;
+      G.spot = p.spot; seedFish();
+      if (p.weather) S.cond.weather = p.weather;
+      S.cond.hotLure = p.hotLure;
+      S.tournament = p.t;
+      recomputeCond(); renderConditions();
+      el.tourHud.classList.remove("hidden"); renderWell(); renderTourBoard();
+      toast(`🏁 ${p.t.name} — back on the water!`);
+    } else if (G.pausedArcade) {
+      const p = G.pausedArcade; G.pausedArcade = null;
+      S.arcade = p.a; S.arcadePrev = p.prev;
+      const st = ARCADE_STAGES[S.arcade.stage];
+      G.spot = st.spot; G.positions[st.spot] = st.pos;
+      S.cond.weather = st.weather; S.cond.timeMin = st.timeMin; S.cond.hotLure = p.hotLure;
+      recomputeCond(); renderConditions(); seedFish();
+      el.arcadeHud.classList.remove("hidden"); renderArcadeHud();
+      toast(`🕹️ STAGE ${S.arcade.stage + 1}/4 — the clock's running!`);
+    }
+    resetToIdle(); save(); updateHUD();
+  }
+  function dropPausedRuns() {
+    if (G.pausedTour || G.pausedArcade) { G.pausedTour = null; G.pausedArcade = null; toast("Saved run abandoned"); }
+  }
+
+  // ---- GO FISHING prep wizard: lake → spot → tackle, the theme playing all the
+  // way — each step has room to read the weather and conditions before lines-in
+  function startPrep() { S.prep = 1; openMap(); }
+  function finishPrep() {
+    S.prep = null;
+    el.lureFish.classList.add("hidden");
+    el.lureModal.classList.add("hidden");
+    Music.setScene("game");
+    resetToIdle(); save(); updateHUD();
+    toast(`🎣 ${spot().name} — ${position().name}. Lines in!`);
+  }
   const musicBtn = document.getElementById("musicBtn");
   if (musicBtn) musicBtn.addEventListener("click", () => { Music.setOn(G.musicOn === false); sfx("ui"); });
   // volume sliders — live while you drag, saved when you let go
@@ -1279,7 +1487,11 @@
     r.addEventListener("change", () => { save(); sfx("ui"); });
   };
   volCtl("musicVol", "musicVolPct", () => (G.musicVol != null ? G.musicVol : 0.6), v => { G.musicVol = v; Music.setVolume(); });
-  volCtl("sfxVol", "sfxVolPct", () => (G.sfxVol != null ? G.sfxVol : 1), v => { G.sfxVol = v; Sound.setVolume(); });
+  volCtl("sfxVol", "sfxVolPct", () => (G.sfxVol != null ? G.sfxVol : 1), v => {
+    G.sfxVol = v; Sound.setVolume();
+    // audible feedback while dragging so you can hear the level you're setting
+    if (!volCtl._t || Date.now() - volCtl._t > 160) { volCtl._t = Date.now(); Sound.ensure(); sfx("ui"); }
+  });
   el.anglerName.addEventListener("keydown", (e) => { if (e.key === "Enter") el.anglerName.blur(); });
 
   // ===========================================================================
@@ -2178,6 +2390,7 @@
 
   function startTournament() {
     const t = pendingTour; if (!t) { el.tourStartModal.classList.add("hidden"); return; }
+    dropPausedRuns();
     if (G.spot !== t.spot) { G.spot = t.spot; seedFish(); rollConditions(); }
     // a fee still seeds the purse maths, but the player never pays it
     const fee = t.spot === "deep" ? 150 : t.spot === "river" ? 90 : 50;
@@ -2353,6 +2566,7 @@
   function closeTournament() {
     S.tournament = null;
     pendingTour = null;
+    if (lbSubmitHook) lbSubmitHook(true);   // tournament winnings hit the global board right away
     el.tourHud.classList.add("hidden");
     el.tourBoard.classList.add("hidden");
     document.getElementById("loadout").classList.remove("hidden");
@@ -3540,7 +3754,11 @@
   // ===========================================================================
   // Lure tray
   // ===========================================================================
-  function openLures() { renderLures(); el.lureModal.classList.remove("hidden"); }
+  function openLures() {
+    renderLures();
+    el.lureFish.classList.toggle("hidden", S.prep !== 3);   // final wizard step ends with GO FISH!
+    el.lureModal.classList.remove("hidden");
+  }
   function ratingColor(p) { return p >= 75 ? "#5be37a" : p >= 50 ? "#ffd35c" : p >= 30 ? "#ff9d3d" : "#ff5d5d"; }
   function starStr(n) { return "★★★★★".slice(0, n) + "☆☆☆☆☆".slice(0, 5 - n); }
   function renderLures() {
@@ -3626,7 +3844,12 @@
     if (pendingTour && !(S.tournament && !S.tournament.ended)) { refreshTourStart(); el.tourStartModal.classList.remove("hidden"); }
   }
   el.lureChip.addEventListener("click", openLures);
-  el.lureClose.addEventListener("click", () => { el.lureModal.classList.add("hidden"); tackleClosed(); });
+  el.lureClose.addEventListener("click", () => {
+    el.lureModal.classList.add("hidden");
+    if (S.prep) { S.prep = null; el.lureFish.classList.add("hidden"); showTitle(); return; }
+    tackleClosed();
+  });
+  el.lureFish.addEventListener("click", () => { sfx("cast"); finishPrep(); });
   el.lureModal.addEventListener("click", (e) => {
     const opt = e.target.closest(".lure-opt");
     const dot = e.target.closest(".color-dot");
@@ -3666,7 +3889,11 @@
     const cur = rodScore(rod(), lu);
     el.rodCats.innerHTML = `<div class="cats-head">Why — ${rod().ico} ${rod().name}</div>` + catBars(cur.cats) + `<div class="cats-tip">${cur.tip}</div>`;
   }
-  el.rodClose.addEventListener("click", () => { el.rodModal.classList.add("hidden"); tackleClosed(); });
+  el.rodClose.addEventListener("click", () => {
+    el.rodModal.classList.add("hidden");
+    if (S.prep === 3) { openLures(); return; }   // rod detour inside the wizard goes back to the tackle step
+    tackleClosed();
+  });
   el.rodModal.addEventListener("click", (e) => {
     const opt = e.target.closest(".lure-opt"); if (!opt) return;
     G.rod = opt.dataset.rod; save(); updateHUD(); renderRods();
@@ -3677,6 +3904,22 @@
   // ===========================================================================
   function openMap() { renderMap(); el.mapModal.classList.remove("hidden"); }
   function renderMap() {
+    // GO FISHING prep wizard: step 1 shows lakes, step 2 the spot + finder —
+    // conditions ride along at the top so every pick is an informed one
+    const prep = S.prep || 0;
+    el.mapTitle.textContent = prep === 1 ? "🗺️ 1 of 3 — Pick your lake" : prep === 2 ? "📍 2 of 3 — Pick your spot" : "🗺️ Where to Fish";
+    const c = S.cond, w = WEATHER[c.weather], sea = SEASONS[c.season] || SEASONS.summer;
+    el.mapCond.innerHTML = `${sea.ico} ${sea.name} · ${w.ico} ${w.name} · ${c.temp}° · ${moonNow().ico} ${moonNow().name} · ${fmtClock(c.timeMin)} · bass holding ~<b>${Math.round(c.band * 24)} ft</b>`;
+    el.mapVenues.classList.toggle("hidden", prep === 2);
+    const spotStep = prep !== 1;
+    el.posHead.classList.toggle("hidden", !spotStep);
+    el.posGrid.classList.toggle("hidden", !spotStep);
+    el.finderHead.classList.toggle("hidden", !spotStep);
+    el.finder.classList.toggle("hidden", !spotStep);
+    el.mapNext.classList.toggle("hidden", !prep);
+    el.mapNext.textContent = prep === 1 ? "NEXT — PICK YOUR SPOT ▸" : "NEXT — TACKLE BOX ▸";
+    el.endDayBtn.classList.toggle("hidden", !!prep);
+    el.menuBtn.classList.toggle("hidden", !!prep);
     el.mapVenues.innerHTML = SPOTS.map(s => {
       const owned = ownsSpot(s.id);
       const sel = G.spot === s.id;
@@ -3751,7 +3994,15 @@
     </div>`;
   }
   el.spotChip.addEventListener("click", openMap);
-  el.mapClose.addEventListener("click", () => el.mapModal.classList.add("hidden"));
+  el.mapClose.addEventListener("click", () => {
+    el.mapModal.classList.add("hidden");
+    if (S.prep) { S.prep = null; showTitle(); }   // backing out of prep returns to the menu (theme keeps playing)
+  });
+  el.mapNext.addEventListener("click", () => {
+    sfx("ui");
+    if (S.prep === 1) { S.prep = 2; renderMap(); }
+    else if (S.prep === 2) { S.prep = 3; el.mapModal.classList.add("hidden"); openLures(); }
+  });
   el.newDayBtn.addEventListener("click", () => { sfx("ui"); startNewDay(); });
   el.endDayBtn.addEventListener("click", () => {
     if (S.tournament && !S.tournament.ended) { toast("Finish the tournament first ⏱️"); return; } if (S.arcade && !S.arcade.ended) { toast("Finish the arcade run first 🕹️"); return; }
@@ -4100,7 +4351,7 @@
     el.lureModal.classList.add("hidden"); el.rodModal.classList.add("hidden");
     if (t.dataset.tb === "rods") openRods();
     else if (t.dataset.tb === "lures") openLures();
-    else openMap();
+    else { if (S.prep) S.prep = 2; openMap(); }   // lakes hop inside the wizard rejoins at the spot step
   }));
 
   // ===========================================================================
