@@ -1076,3 +1076,18 @@ select, input, textarea { font-size: 16px; }
 
 /* the real bass swims + revolves on the splash once the model is in */
 #introFish { display: block; width: 250px; height: 145px; margin: 0 auto; filter: drop-shadow(0 8px 18px rgba(0,0,0,.5)); }
+
+/* the selected tackle item expands with its category breakdown attached */
+.opt-detail {
+  margin: -6px 0 8px; padding: 10px 12px 8px;
+  border: 1px solid rgba(255,211,92,.4); border-top: none; border-radius: 0 0 14px 14px;
+  background: rgba(255,211,92,.06);
+}
+.opt-detail .cats { margin-top: 0; }
+
+/* fish-finder report expands out of the highlighted hole, spanning the grid */
+.pos-detail {
+  grid-column: 1 / -1; margin: -4px 0 4px; padding: 8px;
+  border: 1px solid rgba(91,227,122,.35); border-radius: 0 0 14px 14px; border-top: none;
+  background: rgba(91,227,122,.05);
+}

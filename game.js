@@ -201,6 +201,10 @@
           zone: [0.50, 0.62, 0.22, 0.16], bias: { smallmouth: 1.7, spotted: 1.5 } },
         { id: "drop", name: "The Drop-off", ico: "📉", desc: "Deeper edge — the big girls.", depth: 0.26,
           zone: [0.50, 0.84, 0.26, 0.14], bias: { giant: 2.4, hawg: 2.8, largemouth: 1.3, spotted: 1.2 } },
+        { id: "creek", name: "Creek Mouth", ico: "🏞️", desc: "Inflow current pulls in the baitfish.", depth: -0.08,
+          zone: [0.18, 0.52, 0.16, 0.14], bias: { largemouth: 1.6, giant: 1.2 } },
+        { id: "stump", name: "Stump Field", ico: "🪵", desc: "Flooded timber — snaggy gold.", depth: 0.06,
+          zone: [0.78, 0.62, 0.16, 0.14], bias: { largemouth: 1.5, giant: 1.6, hawg: 1.4 } },
       ],
     },
     {
@@ -220,6 +224,10 @@
           zone: [0.22, 0.70, 0.18, 0.16], bias: { largemouth: 1.9, spotted: 1.3, smallmouth: 1.1 } },
         { id: "tailout", name: "Current Seam", ico: "🏞️", desc: "Bass stage in the current seam.", depth: 0.04,
           zone: [0.55, 0.84, 0.26, 0.13], bias: { smallmouth: 1.5, spotted: 1.5, largemouth: 1.2 } },
+        { id: "eddy", name: "Back Eddy", ico: "🌀", desc: "Slack swirl behind the boulder.", depth: 0.0,
+          zone: [0.40, 0.26, 0.14, 0.12], bias: { largemouth: 1.5, giant: 1.1 } },
+        { id: "bridge", name: "Bridge Pilings", ico: "🌉", desc: "Shade and a current break on concrete.", depth: 0.1,
+          zone: [0.86, 0.70, 0.14, 0.12], bias: { largemouth: 1.4, giant: 1.5 } },
       ],
     },
     {
@@ -239,6 +247,10 @@
           zone: [0.50, 0.84, 0.24, 0.14], bias: { giant: 2.2, hawg: 3.0, largemouth: 1.4, spotted: 1.0 } },
         { id: "flat", name: "Moonlit Flat", ico: "🌙", desc: "Largemouth roam the moonlit flat.", depth: -0.2,
           zone: [0.50, 0.40, 0.26, 0.14], bias: { spotted: 1.8, smallmouth: 1.5, largemouth: 1.2 } },
+        { id: "hump", name: "Offshore Hump", ico: "⛰️", desc: "Isolated rise loaded with fish.", depth: 0.14,
+          zone: [0.28, 0.68, 0.16, 0.13], bias: { giant: 1.9, hawg: 2.0, largemouth: 1.2 } },
+        { id: "marina", name: "Old Marina", ico: "⚓", desc: "Sunken docks and brush shade.", depth: -0.04,
+          zone: [0.78, 0.30, 0.14, 0.12], bias: { largemouth: 1.7, giant: 1.2 } },
       ],
     },
     {
@@ -259,6 +271,10 @@
           zone: [0.24, 0.66, 0.18, 0.16], bias: { largemouth: 1.9, giant: 1.2 } },
         { id: "drop", name: "Boat Canal", ico: "📉", desc: "The deeper cut — the biggest girls stage here.", depth: 0.24,
           zone: [0.52, 0.84, 0.26, 0.14], bias: { giant: 2.4, hawg: 2.6, largemouth: 1.2 } },
+        { id: "duckweed", name: "Duckweed Flat", ico: "🦆", desc: "A solid green canopy — frog heaven.", depth: -0.18,
+          zone: [0.50, 0.20, 0.16, 0.12], bias: { largemouth: 1.9, giant: 1.4 } },
+        { id: "levee", name: "Levee Riprap", ico: "🧱", desc: "The rock line warms early and late.", depth: 0.02,
+          zone: [0.16, 0.42, 0.14, 0.12], bias: { largemouth: 1.4, giant: 1.3 } },
       ],
     },
     {
@@ -279,6 +295,10 @@
           zone: [0.24, 0.68, 0.18, 0.14], bias: { largemouth: 1.4, giant: 1.3 } },
         { id: "hole", name: "Deep Brush Pile", ico: "🕳️", desc: "Sunken brush in deep water holds true giants.", depth: 0.28,
           zone: [0.54, 0.84, 0.24, 0.14], bias: { giant: 2.4, hawg: 3.0, largemouth: 1.3 } },
+        { id: "creek2", name: "Creek Arm", ico: "🏞️", desc: "Fingers of warmer, dingier water.", depth: -0.1,
+          zone: [0.62, 0.16, 0.15, 0.12], bias: { largemouth: 1.6, giant: 1.2 } },
+        { id: "road", name: "Roadbed", ico: "🛣️", desc: "A flooded road — the fish highway.", depth: 0.12,
+          zone: [0.40, 0.62, 0.16, 0.12], bias: { giant: 1.7, hawg: 1.6, largemouth: 1.2 } },
       ],
     },
   ];
@@ -399,7 +419,7 @@
     hookMeter: $("hookMeter"), hmMarker: $("hmMarker"), strikeFlash: $("strikeFlash"), catchHookset: $("catchHookset"),
     lureModal: $("lureModal"), lureClose: $("lureClose"), lureList: $("lureList"), colorRow: $("colorRow"), lureCond: $("lureCond"), lureCats: $("lureCats"), sizeRow: $("sizeRow"), lineRow: $("lineRow"), lineCats: $("lineCats"),
     rodModal: $("rodModal"), rodClose: $("rodClose"), rodList: $("rodList"), rodCond: $("rodCond"), rodCats: $("rodCats"),
-    mapModal: $("mapModal"), daySummaryModal: $("daySummaryModal"), daySummaryBody: $("daySummaryBody"), newDayBtn: $("newDayBtn"), endDayBtn: $("endDayBtn"), mapClose: $("mapClose"), mapVenues: $("mapVenues"), posGrid: $("posGrid"), finder: $("finder"),
+    mapModal: $("mapModal"), daySummaryModal: $("daySummaryModal"), daySummaryBody: $("daySummaryBody"), newDayBtn: $("newDayBtn"), endDayBtn: $("endDayBtn"), mapClose: $("mapClose"), mapVenues: $("mapVenues"), posGrid: $("posGrid"),
     tourneyBtn: $("tourneyBtn"), modeModal: $("modeModal"), modeClose: $("modeClose"),
     tourHud: $("tourHud"), tourClock: $("tourClock"), livewell: $("livewell"), tourTotal: $("tourTotal"), tourBig: $("tourBig"), tourQuit: $("tourQuit"), tourPos: $("tourPos"),
     arcadeHud: $("arcadeHud"), arcTimer: $("arcTimer"), arcStage: $("arcStage"), arcQuota: $("arcQuota"), arcFill: $("arcFill"),
@@ -414,7 +434,7 @@
     lbModal: $("lbModal"), lbClose: $("lbClose"), lbBody: $("lbBody"), lbSorts: $("lbSorts"),
     lbProfileModal: $("lbProfileModal"), lbpName: $("lbpName"), lbpClose: $("lbpClose"),
     lbpStats: $("lbpStats"), lbpFav: $("lbpFav"), lbpSorts: $("lbpSorts"), lbpList: $("lbpList"),
-    mapTitle: $("mapTitle"), mapCond: $("mapCond"), posHead: $("posHead"), finderHead: $("finderHead"),
+    mapTitle: $("mapTitle"), mapCond: $("mapCond"), posHead: $("posHead"),
     mapNext: $("mapNext"), mapBack: $("mapBack"), lureFish: $("lureFish"), lureBack: $("lureBack"), lakeMap: $("lakeMap"),
     lureTitle: $("lureTitle"), rodTitle: $("rodTitle"), rodBack: $("rodBack"), rodNext: $("rodNext"),
     tutBanner: $("tutBanner"), tutStep: $("tutStep"), tutText: $("tutText"), tutSkip: $("tutSkip"), menuBtn: $("menuBtn"),
@@ -2046,10 +2066,10 @@
   // rating both drives the catch odds and teaches real lure selection.
   // ===========================================================================
   const STRUCT_GROUP = {
-    pads: "veg", weed: "veg", reeds: "veg", tailout: "veg", flat: "veg",
-    dock: "wood", bank: "wood", logs: "wood", pool: "wood",
-    rocks: "rock", point: "rock", riffle: "rock",
-    drop: "deep", hole: "deep", open: "open",
+    pads: "veg", weed: "veg", reeds: "veg", tailout: "veg", flat: "veg", duckweed: "veg",
+    dock: "wood", bank: "wood", logs: "wood", pool: "wood", stump: "wood", marina: "wood", bridge: "wood",
+    rocks: "rock", point: "rock", riffle: "rock", levee: "rock", hump: "rock", road: "rock",
+    drop: "deep", hole: "deep", open: "open", creek: "open", creek2: "open", eddy: "open",
   };
   // Seasonal patterns: bass relate to different structure through the year, so
   // where you fish should follow the season. These multiply the bite/ambush rate
@@ -4110,7 +4130,7 @@
     const show = (elm, on) => elm && elm.classList.toggle("hidden", !on);
     show(document.getElementById("tbTabsLure"), !seg);
     show(el.lureList, !seg || seg === "lure");
-    show(el.lureCats, !seg || seg === "lure");
+    el.lureCats.classList.add("hidden");
     show(document.getElementById("sizeHead"), !seg || seg === "size");
     show(el.sizeRow, !seg || seg === "size");
     show(document.getElementById("colorHead"), !seg || seg === "color");
@@ -4140,16 +4160,17 @@
     el.lureList.innerHTML = rated.map(({ l, r }) => {
       const sel = G.lure.id === l.id;
       const tag = sel ? "✓ ON" : "TAP";
+      // the highlighted lure expands with its full category breakdown right here
+      const detail = sel ? `<div class="opt-detail">${catBars(r.cats)}<div class="cats-tip">${r.tip}</div></div>` : "";
       return `<div class="lure-opt ${sel ? "sel" : ""}" data-lure="${l.id}">
         <div class="ico">${l.ico}</div>
         <div class="info">
           <div class="nm">${l.name} <span class="stars" style="color:${ratingColor(r.pct)}">${starStr(r.stars)}</span></div>
           <div class="rate"><div class="rate-bar"><i style="width:${r.pct}%;background:${ratingColor(r.pct)}"></i></div><b style="color:${ratingColor(r.pct)}">${r.pct}</b></div>
-          <div class="ds">${r.tip}</div>
+          ${sel ? "" : `<div class="ds">${r.tip}</div>`}
         </div>
-        <div class="tag">${tag}</div></div>`;
+        <div class="tag">${tag}</div></div>` + detail;
     }).join("");
-    renderCats();
     renderSizes();
     renderLine();
     renderColors();
@@ -4169,10 +4190,6 @@
     return `<div class="cats">` + cats.map(c =>
       `<div class="cat"><span>${c.label}</span><div class="cat-bar"><i style="width:${c.pct}%;background:${ratingColor(c.pct)}"></i></div><b style="color:${ratingColor(c.pct)}">${c.pct}</b></div>`
     ).join("") + `</div>`;
-  }
-  function renderCats() {
-    const l = lure(), r = lureScore(l);
-    el.lureCats.innerHTML = `<div class="cats-head">Why — ${l.ico} ${l.name}</div>` + catBars(r.cats) + `<div class="cats-tip">${r.tip}</div>`;
   }
   function renderSizes() {
     el.sizeRow.innerHTML = SIZE_ORDER.map(k => {
@@ -4233,7 +4250,7 @@
       if (!l.colors.includes(G.lure.color)) G.lure.color = l.colors[0];
       save(); updateHUD(); renderLures();
     } else if (dot) {
-      G.lure.color = dot.dataset.color; save(); updateHUD(); renderColors(); renderCats();
+      G.lure.color = dot.dataset.color; save(); updateHUD(); renderLures();
     } else {
       const szEl = e.target.closest(".size-opt");
       const sc = e.target.closest(".scent-opt");
@@ -4260,6 +4277,7 @@
     const rated = RODS.map(rd => ({ rd, r: rodScore(rd, lu) })).sort((a, b) => b.r.score - a.r.score);
     el.rodList.innerHTML = rated.map(({ rd, r }) => {
       const sel = G.rod === rd.id;
+      const detail = sel ? `<div class="opt-detail">${catBars(r.cats)}<div class="cats-tip">${r.tip}</div></div>` : "";
       return `<div class="lure-opt ${sel ? "sel" : ""}" data-rod="${rd.id}">
         <div class="ico">${rd.ico}</div>
         <div class="info">
@@ -4267,10 +4285,9 @@
           <div class="rate"><div class="rate-bar"><i style="width:${r.pct}%;background:${ratingColor(r.pct)}"></i></div><b style="color:${ratingColor(r.pct)}">${r.pct}</b></div>
           <div class="ds">${rd.desc}</div>
         </div>
-        <div class="tag">${sel ? "✓ ON" : "TAP"}</div></div>`;
+        <div class="tag">${sel ? "✓ ON" : "TAP"}</div></div>` + detail;
     }).join("");
-    const cur = rodScore(rod(), lu);
-    el.rodCats.innerHTML = `<div class="cats-head">Why — ${rod().ico} ${rod().name}</div>` + catBars(cur.cats) + `<div class="cats-tip">${cur.tip}</div>`;
+    el.rodCats.innerHTML = "";
   }
   el.rodClose.addEventListener("click", () => {
     el.rodModal.classList.add("hidden");
@@ -4300,8 +4317,6 @@
     el.posHead.classList.toggle("hidden", !spotStep);
     el.lakeMap.classList.toggle("hidden", !spotStep);
     el.posGrid.classList.toggle("hidden", !spotStep);
-    el.finderHead.classList.toggle("hidden", !spotStep);
-    el.finder.classList.toggle("hidden", !spotStep);
     el.mapNext.classList.toggle("hidden", !prep);
     el.mapNext.textContent = prep === 1 ? "NEXT — PICK YOUR SPOT ▸" : "NEXT — PICK YOUR ROD ▸";
     el.mapBack.classList.toggle("hidden", !prep);
@@ -4376,10 +4391,12 @@
   function renderPositions() {
     const sp = spot();
     el.lakeMap.innerHTML = lakeTopoSVG(sp);
+    // the fish-finder report expands right out of the highlighted hole
     el.posGrid.innerHTML = sp.positions.map(p => {
       const sel = G.positions[sp.id] === p.id;
+      const detail = sel ? `<div class="pos-detail"><div class="finder" id="finder"></div></div>` : "";
       return `<div class="pos-cell ${sel ? "sel" : ""}" data-pos="${p.id}">
-        <div class="pi">${p.ico}</div><div class="pn">${p.name}</div><div class="pd">${p.desc}</div></div>`;
+        <div class="pi">${p.ico}</div><div class="pn">${p.name}</div><div class="pd">${p.desc}</div></div>` + detail;
     }).join("");
     renderFinder();
   }
@@ -4409,7 +4426,8 @@
     }
     const zTop = clamp((band - 0.09) * 100, 0, 82);
 
-    el.finder.innerHTML = `<div class="finder-wrap">
+    const host = document.getElementById("finder"); if (!host) return;
+    host.innerHTML = `<div class="finder-wrap">
       <div class="sonar">
         <div class="sweep"></div>
         <div class="bite-zone" style="top:${zTop}%;height:18%"><span>BITE</span></div>
