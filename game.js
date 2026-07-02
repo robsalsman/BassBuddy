@@ -306,7 +306,7 @@
       season: { best: {}, titles: 0 },   // circuit season: best points per event + championships won
       challenges: {}, lakes: {}, arcadeClears: 0, arcadeNC: false, arcadeBestScore: 0,
       mode: "free",     // "free" fishing (default) — tournaments are entered from the circuit
-      muted: false, musicOn: true, musicVol: 0.6, sfxVol: 1,
+      muted: false, musicOn: true, musicVol: 0.5, sfxVol: 1,
       name: "", tutorialDone: false,
       pausedTour: null, pausedArcade: null,     // suspended runs, resumable from the menu
       pid: "", lbBucket: "",                    // global-leaderboard identity + board code
@@ -1124,7 +1124,9 @@
         if (wantAuto) attemptAuto();
       })
       .catch(() => {});
-    function vol() { return G.musicVol != null ? G.musicVol : 0.6; }
+    // music sits a step under the effects so it never buries them
+    const TRIM = 0.8;
+    function vol() { return (G.musicVol != null ? G.musicVol : 0.5) * TRIM; }
     // iOS makes HTMLMediaElement.volume read-only, so the slider must control a
     // WebAudio gain node instead — the element pipes through it where possible
     let mctx = null, mgain = null, msrc = null;
@@ -1138,17 +1140,34 @@
           mgain = mctx.createGain(); mgain.gain.value = vol();
           mgain.connect(mctx.destination);   // straight out — the mute button governs effects, not music
         }
-        if (mctx.state === "suspended") { try { mctx.resume(); } catch (e2) {} }
         // only reroute the element through WebAudio once the context actually
-        // runs — piping into a suspended context silences an autoplaying element
-        if (!msrc && mctx.state === "running") { msrc = mctx.createMediaElementSource(audio); msrc.connect(mgain); applyVol(); }
+        // runs — piping into a suspended context silences an autoplaying element.
+        // resume() is async: attach the pipe the moment it lands, so the first
+        // seconds never play through the raw (full-volume) element
+        const attach = () => {
+          if (msrc || !audio || mctx.state !== "running") return;
+          msrc = mctx.createMediaElementSource(audio); msrc.connect(mgain);
+          // the pipe usually lands moments after playback starts — come in on the
+          // fade, never at full target
+          try {
+            mgain.gain.cancelScheduledValues(mctx.currentTime);
+            mgain.gain.setValueAtTime(0.0001, mctx.currentTime);
+            mgain.gain.setTargetAtTime(vol(), mctx.currentTime + 0.05, 0.9);
+          } catch (e3) { mgain.gain.value = vol(); }
+          try { audio.volume = 1; } catch (e4) {}
+        };
+        if (mctx.state === "suspended") { try { const p = mctx.resume(); if (p && p.then) p.then(attach).catch(() => {}); } catch (e2) {} }
+        attach();
       } catch (e) {}
     }
     function applyVol() {
-      if (mgain) {
+      if (mgain && msrc) {
+        // piped: the gain node owns loudness, the element runs at unity
         try { mgain.gain.setTargetAtTime(vol(), mctx.currentTime, 0.03); } catch (e) { mgain.gain.value = vol(); }
         if (audio) try { audio.volume = 1; } catch (e) {}
-      } else if (audio) try { audio.volume = vol(); } catch (e) {}
+      } else if (audio) {
+        try { audio.volume = vol(); } catch (e) {}   // unpiped fallback (ignored on iOS)
+      }
     }
     function ensureEl() {
       if (!audio) { audio = new Audio(); audio.addEventListener("ended", () => { if (!audio.loop) nextGame(); }); }
@@ -1164,13 +1183,25 @@
       ensureEl();
       audio.loop = !!loop;
       audio.src = "music/" + t.file;
-      // fade the track up from silence — a snap start is jarring after PRESS START
-      if (mgain && mctx) {
+      // fade the track up gently from silence over ~3s — never louder than the
+      // menu effects on the way in
+      if (mgain && msrc) {
         try {
           mgain.gain.cancelScheduledValues(mctx.currentTime);
           mgain.gain.setValueAtTime(0.0001, mctx.currentTime);
-          mgain.gain.setTargetAtTime(vol(), mctx.currentTime + 0.03, 0.5);
+          mgain.gain.setTargetAtTime(vol(), mctx.currentTime + 0.05, 0.9);
         } catch (e) {}
+      } else {
+        // unpiped element: JS-stepped fade (and start silent even where the
+        // volume property is read-only, so a late pipe attach continues the ramp)
+        try { audio.volume = 0; } catch (e) {}
+        const t0 = Date.now();
+        const fade = setInterval(() => {
+          if (msrc || !audio) { clearInterval(fade); applyVol(); return; }
+          const k = Math.min(1, (Date.now() - t0) / 2600);
+          try { audio.volume = vol() * k; } catch (e) {}
+          if (k >= 1) clearInterval(fade);
+        }, 120);
       }
       audio.play().catch(() => {});
       if (t.title && !playTrack._did) { playTrack._did = true; toast(`🎵 ${t.title}${t.artist ? " — " + t.artist : ""}`); setTimeout(() => { playTrack._did = false; }, 4000); }
