@@ -4800,9 +4800,28 @@
       sp2.appendChild(b);
     }
     Music.tryAutoplay();
+    // swap the placeholder for the game's real rigged bass as soon as it's loaded:
+    // it swims (the model's own animation) while revolving a slow 360
+    (function fishIn() {
+      if (sp2._go || !document.getElementById("introFish")) return;
+      if (window.Scene3D && Scene3D.isReady && Scene3D.isReady() && Scene3D.showCatch) {
+        try {
+          const cv = document.getElementById("introFish");
+          cv.classList.remove("hidden");
+          if (Scene3D.showCatch(F.largemouth.art, "largemouth", cv, true)) {
+            const em = document.getElementById("isFishEmoji");
+            if (em) em.classList.add("hidden");
+            return;
+          }
+          cv.classList.add("hidden");
+        } catch (e) {}
+      }
+      setTimeout(fishIn, 350);
+    })();
     const go = () => {
       if (sp2._go) return; sp2._go = true;
       Sound.ensure(); sfx("good");   // the press is the audio gesture — music arms through it
+      try { if (window.Scene3D && Scene3D.hideCatch) Scene3D.hideCatch(document.getElementById("introFish")); } catch (e) {}
       sp2.classList.add("done");     // splash keeps eating taps while it fades — no ghost clicks
       setTimeout(() => sp2.remove(), 650);
     };

@@ -2252,7 +2252,7 @@ const Scene3D = (() => {
   }
 
   // show a hero bass in the given canvas (defaults to the catch modal's canvas)
-  function showCatch(art, speciesKey, cv) {
+  function showCatch(art, speciesKey, cv, spin) {
     const ctx = catchCtx(cv || document.getElementById("catch3d"));
     if (!ctx) return false;
     const el = ctx.renderer.domElement;
@@ -2273,7 +2273,8 @@ const Scene3D = (() => {
     const loop = () => {
       ctx.t += 0.016;
       const f = ctx.fish;
-      f.rotation.y = -0.55 + Math.sin(ctx.t * 0.55) * 0.85;   // turn to show both flanks
+      // splash mode revolves the bass a full 360; catch screens swing to show both flanks
+      f.rotation.y = spin ? ctx.t * 0.85 : -0.55 + Math.sin(ctx.t * 0.55) * 0.85;
       f.rotation.z = Math.sin(ctx.t * 0.8) * 0.05;
       f.position.y = -0.1 + Math.sin(ctx.t * 1.1) * 0.12;
       if (f.tail) f.tail.rotation.y = Math.sin(ctx.t * 5) * 0.32;

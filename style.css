@@ -1071,3 +1071,6 @@ select, input, textarea { font-size: 16px; }
   box-shadow: 0 6px 22px rgba(0,0,0,.45);
 }
 .is-start:active { transform: translateX(-50%) scale(.95); }
+
+/* the real bass swims + revolves on the splash once the model is in */
+#introFish { display: block; width: 250px; height: 145px; margin: 0 auto; filter: drop-shadow(0 8px 18px rgba(0,0,0,.5)); }
