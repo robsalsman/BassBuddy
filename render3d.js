@@ -20,7 +20,7 @@ function loadRealModels() {
   if (_gltfLoader) return;
   _gltfLoader = new GLTFLoader();
   // a manifest lists which species models are present, so we never 404-probe
-  fetch("models/manifest.json").then(r => r.ok ? r.json() : null).then(man => {
+  fetch("models/manifest.json" + (window.BB_V ? "?v=" + window.BB_V : "")).then(r => r.ok ? r.json() : null).then(man => {
     if (!man) return;
     for (const key of ["largemouth", "smallmouth", "spotted"]) if (man[key]) loadOne(key);
   }).catch(() => {});
@@ -40,7 +40,7 @@ function measureBindBox(root) {
   return box;
 }
 function loadOne(key) {
-  _gltfLoader.load("models/" + key + ".glb", (gltf) => {
+  _gltfLoader.load("models/" + key + ".glb" + (window.BB_V ? "?v=" + window.BB_V : ""), (gltf) => {
       const root = gltf.scene || gltf.scenes[0];
       // normalize so any dropped-in model frames the same: scale the longest axis
       // to the game's fish length FIRST, then recenter (scaling moves the centre,
