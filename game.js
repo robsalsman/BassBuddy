@@ -374,7 +374,7 @@
     condIcon: $("condIcon"), condTemp: $("condTemp"), condClock: $("condClock"), condMoon: $("condMoon"),
     catchModal: $("catchModal"), catchRarity: $("catchRarity"), catchArt: $("catchArt"),
     catchName: $("catchName"), catchWeight: $("catchWeight"), catchReward: $("catchReward"),
-    catchRewardWrap: $("catchRewardWrap"), catchRecord: $("catchRecord"), catchTourney: $("catchTourney"), catchOk: $("catchOk"),
+    catchRewardWrap: $("catchRewardWrap"), catchScoreBd: $("catchScoreBd"), catchRecord: $("catchRecord"), catchTourney: $("catchTourney"), catchOk: $("catchOk"),
     failModal: $("failModal"), failMsg: $("failMsg"), failOk: $("failOk"),
     shopBtn: $("shopBtn"), muteBtn: $("muteBtn"), shopModal: $("shopModal"), shopClose: $("shopClose"),
     xpPill: $("xpPill"), recordsModal: $("recordsModal"), recordsClose: $("recordsClose"), recStats: $("recStats"), recBody: $("recBody"),
@@ -717,6 +717,7 @@
       spot: G.spot, pos: position().id,
       timeMin: Math.round(S.cond.timeMin), weather: S.cond.weather, season: S.cond.season, temp: S.cond.temp,
       moon: ((S.cond.moon || 0) % 8 + 8) % 8,
+      score: Math.round(f.score || 0),
       tour: !!S.tournament,
     });
     if (G.catchLog.length > 300) G.catchLog.shift();   // keep the log bounded
@@ -1497,6 +1498,8 @@
     S.hookedFish = pickFish();
     // snapshot the depth the lure was working when the fish committed (the catch depth)
     S.catchDepth = (S.rv && S.rv.depth != null) ? S.rv.depth : S.cond.band;
+    // snapshot how well the bite was earned — feeds the catch score's presentation multiplier
+    S.presQ = S.rv ? clamp(S.rv.bigCred || 0, 0, 1) : 0;
     // window + sweep speed scale with the fish: trophies give a tighter, faster
     // meter for more tension; little ones are forgiving
     const diff = clamp(S.hookedFish.difficulty || 0.4, 0, 1);
@@ -1581,16 +1584,24 @@
     if (isRecord) G.records[f.name] = f.weight;
     advanceTime(5);
 
-    // bonus points for a clean hookset
+    // ---- CATCH SCORE (Big-Buck-Hunter style): size × hookset × presentation ----
+    // base = weight in hundredths of a pound; a perfect hookset runs ×1.5; a
+    // dialed-in presentation (earned bite + pitched tight to cover) runs ×1.5;
+    // lunkers stack a flat bonus. The 🏆 pill accumulates these for life.
     const hq = S.hookQuality || 0;
-    const hookBonus = hq > 0.55 ? Math.max(1, Math.round(f.value * (hq - 0.4) * 0.7)) : 0;
-    if (hookBonus) toast(`✨ ${hq > 0.82 ? "Perfect" : "Good"} hookset +${hookBonus} 🪙`);
+    const presQ = clamp((S.presQ || 0) * 0.7 + (S.castAccuracy != null ? S.castAccuracy : 0.5) * 0.3, 0, 1);
+    const scoreBase = Math.round(f.weight * 100);
+    const hookMul = 1 + hq * 0.5;
+    const presMul = 1 + presQ * 0.5;
+    const scoreBonus = f.weight >= 10 ? 1000 : f.weight >= LUNKER_LB ? 500 : 0;
+    f.score = Math.round((scoreBase * hookMul * presMul + scoreBonus) / 10) * 10;
+    f.scoreInfo = { base: scoreBase, hookMul, presMul, bonus: scoreBonus, hq, presQ };
     S.hookQuality = 0;
 
     const lunk = f.bass && f.weight >= LUNKER_LB;
     sfx(lunk ? "lunker" : "land"); setTimeout(() => sfx("coin"), 450);
-    if (S.tournament) { tourLand(f, isRecord, prev); if (hookBonus) G.coins += hookBonus; save(); updateHUD(); return; }
-    G.coins += f.value + hookBonus;
+    if (S.tournament) { tourLand(f, isRecord, prev); G.coins += f.score; save(); updateHUD(); return; }
+    G.coins += f.score;
     // free-play livewell: every bass updates your session best-5 bag
     let bagPB = false;
     if (f.bass) bagPB = bagAdd(f.weight);
@@ -1623,8 +1634,18 @@
     el.catchName.textContent = f.name;
     const lenIn = f.lengthIn || +Math.cbrt(f.weight * 1600).toFixed(1);
     animateMeasure(f.weight, lenIn);
-    el.catchReward.textContent = f.value;
+    el.catchReward.textContent = (f.score != null ? f.score : f.value).toLocaleString();
     el.catchRewardWrap.classList.remove("hidden");
+    // the score breakdown — how the points were earned (size × hookset × presentation)
+    if (el.catchScoreBd) {
+      const si = f.scoreInfo;
+      el.catchScoreBd.innerHTML = si ? [
+        `<span>⚖️ ${f.weight} lb → ${si.base}</span>`,
+        `<span class="${si.hq > 0.82 ? "hot" : ""}">🪝 ×${si.hookMul.toFixed(2)}</span>`,
+        `<span class="${si.presQ > 0.75 ? "hot" : ""}">🎯 ×${si.presMul.toFixed(2)}</span>`,
+        si.bonus ? `<span class="hot">💪 LUNKER +${si.bonus}</span>` : "",
+      ].filter(Boolean).join("") : "";
+    }
     if (S.hookRating) { el.catchHookset.textContent = "Hookset: " + S.hookRating; el.catchHookset.classList.remove("hidden"); el.catchHookset.classList.toggle("perfect", /Perfect/.test(S.hookRating)); }
     else el.catchHookset.classList.add("hidden");
     el.catchRecord.classList.remove("pb");
@@ -1818,7 +1839,7 @@
     vibrate([20, 40, 30]);
     renderWell();
     renderTourBoard();
-    toast(msg);
+    toast(msg + (f.score ? `<br><small>🎯 +${f.score} pts</small>` : ""));
     resetToIdle();
   }
   function wellTotal() { return S.tournament ? S.tournament.well.reduce((s, x) => s + x.weight, 0) : 0; }
@@ -1917,8 +1938,8 @@
       : `<p class="muted">No keepers in the well — better luck next time!</p>`;
     el.tourResultStats.innerHTML =
       `5-fish bag: <b>${myTotal.toFixed(2)} lb</b> (${me.fish} fish)<br>` +
-      `Big bass: <b>${T.big ? T.big.toFixed(1) + " lb" : "—"}</b>${bigBonus ? ` &nbsp;<span style="color:var(--gold)">+${bigBonus} 🪙 Big Bass!</span>` : ""}<br>` +
-      `Payout: <b>${payout} 🪙</b>` + (place === 1 ? "  🏆" : "") +
+      `Big bass: <b>${T.big ? T.big.toFixed(1) + " lb" : "—"}</b>${bigBonus ? ` &nbsp;<span style="color:var(--gold)">+${bigBonus} pts Big Bass!</span>` : ""}<br>` +
+      `Points: <b>+${payout}</b> 🎯` + (place === 1 ? "  🏆" : "") +
       `<br>Circuit: <b>+${pts} pts</b> · season ${seasonPtsNow} (${seasonNow}/${TOURNAMENTS.length} events)` + champBanner;
     el.tourStandings.innerHTML = board.map((b, i) =>
       `<div class="stand-row ${b.me ? "me" : ""}"><span>${i + 1}. ${b.name}</span><span class="w">${b.total.toFixed(2)} lb</span></div>`).join("");
@@ -3104,7 +3125,7 @@
   el.catchOk.addEventListener("click", () => {
     el.catchModal.classList.add("hidden");
     if (window.Scene3D && Scene3D.hideCatch) Scene3D.hideCatch();
-    if (!S.tournament && S.hookedFish) floatText("+" + S.hookedFish.value + " 🪙", "#ffd35c");
+    if (!S.tournament && S.hookedFish) floatText("+" + (S.hookedFish.score || S.hookedFish.value) + " pts", "#ffd35c");
     resetToIdle();
   });
   el.failOk.addEventListener("click", () => { el.failModal.classList.add("hidden"); resetToIdle(); });
@@ -3486,6 +3507,7 @@
       const lu = t.lure && LURES.find(l => l.id === t.lure);
       const bits = [
         t.len ? `📏 ${t.len}"` : "",
+        t.score ? `🎯 ${t.score.toLocaleString()} pts` : "",
         sp ? `${sp.ico} ${sp.name}` : "",
         lu ? `${lu.ico} ${lu.name}` : "",
         when,
@@ -3566,7 +3588,7 @@
         <div class="clog-meta">
           <div>${l ? l.ico + " " + l.name : e.lure}${sz ? " · " + sz.name : ""}${col ? ` <i class="cdot" style="background:${col.hex}"></i>` : ""}</div>
           <div>${r ? r.ico + " " + r.name : e.rod} · ${sp ? sp.ico + " " + sp.name : e.spot}${pos ? " — " + pos.name : ""}</div>
-          <div>${wx.ico || ""} ${wx.name || e.weather} · ${e.temp}° · ${fmtClock(e.timeMin)} · ${sea.ico || ""}${e.moon != null ? " " + MOON[((e.moon % 8) + 8) % 8].ico : ""}${e.tour ? " · 🏁" : ""}</div>
+          <div>${wx.ico || ""} ${wx.name || e.weather} · ${e.temp}° · ${fmtClock(e.timeMin)} · ${sea.ico || ""}${e.moon != null ? " " + MOON[((e.moon % 8) + 8) % 8].ico : ""}${e.tour ? " · 🏁" : ""}${e.score ? ` · <b style="color:var(--gold)">🎯 ${e.score}</b>` : ""}</div>
         </div><div class="clog-chev">›</div></div>`;
     }).join("");
   }
@@ -3610,6 +3632,7 @@
     const rows = [
       ["🎣", "Lure", `${l ? l.ico + " " + l.name : e.lure}${col ? ` <i class="cdot" style="background:${col.hex}"></i> ${col.name}` : ""}`],
       ["📐", "Lure size", `${sz ? sz.ico + " " + sz.name : e.size}`],
+      ...(e.score ? [["🎯", "Catch score", e.score.toLocaleString() + " pts"]] : []),
       ["🪝", "Rod", r ? r.ico + " " + r.name : e.rod],
       ["📍", "Location", `${sp ? sp.ico + " " + sp.name : e.spot}${pos ? " — " + pos.name : ""}`],
       ["🌊", "Depth", e.depth != null ? e.depth + " ft" : "—"],

@@ -1442,7 +1442,9 @@ const Scene3D = (() => {
       const sz = isFinite(f.size) ? f.size : 0.5, pull = isFinite(f.pull) ? f.pull : 0;
       // grows a little as it's worked closer (perspective already enlarges it too)
       const near = 1 - Math.min(1, isFinite(f.dist) ? f.dist : 1);
-      const sc = (0.55 + sz * 0.8) * (1 + near * 0.3);
+      // the imported model is bigger + denser than the old procedural bass — shrink
+      // it so a bass at the boat reads as a bass, not a shark
+      const sc = (0.55 + sz * 0.8) * (1 + near * 0.3) * (fish.userData.imported ? 0.62 : 1);
       fish.visible = true; fish.scale.setScalar(sc); fish.position.set(fxw, fy, -dist3d);
       // present a 3/4 BROADSIDE view (flank to the camera) so the whole bass
       // reads as one fish — head-on it looked like loose eyes and fins. It
@@ -1473,20 +1475,31 @@ const Scene3D = (() => {
       castLine.visible = true; castLine.material.color.setHex(f.tension > 0.7 ? 0xff6a6a : 0xffffff);
       castLine.material.opacity = 0.7; castLine.geometry.setFromPoints([tip, mouth]);
     } else if (landing) {
-      // boat the fish — swing the small ones in, hoist the big ones up by the lip
-      const e = landing.t, fish = ensureSurfFish(landing.art), sc = 0.6 + (landing.size || 0.5) * 0.9;
+      // boat the fish — swing the small ones in, hoist the big ones up by the lip.
+      // The imported model runs bigger than the old procedural bass, so shrink it;
+      // and both paths stay OUTSIDE the hull (bow tip ~z 2.9) until they're above
+      // the gunwale — no more fish rising through the deck.
+      const e = landing.t, fish = ensureSurfFish(landing.art);
+      const sc = (0.6 + (landing.size || 0.5) * 0.9) * (fish.userData.imported ? 0.62 : 1);
       fish.visible = true; fish.scale.setScalar(sc);
       let pos;
+      const bowZ = 2.3;                                            // holds just off the bow
       if (landing.big) {
-        // lip: draw the fish up to the bow beside the angler, then lift it aboard
-        const inN = Math.min(1, e / 0.6);
-        const z = lerp(-2.6, 4.7, inN);                            // comes to the boat
-        const y = e < 0.6 ? lerp(-0.4, 0.2, inN) : lerp(0.2, 1.25, (e - 0.6) / 0.4);  // to the surface, then hoisted
-        pos = new THREE.Vector3(0.1 + Math.sin(t * 2) * 0.12, y, z);
+        if (e < 0.6) {
+          // draw it across the water to the bow
+          const inN = e / 0.6;
+          pos = new THREE.Vector3(0.1 + Math.sin(t * 2) * 0.12, lerp(-0.4, 0.15, inN), lerp(-2.6, bowZ, inN));
+        } else {
+          // hoist HIGH first, then swing it inboard over the rail
+          const h = (e - 0.6) / 0.4;
+          pos = new THREE.Vector3(0.1, lerp(0.15, 1.7, Math.min(1, h * 1.6)), lerp(bowZ, 4.4, h));
+        }
       } else {
-        // swing: skip the fish up and back over the gunwale fast
+        // swing: arc it in, gaining extra height as it crosses the hull
         const a = Math.sin(e * Math.PI * 0.5);
-        pos = new THREE.Vector3(0, lerp(-0.3, 1.3, a), lerp(-3.0, 5.4, e));
+        const z = lerp(-3.0, 4.9, e);
+        const overBoat = Math.max(0, (z - 1.2) / 3.7);
+        pos = new THREE.Vector3(0, lerp(-0.3, 1.1, a) + overBoat * 0.9, z);
       }
       fish.position.copy(pos);
       fish.rotation.set(0.2 * Math.sin(t * 7), -Math.PI / 2, 0.3 + Math.sin(t * 9) * 0.25 * (1 - e));

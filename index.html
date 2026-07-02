@@ -8,8 +8,8 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>BassBuddy — Bass Fishing</title>
-<script>window.BB_V = "20260702b";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
-<link rel="stylesheet" href="style.css?v=20260702b" />
+<script>window.BB_V = "20260702c";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
+<link rel="stylesheet" href="style.css?v=20260702c" />
 </head>
 <body>
 <div id="game">
@@ -18,7 +18,7 @@
 
   <!-- Top HUD -->
   <div id="hud" class="hud">
-    <button id="xpPill" class="hud-pill" title="Record book">
+    <button id="xpPill" class="hud-pill" title="Angler score · Record book">
       <span class="coin">🏆</span>
       <span id="coins">0</span>
     </button>
@@ -140,7 +140,8 @@
       </div>
       <div class="catch-ruler" id="catchRuler"><i id="catchRulerFill"></i></div>
       <div class="catch-stats">
-        <div class="reward" id="catchRewardWrap">+<span id="catchReward">12</span> 🪙</div>
+        <div class="reward" id="catchRewardWrap">+<span id="catchReward">240</span> <small>pts</small></div>
+        <div class="score-bd" id="catchScoreBd"></div>
       </div>
       <div class="catch-hookset hidden" id="catchHookset"></div>
       <div class="catch-record" id="catchRecord"></div>
@@ -361,7 +362,7 @@
 </div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=20260702b"></script>
-<script src="game.js?v=20260702b"></script>
+<script type="module" src="render3d.js?v=20260702c"></script>
+<script src="game.js?v=20260702c"></script>
 </body>
 </html>
