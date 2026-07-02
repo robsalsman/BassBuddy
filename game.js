@@ -1164,6 +1164,14 @@
       ensureEl();
       audio.loop = !!loop;
       audio.src = "music/" + t.file;
+      // fade the track up from silence — a snap start is jarring after PRESS START
+      if (mgain && mctx) {
+        try {
+          mgain.gain.cancelScheduledValues(mctx.currentTime);
+          mgain.gain.setValueAtTime(0.0001, mctx.currentTime);
+          mgain.gain.setTargetAtTime(vol(), mctx.currentTime + 0.03, 0.5);
+        } catch (e) {}
+      }
       audio.play().catch(() => {});
       if (t.title && !playTrack._did) { playTrack._did = true; toast(`🎵 ${t.title}${t.artist ? " — " + t.artist : ""}`); setTimeout(() => { playTrack._did = false; }, 4000); }
     }
@@ -4788,7 +4796,18 @@
       sp2.appendChild(b);
     }
     Music.tryAutoplay();
-    setTimeout(() => { sp2.classList.add("done"); setTimeout(() => sp2.remove(), 650); }, 2150);
+    const go = () => {
+      if (sp2._go) return; sp2._go = true;
+      Sound.ensure(); sfx("good");   // the tap is the audio gesture — music is already arming via it
+      sp2.classList.add("done");
+      setTimeout(() => sp2.remove(), 650);
+    };
+    sp2.addEventListener("pointerdown", go);
+    setTimeout(() => {
+      if (sp2._go) return;
+      const sub = document.getElementById("isSub");
+      if (sub) { sub.textContent = "▶ PRESS START"; sub.classList.add("start"); }
+    }, 1900);
   })();
   requestAnimationFrame(frame);
 
