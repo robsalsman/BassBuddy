@@ -2549,7 +2549,7 @@
       if (phys === "dive") R.depth = clamp(R.depth + 0.0052 * step, 0, lu.band);
       else if (phys === "sink") R.depth = clamp(R.depth - 0.0040 * step, 0, 1);
     } else {
-      if (phys === "sink") R.depth = clamp(R.depth + 0.0030 * step, 0, Math.min(1, lu.band + 0.12));
+      if (phys === "sink") R.depth = clamp(R.depth + 0.0030 * step, 0, 1);   // gravity: a paused sinker falls all the way to the bottom
       else if (phys === "dive") R.depth = clamp(R.depth - 0.0040 * step, 0, lu.band);
       else R.depth = lu.band;   // topwater rides the surface
     }
@@ -2595,13 +2595,14 @@
     el.rvLine.textContent = Math.round(R.dist * (S.castFt || 60)) + " ft";
     el.rvAction.style.width = (R.action * 100) + "%";
     el.rvInterest.style.width = (R.interest * 100) + "%";
-    const band = S.cond.band;
+    const band = S.cond.band, winH = S.cond.window || 0.1;
     let hint;
     if (lu.style === "top") {
       if (band > 0.24) hint = "Fish are holding deep — try a sinking lure";
       else hint = R.action > 0.6 ? "Perfect action — a bass is closing in!" : "Working the surface — keep twitching!";
-    } else if (R.depth < band - (S.cond.window || 0.1)) hint = "Let it sink deeper…";
-    else if (R.depth > band + (S.cond.window || 0.1)) hint = "Too deep — reel it up";
+    } else if (phys === "dive" && band > lu.band + winH) hint = "They're deeper than this crank dives — tie on a sinking lure";
+    else if (R.depth < band - winH) hint = phys === "dive" ? "Keep winding — dig it down to them…" : "Ease off the reel — let it sink to the zone…";
+    else if (R.depth > band + winH) hint = "Too deep — reel it up";
     else hint = R.action > 0.6 ? "Perfect action — a bass is closing in!" : "On their level — work it!";
     el.rvHint.textContent = hint;
     el.rvHint.className = "phase-hint" + (R.interest > 0.5 ? " good" : "");

@@ -684,19 +684,21 @@ const Scene3D = (() => {
     motes = new THREE.Points(pg, new THREE.PointsMaterial({ color: 0xcfeefb, size: 0.04, transparent: true, opacity: 0.5 }));
     scene.add(motes);
 
-    // bite-zone slab + dashed-look edges
+    // bite-zone slab + dashed-look edges — drawn as an OVERLAY (no depth test) so
+    // a deep band still reads through rocks/brush instead of hiding behind them
     biteSlab = new THREE.Mesh(
       new THREE.BoxGeometry(6.5, 0.1, 3.2),
-      new THREE.MeshBasicMaterial({ color: 0x5be37a, transparent: true, opacity: 0.14, depthWrite: false })
+      new THREE.MeshBasicMaterial({ color: 0x5be37a, transparent: true, opacity: 0.14, depthWrite: false, depthTest: false })
     );
-    scene.add(biteSlab);
-    const edgeMat = () => new THREE.MeshBasicMaterial({ color: 0x78f096, transparent: true, opacity: 0.6, depthWrite: false });
+    biteSlab.renderOrder = 2; scene.add(biteSlab);
+    const edgeMat = () => new THREE.MeshBasicMaterial({ color: 0x78f096, transparent: true, opacity: 0.6, depthWrite: false, depthTest: false });
     biteEdgeTop = new THREE.Mesh(new THREE.BoxGeometry(6.5, 0.04, 3.2), edgeMat());
     biteEdgeBot = new THREE.Mesh(new THREE.BoxGeometry(6.5, 0.04, 3.2), edgeMat());
+    biteEdgeTop.renderOrder = 3; biteEdgeBot.renderOrder = 3;
     scene.add(biteEdgeTop); scene.add(biteEdgeBot);
     // "BITE ZONE" label sprite (always faces the camera)
     biteLabel = new THREE.Sprite(new THREE.SpriteMaterial({ map: textTexture("🎯 BITE ZONE"), transparent: true, depthWrite: false, depthTest: false }));
-    biteLabel.scale.set(2.2, 0.55, 1); scene.add(biteLabel);
+    biteLabel.scale.set(2.2, 0.55, 1); biteLabel.renderOrder = 4; scene.add(biteLabel);
     // in-zone ring (pulses around the lure when it's in the zone) + up/down coaching arrows
     zoneRing = new THREE.Mesh(new THREE.RingGeometry(0.34, 0.46, 28), new THREE.MeshBasicMaterial({ color: 0x78f096, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false, depthTest: false }));
     zoneRing.visible = false; scene.add(zoneRing);
@@ -1977,12 +1979,13 @@ const Scene3D = (() => {
       biteSlab.position.set(0, cy, 0); biteSlab.scale.y = hgt / 0.1;
       const zc = st.inZone ? 0x5be37a : 0xffd35c, ze = st.inZone ? 0x9dffbb : 0xffe08a;
       const pulse = 0.5 + 0.5 * Math.sin(t * 4);
-      biteSlab.material.color.setHex(zc); biteSlab.material.opacity = (st.inZone ? 0.20 : 0.10) + pulse * 0.04;
+      biteSlab.material.color.setHex(zc); biteSlab.material.opacity = (st.inZone ? 0.24 : 0.15) + pulse * 0.05;
       biteEdgeTop.position.y = yTop; biteEdgeBot.position.y = yBot;
       biteEdgeTop.material.color.setHex(ze); biteEdgeBot.material.color.setHex(ze);
-      biteEdgeTop.material.opacity = biteEdgeBot.material.opacity = 0.42 + pulse * 0.28;
-      // label rides just above the band (kept high enough to clear the HUD)
-      biteLabel.position.set(-0.35, Math.max(yTop + 0.34, -0.6), 0.5);
+      biteEdgeTop.material.opacity = biteEdgeBot.material.opacity = 0.5 + pulse * 0.3;
+      // label glued just above the band wherever it is; capped so a surface band
+      // doesn't push it up out of the water into the HUD
+      biteLabel.position.set(-0.35, Math.min(yTop + 0.34, 1.45), 0.5);
     }
 
     motes.rotation.y = t * 0.01;
