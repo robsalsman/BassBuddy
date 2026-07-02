@@ -1057,3 +1057,6 @@ select, input, textarea { font-size: 16px; }
 /* PRESS START prompt after the intro settles */
 #introSplash { cursor: pointer; }
 .is-sub.start { font-size: 18px; color: var(--gold); letter-spacing: 3px; animation: isBlink .9s ease-in-out infinite; }
+
+/* while a tournament/arcade bar is up, the lure preview drops beneath it */
+#game.run-on .sega-lure { top: calc(166px + env(safe-area-inset-top,0px)); }

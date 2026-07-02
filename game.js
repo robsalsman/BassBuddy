@@ -2961,6 +2961,10 @@
     // in a tournament the tour HUD already shows the clock + weight at the top,
     // so suppress the Sega top blocks to avoid overlapping it
     const inTour = !!(S.tournament && !S.tournament.ended);
+    // a live run bar (tournament OR arcade) sits at the lure-preview's height —
+    // shift the preview below it while the bar is up
+    const runOn = inTour || !!(S.arcade && !S.arcade.ended);
+    document.getElementById("game").classList.toggle("run-on", runOn);
     e.left.classList.toggle("hidden", inTour);
     e.right.classList.toggle("hidden", inTour);
     const lu = lure(), ft = S.castFt || 60;
