@@ -657,44 +657,124 @@
   // Each has a test() run against a snapshot of your stats/catch-log, so they also
   // unlock retroactively (old saves earn what they've already done on next open).
   const ACH = [
-    { id: "first",   ico: "🎣", name: "First Cast",       desc: "Catch your first bass",              test: c => c.total >= 1 },
+    // ---- the ladder: sheer numbers ----
+    { id: "first",   ico: "🎣", name: "First Cast",        desc: "Catch your first bass",               test: c => c.total >= 1 },
     { id: "ten",     ico: "🐟", name: "Getting Dialed",    desc: "Catch 10 bass",                       test: c => c.total >= 10,  prog: c => [c.total, 10] },
+    { id: "twentyfive", ico: "🐠", name: "Regular",        desc: "Catch 25 bass",                       test: c => c.total >= 25,  prog: c => [c.total, 25] },
     { id: "fifty",   ico: "🎽", name: "Weekend Warrior",   desc: "Catch 50 bass",                       test: c => c.total >= 50,  prog: c => [c.total, 50] },
     { id: "hundred", ico: "💯", name: "Bass Master",       desc: "Catch 100 bass",                      test: c => c.total >= 100, prog: c => [c.total, 100] },
+    { id: "c250",    ico: "🎏", name: "Stick",             desc: "Catch 250 bass",                      test: c => c.total >= 250, prog: c => [c.total, 250] },
+    { id: "c500",    ico: "🐉", name: "River Legend",      desc: "Catch 500 bass",                      test: c => c.total >= 500, prog: c => [c.total, 500] },
+    { id: "c1000",   ico: "🛐", name: "Bass Deity",        desc: "Catch 1,000 bass",                    test: c => c.total >= 1000, prog: c => [c.total, 1000] },
+    // ---- the size ladder ----
+    { id: "keeper2", ico: "✅", name: "Keeper",            desc: "Boat a 2 lb+ bass",                   test: c => c.big >= 2 },
+    { id: "quality4",ico: "💚", name: "Quality Fish",      desc: "Boat a 4 lb+ bass",                   test: c => c.big >= 4 },
     { id: "lunker",  ico: "💪", name: "Lunker!",           desc: "Boat a 6 lb+ bass",                   test: c => c.big >= LUNKER_LB },
     { id: "eight",   ico: "🦬", name: "Bruiser",           desc: "Boat an 8 lb+ bass",                  test: c => c.big >= 8 },
     { id: "trophy",  ico: "👑", name: "Trophy Bass",       desc: "Land a 10 lb+ largemouth",            test: c => c.big >= 10 },
+    { id: "legend12",ico: "🐲", name: "Lake Monster",      desc: "Land a 12 lb+ giant",                 test: c => c.big >= 12 },
+    { id: "lunk5",   ico: "🥩", name: "Lunker Hunter",     desc: "Boat 5 lunkers (6 lb+)",              test: c => c.lunkers >= 5,  prog: c => [c.lunkers, 5] },
+    { id: "lunk25",  ico: "🍖", name: "Hawg Farmer",       desc: "Boat 25 lunkers",                     test: c => c.lunkers >= 25, prog: c => [c.lunkers, 25] },
+    // ---- skill ----
+    { id: "perfect1", ico: "✨", name: "Perfect Timing",   desc: "Set a Perfect hookset",               test: c => c.perfectHooks >= 1 },
+    { id: "perfect25",ico: "🎯", name: "Hair Trigger",     desc: "25 Perfect hooksets",                 test: c => c.perfectHooks >= 25, prog: c => [c.perfectHooks, 25] },
+    { id: "acro",    ico: "🤸", name: "Rodeo Ride",        desc: "Land a bass that jumped 3+ times",    test: c => c.acro >= 1 },
     { id: "finesse", ico: "🤏", name: "Finesse Master",    desc: "Land a 5 lb+ bass on a finesse lure", test: c => c.finesse },
+    { id: "ullunker",ico: "🪶", name: "Light-Line Hero",   desc: "Land a lunker on the Ultralight",     test: c => c.ulLunker },
     { id: "deep",    ico: "🕳️", name: "Deep Diver",        desc: "Catch a bass 20 ft+ down",            test: c => c.deep },
+    { id: "skinny",  ico: "🦶", name: "Skinny Water",      desc: "Catch a bass under 3 ft deep",        test: c => c.shallow },
+    { id: "score1500", ico: "💥", name: "Highlight Reel",  desc: "Score 1,500+ on a single catch",      test: c => c.bestCatchScore >= 1500 },
+    { id: "score2500", ico: "🌟", name: "Perfect Catch",   desc: "Score 2,500+ on a single catch",      test: c => c.bestCatchScore >= 2500 },
+    // ---- tackle mastery ----
+    { id: "lures",   ico: "🧰", name: "Tackle Junkie",     desc: "Catch bass on 8 different lures",     test: c => c.lureCount >= 8, prog: c => [c.lureCount, 8] },
+    { id: "alllures",ico: "🎁", name: "Full Box",          desc: "Catch bass on every lure",            test: c => c.lureCount >= LURES.length, prog: c => [c.lureCount, LURES.length] },
+    { id: "allrods", ico: "🎋", name: "Rod Collector",     desc: "Catch bass on all 4 rods",            test: c => c.rodCount >= RODS.length, prog: c => [c.rodCount, RODS.length] },
+    { id: "alllines",ico: "🧵", name: "Line Dancer",       desc: "Catch bass on all 3 line types",      test: c => c.lineCount >= 3, prog: c => [c.lineCount, 3] },
+    { id: "allsizes",ico: "📏", name: "Size Matters",      desc: "Catch bass on all 3 lure sizes",      test: c => c.sizeCount >= 3, prog: c => [c.sizeCount, 3] },
+    { id: "allscents",ico: "🧪", name: "Mad Scientist",    desc: "Catch bass on all 5 scents",          test: c => c.scentCount >= 5, prog: c => [c.scentCount, 5] },
+    { id: "topwater",ico: "💦", name: "Blow-Up!",          desc: "Catch a bass on a topwater lure",     test: c => c.topwater },
+    { id: "bottom",  ico: "🪨", name: "Bottom Bouncer",    desc: "Catch a bass on a bottom bait",       test: c => c.bottomBait },
+    // ---- conditions ----
     { id: "night",   ico: "🌙", name: "Night Bite",        desc: "Catch a bass after dark",             test: c => c.night },
+    { id: "dawn",    ico: "🌅", name: "Dawn Patrol",       desc: "Catch a bass before 6 am",            test: c => c.dawn },
+    { id: "noon",    ico: "🥵", name: "High-Noon Hero",    desc: "Catch a bass in the midday sun",      test: c => c.noon },
     { id: "fullmoon",ico: "🌕", name: "Moon Feeder",       desc: "Catch a bass on a full moon",         test: c => c.fullMoon },
+    { id: "newmoon", ico: "🌑", name: "Dark-Side Bite",    desc: "Catch a bass on a new moon",          test: c => c.newMoon },
     { id: "storm",   ico: "🌧️", name: "Rain Maker",        desc: "Catch a bass in the rain",            test: c => c.rain },
-    { id: "lures",   ico: "🧰", name: "Tackle Junkie",     desc: "Catch bass on 8 different lures",      test: c => c.lureCount >= 8, prog: c => [c.lureCount, 8] },
+    { id: "fog",     ico: "🌫️", name: "Ghost Ship",        desc: "Catch a bass in the fog",             test: c => c.fog },
+    { id: "winter",  ico: "❄️", name: "Hard-Water Hero",   desc: "Catch a bass in winter",              test: c => c.winter },
+    { id: "seasons", ico: "🗓️", name: "Year-Rounder",      desc: "Catch bass in all 4 seasons",         test: c => c.seasonCount >= 4, prog: c => [c.seasonCount, 4] },
+    // ---- the lakes ----
+    { id: "slam",    ico: "🗺️", name: "Lake Slam",         desc: "Catch a bass in every lake",          test: c => c.lakeCount >= SPOTS.length, prog: c => [c.lakeCount, SPOTS.length] },
+    { id: "unlockall",ico: "🔓", name: "Explorer",         desc: "Unlock every lake",                   test: c => c.allLakesOpen },
+    { id: "local10", ico: "🏕️", name: "Local Knowledge",   desc: "Catch 10 bass in every lake",         test: c => c.tenEverywhere },
+    // ---- the livewell & big days ----
     { id: "bag15",   ico: "🪣", name: "Heavy Sack",        desc: "A livewell over 15 lb",               test: c => c.bestBag >= 15 },
-    { id: "slam",    ico: "🗺️", name: "Lake Slam",         desc: "Catch a bass in all 3 lakes",          test: c => c.lakeCount >= SPOTS.length, prog: c => [c.lakeCount, SPOTS.length] },
+    { id: "bag20",   ico: "🧺", name: "Twenty Club",       desc: "A livewell over 20 lb",               test: c => c.bestBag >= 20 },
+    { id: "bag25",   ico: "🛢️", name: "Legendary Bag",     desc: "A livewell over 25 lb",               test: c => c.bestBag >= 25 },
+    { id: "day10",   ico: "☀️", name: "Banner Day",        desc: "Catch 10 bass in one day",            test: c => c.bestDayCatches >= 10, prog: c => [c.bestDayCatches, 10] },
+    { id: "day20",   ico: "🔥", name: "On Fire",           desc: "Catch 20 bass in one day",            test: c => c.bestDayCatches >= 20, prog: c => [c.bestDayCatches, 20] },
+    // ---- the circuit ----
     { id: "tourwin", ico: "🏁", name: "Tournament Win",    desc: "Win any tournament",                  test: c => c.tourWins >= 1 },
-    { id: "champ",   ico: "🏆", name: "Circuit Champion",  desc: "Win a circuit season",                test: c => c.titles >= 1 },
+    { id: "tour3",   ico: "🥇", name: "Front Runner",      desc: "Win 3 tournaments",                   test: c => c.tourWins >= 3,  prog: c => [c.tourWins, 3] },
+    { id: "tour10",  ico: "🏆", name: "Dynasty",           desc: "Win 10 tournaments",                  test: c => c.tourWins >= 10, prog: c => [c.tourWins, 10] },
+    { id: "champ",   ico: "👑", name: "Circuit Champion",  desc: "Win a circuit season",                test: c => c.titles >= 1 },
+    { id: "champ3",  ico: "💍", name: "Three-Peat",        desc: "Win 3 circuit seasons",               test: c => c.titles >= 3, prog: c => [c.titles, 3] },
+    // ---- the arcade ----
     { id: "arcade",  ico: "🕹️", name: "Get Bass!",         desc: "Clear all 4 Arcade stages",           test: c => c.arcadeClears >= 1 },
-    { id: "arcade1cc", ico: "🎖️", name: "One-Credit Clear", desc: "Clear Arcade without continuing",     test: c => c.arcadeNC },
+    { id: "arcade1cc", ico: "🎖️", name: "One-Credit Clear", desc: "Clear Arcade without continuing",    test: c => c.arcadeNC },
+    { id: "arcfinale", ico: "🌃", name: "The Midnight Run", desc: "Reach the Trophy Lake finale",       test: c => c.arcadeFinale },
+    { id: "arc10k",  ico: "🎰", name: "Score Chaser",      desc: "10,000+ arcade score",                test: c => c.arcadeBest >= 10000 },
+    { id: "arc20k",  ico: "🀄", name: "Cabinet King",      desc: "20,000+ arcade score",                test: c => c.arcadeBest >= 20000 },
+    // ---- the long game ----
+    { id: "life10k", ico: "📈", name: "Making a Name",     desc: "10,000 lifetime angler score",        test: c => c.lifeScore >= 10000,  prog: c => [c.lifeScore, 10000] },
+    { id: "life100k",ico: "💼", name: "Turning Pro",       desc: "100,000 lifetime angler score",       test: c => c.lifeScore >= 100000, prog: c => [c.lifeScore, 100000] },
+    { id: "life500k",ico: "🗿", name: "Hall of Famer",     desc: "500,000 lifetime angler score",       test: c => c.lifeScore >= 500000, prog: c => [c.lifeScore, 500000] },
+    { id: "tutor",   ico: "🎓", name: "Student of the Game", desc: "Complete the tutorial",             test: c => c.tutorial },
   ];
-  // snapshot of everything the achievement tests look at
+  // snapshot of everything the achievement tests look at — lifetime tallies come
+  // from G.tally (updated every catch), one-off flags fall back to the catch log
   function achCtx() {
     const log = G.catchLog || [];
     const recVals = Object.values(G.records || {});
-    return {
+    const t = G.tally || {};
+    const cnt = o => Object.keys(o || {}).length;
+    const hours = t.hour || {};
+    const ctx = {
       total: Object.values(G.caught || {}).reduce((s, n) => s + n, 0),
       big: recVals.length ? Math.max(...recVals) : 0,
       bestBag: G.bestBag || 0,
       tourWins: G.tourWins || 0, titles: (G.season && G.season.titles) || 0,
       arcadeClears: G.arcadeClears || 0, arcadeNC: !!G.arcadeNC,
-      lureCount: new Set(log.map(e => e.lure)).size,
+      arcadeBest: G.arcadeBestScore || 0, arcadeFinale: !!G.arcadeFinale,
+      lunkers: G.lunkers || 0, perfectHooks: G.perfectHooks || 0, acro: G.acro || 0,
+      bestCatchScore: G.bestCatchScore || 0, bestDayCatches: G.bestDayCatches || 0,
+      lifeScore: G.coins || 0, tutorial: !!G.tutorialDone,
+      lureCount: Math.max(new Set(log.map(e => e.lure)).size, cnt(t.lure)),
+      rodCount: cnt(t.rod), lineCount: cnt(t.line), sizeCount: cnt(t.size),
+      scentCount: Object.keys(t.scent || {}).filter(k => k && k !== "none").length,
+      seasonCount: cnt(t.season),
       lakeCount: Object.keys(G.lakes || {}).filter(k => G.lakes[k]).length,
+      tenEverywhere: SPOTS.every(s => ((t.spot || {})[s.id] || 0) >= 10),
+      topwater:   Object.keys(t.lure || {}).some(id => (LURES.find(l => l.id === id) || {}).style === "top"),
+      bottomBait: Object.keys(t.lure || {}).some(id => { const l = LURES.find(x => x.id === id); return l && l.style === "sink" && l.band >= 0.8; }),
       night:    log.some(e => { const h = (e.timeMin / 60) % 24; return h < 5 || h >= 20; }),
-      fullMoon: log.some(e => e.moon === 4),
+      dawn:     Object.keys(hours).some(h => +h >= 4 && +h < 6),
+      noon:     !!hours[12] || !!hours[13],
+      fullMoon: log.some(e => e.moon === 4) || !!(t.moon || {})[4],
+      newMoon:  !!(t.moon || {})[0],
       deep:     log.some(e => (e.depth || 0) >= 20),
+      shallow:  log.some(e => (e.depth || 0) <= 3),
       finesse:  log.some(e => e.w >= 5 && e.size === "small"),
-      rain:     log.some(e => e.weather === "rain"),
+      ulLunker: log.some(e => e.w >= LUNKER_LB && e.rod === "ultralight"),
+      rain:     log.some(e => e.weather === "rain") || !!(t.weather || {}).rain,
+      fog:      !!(t.weather || {}).fog || log.some(e => e.weather === "fog"),
+      winter:   !!(t.season || {}).winter || log.some(e => e.season === "winter"),
     };
+    // lake-unlock tests read this same context — resolve them on the built object
+    // (calling ownsSpot here would recurse straight back into achCtx)
+    ctx.allLakesOpen = SPOTS.every(s => !s.unlock || !!s.unlock.need(ctx));
+    return ctx;
   }
   // unlock everything now satisfied. silent (on load) just sets the flags; loud
   // (after a catch/win) fires the toast + save for anything newly earned.
@@ -724,6 +804,17 @@
     logCatch(f);
     evalAchievements(false);
   }
+  // lifetime tallies (unbounded, unlike the 300-entry log) — what the wall of
+  // achievements reads for "caught on every X" and per-condition counts
+  function tallyCatch(e) {
+    const t = G.tally || (G.tally = {});
+    const bump = (cat, key) => { if (key == null) return; const o = t[cat] || (t[cat] = {}); o[key] = (o[key] || 0) + 1; };
+    bump("lure", e.lure); bump("color", e.color); bump("size", e.size); bump("rod", e.rod); bump("line", e.line);
+    bump("spot", e.spot); bump("weather", e.weather); bump("season", e.season); bump("scent", e.scent || "none");
+    bump("moon", e.moon); bump("hour", Math.floor((e.timeMin || 0) / 60) % 24);
+    if (e.w >= LUNKER_LB) G.lunkers = (G.lunkers || 0) + 1;
+    G.bestCatchScore = Math.max(G.bestCatchScore || 0, e.score || 0);
+  }
   // record every bass with the full conditions/gear so the Catch Log can sort & filter
   function logCatch(f) {
     if (!G.catchLog) G.catchLog = [];
@@ -731,12 +822,14 @@
       ts: Date.now(), w: f.weight, len: f.lengthIn || +Math.cbrt(f.weight * 1600).toFixed(1),
       depth: Math.round((S.catchDepth != null ? S.catchDepth : S.cond.band) * 24),   // feet the fish was caught at
       lure: G.lure.id, color: G.lure.color, size: G.lure.size || "med", rod: G.rod, line: G.line || "mono",
+      scent: G.attractant || "none",
       spot: G.spot, pos: position().id,
       timeMin: Math.round(S.cond.timeMin), weather: S.cond.weather, season: S.cond.season, temp: S.cond.temp,
       moon: ((S.cond.moon || 0) % 8 + 8) % 8,
       score: Math.round(f.score || 0),
       tour: !!S.tournament,
     });
+    tallyCatch(G.catchLog[G.catchLog.length - 1]);
     if (G.catchLog.length > 300) G.catchLog.shift();   // keep the log bounded
   }
   // time-of-day bucket for filtering
@@ -1259,6 +1352,7 @@
   }
   function setupArcadeStage() {
     const A = S.arcade, st = ARCADE_STAGES[A.stage];
+    if (A.stage === 3) G.arcadeFinale = true;   // made it to the Trophy Lake lunker hunt
     G.spot = st.spot; G.positions[st.spot] = st.pos;
     S.cond.weather = st.weather; S.cond.timeMin = st.timeMin; S.cond.front = 0;
     S.cond.hotLure = LURES[Math.floor(Math.random() * LURES.length)].id;   // fresh pattern each stage
@@ -2094,6 +2188,7 @@
     const perfect = off < 0.1, good = off < 0.24;
     S.hookQuality = quality;
     S.hookRating = perfect ? "Perfect ✨" : good ? "Good" : quality > 0.12 ? "Fair" : "Weak";
+    if (perfect) G.perfectHooks = (G.perfectHooks || 0) + 1;   // achievement tally (saved on the catch)
     if (S.hook) S.hook.done = true;
     el.hookMeter.classList.add("hidden");
     el.hookMeter.classList.remove("armed");
@@ -2154,6 +2249,8 @@
     S.dayCatches = (S.dayCatches || 0) + 1;
     S.dayPts = (S.dayPts || 0) + f.score;
     S.dayBest = Math.max(S.dayBest || 0, f.weight);
+    G.bestDayCatches = Math.max(G.bestDayCatches || 0, S.dayCatches);
+    if (((S.ft && S.ft.jumps) || 0) >= 3) G.acro = (G.acro || 0) + 1;   // landed an acrobat
 
     const lunk = f.bass && f.weight >= LUNKER_LB;
     sfx(lunk ? "lunker" : "land"); setTimeout(() => sfx("coin"), 450);
@@ -3997,7 +4094,6 @@
         <div class="fi-line">Bass holding <b>${zone}</b> · ~${depthFt} ft</div>
         <div class="fi-line">Throw <b>${recDepth}</b> lures in <b>${recColor}</b></div>
         ${best ? `<div class="fi-line">Best lure: <b>${best.lure.ico} ${best.lure.name}</b> <span style="color:${ratingColor(best.pct)}">${best.pct}</span></div>` : ""}
-        <div class="fi-species">${top.map(t => `<span class="fs">${fishSVG(t.def, 34)}<small>${t.pct}%</small></span>`).join("")}</div>
       </div>
     </div>`;
   }
@@ -4365,6 +4461,9 @@
   // ===========================================================================
   // Boot
   // ===========================================================================
+  // migrate old saves: seed the lifetime tallies from the catch log once, so
+  // long-time anglers get credit for what they've already caught
+  if (!G.tally && (G.catchLog || []).length) { G.catchLog.forEach(tallyCatch); save(); }
   evalAchievements(true);   // retroactively credit anything an existing save already earned
   rollConditions();
   updateHUD();
