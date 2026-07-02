@@ -8,8 +8,8 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>BassBuddy — Bass Fishing</title>
-<script>window.BB_V = "20260702r";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
-<link rel="stylesheet" href="style.css?v=20260702r" />
+<script>window.BB_V = "20260702s";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
+<link rel="stylesheet" href="style.css?v=20260702s" />
 </head>
 <body>
 <div id="game">
@@ -442,12 +442,20 @@
         <button class="title-btn" id="tsTutorial">🎓 TUTORIAL</button>
         <button class="title-btn" id="tsBoard">🌎 RANKINGS</button>
       </div>
-      <button class="title-btn title-wide hidden" id="musicBtn">🎵 Music: ON</button>
       <div class="vol-box">
-        <div class="vol-row"><span>🎵 Music</span><input type="range" id="musicVol" min="0" max="100" step="5" /><b id="musicVolPct">60</b></div>
-        <div class="vol-row"><span>🔊 Effects</span><input type="range" id="sfxVol" min="0" max="100" step="5" /><b id="sfxVolPct">100</b></div>
+        <div class="vol-row"><span id="musicMuteLbl" class="vol-lbl">🎵 Music</span><input type="range" id="musicVol" min="0" max="100" step="5" /><b id="musicVolPct">60</b></div>
+        <div class="vol-row"><span id="sfxMuteLbl" class="vol-lbl">🔊 Effects</span><input type="range" id="sfxVol" min="0" max="100" step="5" /><b id="sfxVolPct">100</b></div>
       </div>
       <div class="title-cred">A tribute to SEGA Bass Fishing</div>
+    </div>
+  </div>
+
+  <!-- Boot splash: bubbles rise, the logo surfaces, the theme starts -->
+  <div id="introSplash">
+    <div class="is-inner">
+      <div class="is-fish">🐟</div>
+      <div class="is-logo">BASS<i>BUDDY</i></div>
+      <div class="is-sub">— REELING UP —</div>
     </div>
   </div>
 
@@ -456,7 +464,7 @@
 </div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=20260702r"></script>
-<script src="game.js?v=20260702r"></script>
+<script type="module" src="render3d.js?v=20260702s"></script>
+<script src="game.js?v=20260702s"></script>
 </body>
 </html>

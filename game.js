@@ -1113,14 +1113,14 @@
     let titleTracks = [], gameTracks = [], order = [], idx = 0, audio = null;
     let armed = false;              // a user gesture has happened — audio is allowed
     let scene = "title";            // which soundtrack the game wants right now
+    let wantAuto = false;           // boot asked for autoplay before the playlist arrived
     fetch("music/playlist.json" + (window.BB_V ? "?v=" + window.BB_V : ""))
       .then(r => (r.ok ? r.json() : []))
       .then(list => {
         const tracks = (Array.isArray(list) ? list : []).filter(t => t && t.file);
         titleTracks = tracks.filter(t => t.when === "title");
         gameTracks = tracks.filter(t => t.when !== "title");
-        const b = document.getElementById("musicBtn");
-        if (b && tracks.length) { b.classList.remove("hidden"); updateBtn(); }
+        if (wantAuto) attemptAuto();
       })
       .catch(() => {});
     function vol() { return G.musicVol != null ? G.musicVol : 0.6; }
@@ -1137,8 +1137,10 @@
           mgain = mctx.createGain(); mgain.gain.value = vol();
           mgain.connect(mctx.destination);   // straight out — the mute button governs effects, not music
         }
-        if (!msrc) { msrc = mctx.createMediaElementSource(audio); msrc.connect(mgain); }
-        if (mctx.state === "suspended") mctx.resume();
+        if (mctx.state === "suspended") { try { mctx.resume(); } catch (e2) {} }
+        // only reroute the element through WebAudio once the context actually
+        // runs — piping into a suspended context silences an autoplaying element
+        if (!msrc && mctx.state === "running") { msrc = mctx.createMediaElementSource(audio); msrc.connect(mgain); applyVol(); }
       } catch (e) {}
     }
     function applyVol() {
@@ -1177,20 +1179,29 @@
       else if (audio) audio.pause();
     }
     function setScene(s) { if (scene === s) return; scene = s; if (armed && G.musicOn !== false) sync(); }
-    function onGesture() { if (armed) return; armed = true; sync(); }
+    function onGesture() {
+      if (!armed) { armed = true; sync(); }
+      ensureGraph();   // the gesture lets the shared context run — attach the volume graph now
+    }
+    // boot-time autoplay: works where the browser allows it (desktop, PWA,
+    // returning Safari sessions); everywhere else the first tap arms audio
+    function attemptAuto() {
+      if (armed || G.musicOn === false) return;
+      if (!titleTracks.length) { wantAuto = true; return; }
+      ensureEl();
+      audio.loop = true;
+      audio.src = "music/" + titleTracks[0].file;
+      const p = audio.play();
+      if (p && p.then) p.then(() => { armed = true; }).catch(() => {});
+    }
     function setOn(on) {
       G.musicOn = on; save();
-      if (on) sync();
+      if (on) { if (armed) sync(); else attemptAuto(); }
       else if (audio) audio.pause();
-      updateBtn();
     }
     function setVolume() { applyVol(); }
-    function updateBtn() {
-      const b = document.getElementById("musicBtn");
-      if (b) b.textContent = G.musicOn === false ? "🎵 Music: OFF" : "🎵 Music: ON";
-    }
     document.addEventListener("pointerdown", onGesture, { capture: true });
-    return { setScene, setOn, setVolume };
+    return { setScene, setOn, setVolume, tryAutoplay: attemptAuto };
   })();
 
   // ===========================================================================
@@ -1391,7 +1402,7 @@
 
   function updateHUD() {
     el.coins.textContent = G.coins;
-    if (el.muteBtn) el.muteBtn.textContent = G.muted ? "🔇" : "🔊";
+    if (el.muteBtn) el.muteBtn.textContent = (G.muted && G.musicOn === false) ? "🔇" : "🔊";
     el.rodName.textContent = rod().name;
     el.spotName.textContent = spot().name;
     el.posName.textContent = position().name;
@@ -1683,8 +1694,20 @@
     resetToIdle(); save(); updateHUD();
     toast(`🎣 ${spot().name} — ${position().name}. Lines in!`);
   }
-  const musicBtn = document.getElementById("musicBtn");
-  if (musicBtn) musicBtn.addEventListener("click", () => { Music.setOn(G.musicOn === false); sfx("ui"); });
+  // the slider labels ARE the per-channel mute toggles
+  function updateVolLabels() {
+    const m = document.getElementById("musicMuteLbl"), s2 = document.getElementById("sfxMuteLbl");
+    if (m) { m.textContent = (G.musicOn === false ? "🔇" : "🎵") + " Music"; m.classList.toggle("off", G.musicOn === false); }
+    if (s2) { s2.textContent = (G.muted ? "🔇" : "🔊") + " Effects"; s2.classList.toggle("off", !!G.muted); }
+  }
+  function setSfxMuted(m) {
+    G.muted = m; Sound.setMuted(m);
+    if (!m) Sound.ensure();
+    save(); updateHUD(); updateVolLabels();
+  }
+  document.getElementById("musicMuteLbl").addEventListener("click", () => { Music.setOn(G.musicOn === false); updateVolLabels(); updateHUD(); sfx("ui"); });
+  document.getElementById("sfxMuteLbl").addEventListener("click", () => { setSfxMuted(!G.muted); if (!G.muted) sfx("ui"); });
+  updateVolLabels();
   // volume sliders — live while you drag, saved when you let go
   const volCtl = (id, pctId, get, set) => {
     const r = document.getElementById(id), p = document.getElementById(pctId);
@@ -4302,11 +4325,14 @@
   // Shop
   // ===========================================================================
   el.rodChip.addEventListener("click", openRods);
+  // the gameplay speaker button is the master switch: it mutes/unmutes BOTH
+  // channels, and stays linked to the per-channel toggles on the menu sliders
   el.muteBtn.addEventListener("click", () => {
-    G.muted = !G.muted; el.muteBtn.textContent = G.muted ? "🔇" : "🔊";
-    Sound.setMuted(G.muted);
-    if (!G.muted) { Sound.ensure(); sfx("ui"); }
-    save();
+    const anyOn = !G.muted || G.musicOn !== false;
+    setSfxMuted(anyOn);
+    Music.setOn(!anyOn);
+    updateVolLabels(); updateHUD();
+    if (!anyOn) sfx("ui");
   });
   // ---- Record book (tap the 🏆 winnings pill) ----
   function openRecords() {
@@ -4652,7 +4678,25 @@
   updateHUD();
   showBtn(false);
   setStatus("Tap & hold the water to aim, release to cast 🎣");
-  showTitle();              // main menu greets every session
+  // boot splash: bubbles rise, the logo surfaces, the theme starts itself
+  // (where the platform allows autoplay — otherwise the first tap starts it)
+  (function intro() {
+    const sp2 = document.getElementById("introSplash");
+    showTitle();                              // menu is ready underneath the splash
+    if (!sp2) return;
+    for (let i = 0; i < 20; i++) {
+      const b = document.createElement("i");
+      b.className = "is-bub";
+      b.style.left = (3 + Math.random() * 94) + "%";
+      const bs = 4 + Math.random() * 15;
+      b.style.width = b.style.height = bs.toFixed(0) + "px";
+      b.style.animationDelay = (Math.random() * 1.3).toFixed(2) + "s";
+      b.style.animationDuration = (1.1 + Math.random() * 1.3).toFixed(2) + "s";
+      sp2.appendChild(b);
+    }
+    Music.tryAutoplay();
+    setTimeout(() => { sp2.classList.add("done"); setTimeout(() => sp2.remove(), 650); }, 2150);
+  })();
   requestAnimationFrame(frame);
 
   document.addEventListener("touchmove", e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
