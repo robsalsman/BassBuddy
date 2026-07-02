@@ -439,6 +439,8 @@
     lureTitle: $("lureTitle"), rodTitle: $("rodTitle"), rodBack: $("rodBack"), rodNext: $("rodNext"),
     tutBanner: $("tutBanner"), tutStep: $("tutStep"), tutText: $("tutText"), tutSkip: $("tutSkip"), menuBtn: $("menuBtn"),
     guideBtn: $("guideBtn"), guideModal: $("guideModal"), guideClose: $("guideClose"),
+    anglerModal: $("anglerModal"), anglerTitle: $("anglerTitle"), anglerList: $("anglerList"),
+    anglerBack: $("anglerBack"), anglerNext: $("anglerNext"), anglerClose: $("anglerClose"),
     fx: $("fx"),
   };
 
@@ -1105,7 +1107,7 @@
   const sfx = n => Sound.play(n);
   function anyModalOpen() {
     return [el.catchModal, el.failModal, el.lureModal, el.mapModal,
-            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal, el.titleScreen, el.lbModal, el.lbProfileModal, el.guideModal].some(m => !m.classList.contains("hidden"));
+            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal, el.titleScreen, el.lbModal, el.lbProfileModal, el.guideModal, el.anglerModal].some(m => !m.classList.contains("hidden"));
   }
 
   function floatText(txt, color) {
@@ -1608,7 +1610,7 @@
     const A = S.arcade, st = ARCADE_STAGES[A.stage];
     checkCatchChallenges(f);
     f.score = Math.round(f.score * (1 + A.stage * 0.25) / 10) * 10;   // later stages pay more
-    A.score += f.score; G.coins += f.score;
+    A.score += f.score; G.coins += f.score; addAnglerXP(f.score);
     let bonus = 8000 + Math.round(f.weight * 2500);                    // every fish buys time
     const jumps = (S.ft && S.ft.jumps) || 0;
     if (jumps) bonus += Math.min(3, jumps) * 3000;                     // made it jump — style time
@@ -1703,6 +1705,186 @@
     }
     else exitArcade();
   });
+
+  // ===========================================================================
+  // ANGLER STABLE — selectable characters built from the crew's real photos.
+  // Each has specialties; angler score earned while playing them is their XP,
+  // and specialists level their strong suits faster. Levels feed real mechanics
+  // (hookset window, finesse bites, fight strain, cast forgiveness, fish sense).
+  // ===========================================================================
+  const SKILLS = {
+    hookset: { ico: "🪝", name: "Hookset" },
+    finesse: { ico: "🪶", name: "Finesse" },
+    power:   { ico: "💪", name: "Power" },
+    casting: { ico: "🎯", name: "Casting" },
+    sense:   { ico: "🧭", name: "Fish Sense" },
+  };
+  const ANGLERS = [
+    { id: "roberto",  name: "Roberto",     tag: "The Captain",    desc: "Steady hand, no weak suit — the boat's in good hands.",
+      w: { hookset: 1.05, finesse: 1.05, power: 1.05, casting: 1.05, sense: 1.05 }, hue: "#5d7a45" },
+    { id: "hotrod",   name: "Hot Rod",     tag: "Full Throttle",  desc: "Big swings and long bombs — subtle is for other people.",
+      w: { hookset: 1.0, finesse: 0.6, power: 1.5, casting: 1.3, sense: 0.8 }, hue: "#8f3b2c" },
+    { id: "wildwest", name: "Wild West",   tag: "The Gunslinger", desc: "Fastest cast in the county — dares any target, hits most.",
+      w: { hookset: 1.2, finesse: 0.7, power: 1.1, casting: 1.5, sense: 0.7 }, hue: "#a4762c" },
+    { id: "drg",      name: "Dr. G",       tag: "The Surgeon",    desc: "Light line, small baits, hooksets like sutures.",
+      w: { hookset: 1.4, finesse: 1.5, power: 0.6, casting: 0.9, sense: 1.0 }, hue: "#3f8f6a" },
+    { id: "jpbasser", name: "J.P. Basser", tag: "The Pro",        desc: "Reads water like a tournament sheet — always on fish.",
+      w: { hookset: 1.1, finesse: 1.1, power: 0.9, casting: 1.0, sense: 1.4 }, hue: "#39557f" },
+    { id: "olddog",   name: "Old Dog",     tag: "The Veteran",    desc: "Seen every trick a bass has. Slow, sure, never fooled.",
+      w: { hookset: 1.3, finesse: 1.2, power: 0.7, casting: 0.7, sense: 1.5 }, hue: "#6b5a44" },
+  ];
+  const angler = () => ANGLERS.find(a => a.id === G.angler) || ANGLERS[0];
+  const anglerXP = id => (G.anglerXP || {})[id] || 0;
+  function addAnglerXP(pts) {
+    if (!pts) return;
+    if (!G.anglerXP) G.anglerXP = {};
+    G.anglerXP[angler().id] = (G.anglerXP[angler().id] || 0) + pts;
+  }
+  // category level 0–10; a specialist's strong suits climb much faster
+  const skillLvl = (a, k) => Math.min(10, Math.floor(Math.sqrt(anglerXP(a.id) * a.w[k] / 250)));
+  const skill = k => skillLvl(angler(), k) / 10;   // 0..1 bonus strength right now
+  // sense finds fish anywhere; finesse pays off on small (and lightly on medium) baits
+  function anglerBiteMul() {
+    const fin = (G.lure.size || "med") === "small" ? 1 : (G.lure.size || "med") === "med" ? 0.35 : 0;
+    return (1 + skill("sense") * 0.15) * (1 + skill("finesse") * 0.22 * fin);
+  }
+
+  // ---- portraits: same barn-wood template the Guide set; anglers without a
+  // photo yet get a mystery-silhouette card until their real face lands
+  const FACES = {
+    jpbasser: P => `
+      <path d="M14,120 C16,96 34,84 46,81 L74,81 C88,84 104,96 106,120 Z" fill="#26313e" stroke="#1a222c" stroke-width="1"/>
+      <path d="M48,82 L60,96 L72,82 L72,120 L48,120 Z" fill="#eef1f2"/>
+      <path d="M48,82 L54,90 L60,84 L66,90 L72,82 L71,87 L60,97 L49,87 Z" fill="#f7f9fa" stroke="#c9d2d8" stroke-width=".7"/>
+      <path d="M52,68 L68,68 L67,84 L53,84 Z" fill="#d69c74"/>
+      <path d="M52,68 L68,68 L67,75 Q60,79 53,75 Z" fill="#b97f57" opacity=".55"/>
+      <ellipse cx="38.5" cy="54" rx="4" ry="6" fill="url(#${P}skin)"/>
+      <ellipse cx="81.5" cy="54" rx="4" ry="6" fill="url(#${P}skin)"/>
+      <path d="M40,42 Q40,24 60,24 Q80,24 80,42 L80,54 Q80,76 60,78 Q40,76 40,54 Z" fill="url(#${P}skin)"/>
+      <path d="M43,62 Q50,75 60,76 Q70,75 77,62 Q72,73 60,74 Q48,73 43,62 Z" fill="#c98f65" opacity=".4"/>
+      <path d="M38,42 Q37,18 60,17 Q83,18 82,42 Q82,33 76,29 Q73,33 69,29 Q64,34 59,29 Q54,33 49,29 Q45,33 42,31 Q39,35 38,42 Z" fill="#8a744f"/>
+      <path d="M44,26 q4,-3 9,-2 M56,23 q5,-2 10,0 M68,25 q4,-1 7,2" stroke="#6f5c3d" stroke-width="1" fill="none" opacity=".8"/>
+      <path d="M45,44 q5,-2.5 10,-.8" stroke="#7a6544" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      <path d="M65,43.2 q5,-1.7 10,.8" stroke="#7a6544" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      <ellipse cx="50.8" cy="50.6" rx="2" ry="2.2" fill="#4a3a2c"/>
+      <ellipse cx="69.2" cy="50.6" rx="2" ry="2.2" fill="#4a3a2c"/>
+      <circle cx="51.5" cy="49.9" r=".6" fill="#fff" opacity=".85"/>
+      <circle cx="69.9" cy="49.9" r=".6" fill="#fff" opacity=".85"/>
+      <ellipse cx="46.5" cy="59" rx="3.6" ry="2.2" fill="#e08a66" opacity=".4"/>
+      <ellipse cx="73.5" cy="59" rx="3.6" ry="2.2" fill="#e08a66" opacity=".4"/>
+      <path d="M60,50 q-1.5,5.6 -2.4,7.8 q2.4,1.9 4.8,0 Q61.3,55.6 60,50" fill="#cf9068" opacity=".8"/>
+      <path d="M41.5,54 Q43,70 54,75.5 Q57,77 60,77 Q63,77 66,75.5 Q77,70 78.5,54 Q78,68 68,74.5 L66,71.5 Q63,73 60,73 Q57,73 54,71.5 L52,74.5 Q42,68 41.5,54 Z" fill="#96603c" opacity=".7"/>
+      <path d="M51.5,61.4 Q60,64.6 68.5,61.4 L68,63.4 Q60,66.2 52,63.4 Z" fill="#96603c" opacity=".8"/>
+      <path d="M53.5,71.8 Q60,75.8 66.5,71.8 Q64,76.8 60,76.8 Q56,76.8 53.5,71.8 Z" fill="#96603c" opacity=".85"/>
+      <path d="M50,63.5 Q60,71 70,63.5 Q66,69.6 60,69.6 Q54,69.6 50,63.5 Z" fill="#8a4a37"/>
+      <path d="M52.2,64.6 Q60,69.4 67.8,64.6 Q60,67.8 52.2,64.6 Z" fill="#f4efe6"/>
+      <path d="M50,63.5 Q60,71 70,63.5" stroke="#7e4432" stroke-width="1" fill="none"/>`,
+    wildwest: P => `
+      <path d="M14,120 C16,96 34,84 46,81 L74,81 C88,84 104,96 106,120 Z" fill="#6e3440" stroke="#552732" stroke-width="1"/>
+      <rect x="56.6" y="92" width="6.8" height="28" fill="#5f2c37"/>
+      <circle cx="60" cy="98" r="1.4" fill="#3d1c24"/><circle cx="60" cy="106" r="1.4" fill="#3d1c24"/><circle cx="60" cy="114" r="1.4" fill="#3d1c24"/>
+      <path d="M48,81 Q60,90 72,81 L72,86 Q60,95 48,86 Z" fill="#5f2c37"/>
+      <path d="M52,68 L68,68 L67,84 L53,84 Z" fill="#e2ad86"/>
+      <path d="M52,68 L68,68 L67,75 Q60,79 53,75 Z" fill="#c68e64" opacity=".5"/>
+      <ellipse cx="38.5" cy="54" rx="4" ry="6" fill="url(#${P}skin)"/>
+      <ellipse cx="81.5" cy="54" rx="4" ry="6" fill="url(#${P}skin)"/>
+      <path d="M41,42 Q41,26 60,26 Q79,26 79,42 L79,53 Q79,73 60,76 Q41,73 41,53 Z" fill="url(#${P}skin)"/>
+      <g fill="#4c3826">
+        <circle cx="60" cy="17" r="9"/><circle cx="47" cy="20" r="8"/><circle cx="73" cy="20" r="8"/>
+        <circle cx="38" cy="28" r="7.5"/><circle cx="82" cy="28" r="7.5"/>
+        <circle cx="34.5" cy="39" r="6.5"/><circle cx="85.5" cy="39" r="6.5"/>
+        <circle cx="34.5" cy="50" r="5.5"/><circle cx="85.5" cy="50" r="5.5"/>
+        <circle cx="36.5" cy="59" r="4.5"/><circle cx="83.5" cy="59" r="4.5"/>
+        <circle cx="47" cy="31" r="7"/><circle cx="59" cy="29" r="7.5"/><circle cx="71" cy="31" r="7"/>
+        <path d="M40,34 Q41,26 47,24 L52,36 Q45,38 40,34 Z"/><path d="M80,34 Q79,26 73,24 L68,36 Q75,38 80,34 Z"/>
+      </g>
+      <g stroke="#6a523a" stroke-width="1.1" fill="none" opacity=".7">
+        <path d="M44,18 q4,-3 8,-1"/><path d="M56,14 q5,-2 9,1"/><path d="M69,17 q4,-1 7,3"/>
+        <path d="M37,30 q1,-5 5,-6"/><path d="M84,31 q-1,-5 -5,-6"/>
+        <path d="M50,29 q4,-3 8,-1"/><path d="M63,28 q4,-2 7,1"/>
+        <path d="M35,46 q0,-4 3,-6"/><path d="M85,46 q0,-4 -3,-6"/>
+      </g>
+      <g stroke="#d9dee3" stroke-width="1.5" fill="rgba(255,255,255,.10)">
+        <rect x="42" y="45.5" width="15.5" height="12.5" rx="5"/>
+        <rect x="62.5" y="45.5" width="15.5" height="12.5" rx="5"/>
+        <path d="M57.5,50.5 q2.5,-1.8 5,0" fill="none"/>
+        <path d="M42,50 L38,51" fill="none"/><path d="M78,50 L82,51" fill="none"/>
+      </g>
+      <ellipse cx="50" cy="52" rx="2" ry="2.2" fill="#51707f"/>
+      <ellipse cx="70" cy="52" rx="2" ry="2.2" fill="#51707f"/>
+      <circle cx="50.7" cy="51.3" r=".6" fill="#fff" opacity=".9"/>
+      <circle cx="70.7" cy="51.3" r=".6" fill="#fff" opacity=".9"/>
+      <ellipse cx="46" cy="60" rx="3.6" ry="2.3" fill="#e08a66" opacity=".45"/>
+      <ellipse cx="74" cy="60" rx="3.6" ry="2.3" fill="#e08a66" opacity=".45"/>
+      <path d="M60,52 q-1.4,5.2 -2.3,7.4 q2.3,1.8 4.6,0 Q61.2,57.2 60,52" fill="#d69468" opacity=".8"/>
+      <path d="M50,64 Q60,72.5 70,64 Q66,71 60,71 Q54,71 50,64 Z" fill="#7e4432"/>
+      <path d="M52.4,65.2 Q60,70.4 67.6,65.2 Q60,68.4 52.4,65.2 Z" fill="#f4efe6"/>
+      <path d="M50,64 Q60,72.5 70,64" stroke="#6e3a2a" stroke-width="1" fill="none"/>`,
+  };
+  function mysteryFace() {
+    return `
+      <g fill="#141b22" opacity=".92">
+        <path d="M16,120 C18,96 36,84 47,81 L73,81 C86,84 102,96 104,120 Z"/>
+        <rect x="52" y="64" width="16" height="20" rx="5"/>
+        <circle cx="60" cy="48" r="19"/>
+        <path d="M39,44 Q39,30 60,30 Q81,30 81,44 L83,46 Q84,49 80,49 L40,49 Q36,49 37,46 Z"/>
+      </g>
+      <text x="60" y="57" font-size="19" font-weight="bold" text-anchor="middle" fill="rgba(255,255,255,.6)" font-family="sans-serif">?</text>
+      <text x="60" y="103" font-size="7.5" text-anchor="middle" fill="rgba(255,255,255,.55)" font-family="sans-serif" letter-spacing="1">PHOTO SOON</text>`;
+  }
+  function anglerSVG(a, crop) {
+    const vb = crop ? "30 16 60 60" : "0 0 120 120";
+    const P = "av_" + a.id;    // unique gradient ids — six of these render in one list
+    return `<svg viewBox="${vb}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="${P}skin" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#eab894"/><stop offset="1" stop-color="#d09a72"/>
+        </linearGradient>
+        <radialGradient id="${P}vig" cx="50%" cy="42%" r="75%">
+          <stop offset="55%" stop-color="rgba(0,0,0,0)"/><stop offset="100%" stop-color="rgba(20,10,4,.55)"/>
+        </radialGradient>
+      </defs>
+      <rect width="120" height="120" fill="${a.hue}"/>
+      <g stroke="rgba(0,0,0,.25)" stroke-width="1">
+        <line x1="24" y1="0" x2="24" y2="120"/><line x1="52" y1="0" x2="52" y2="120"/>
+        <line x1="82" y1="0" x2="82" y2="120"/><line x1="106" y1="0" x2="106" y2="120"/>
+      </g>
+      ${FACES[a.id] ? FACES[a.id](P) : mysteryFace()}
+      <rect width="120" height="120" fill="url(#${P}vig)"/>
+    </svg>`;
+  }
+
+  // ---- the picker: step 1 of the prep wizard (free play and tournaments both)
+  function openAnglers() {
+    renderAnglers();
+    el.anglerTitle.textContent = `🧑‍🎣 ${prepNum(1)} — Pick your angler`;
+    el.anglerBack.textContent = S.prepTour ? "◂ EVENT" : "◂ MENU";
+    el.anglerNext.textContent = S.prepTour ? "NEXT — PICK YOUR SPOT ▸" : "NEXT — PICK YOUR LAKE ▸";
+    el.anglerModal.classList.remove("hidden");
+  }
+  function renderAnglers() {
+    el.anglerList.innerHTML = ANGLERS.map(a => {
+      const sel = angler().id === a.id;
+      const xp = anglerXP(a.id);
+      const spec = Object.keys(SKILLS).filter(k => a.w[k] >= 1.25).map(k => SKILLS[k].ico + " " + SKILLS[k].name).join(" · ");
+      const detail = sel ? `<div class="opt-detail">${catBars(Object.keys(SKILLS).map(k => ({ label: SKILLS[k].name, pct: skillLvl(a, k) * 10 })))}
+        <div class="cats-tip">${a.desc}<br>${xp ? `🎯 ${xp.toLocaleString()} XP — points earned fishing as ${a.name} keep leveling these skills` : "🎯 New — points earned fishing level these skills, specialties fastest"}</div></div>` : "";
+      return `<div class="lure-opt angler-opt ${sel ? "sel" : ""}" data-angler="${a.id}">
+        <div class="angler-face">${anglerSVG(a, true)}</div>
+        <div class="info">
+          <div class="nm">${a.name} <span class="stars" style="color:#ffd35c">${a.tag}</span></div>
+          <div class="ds">★ ${spec || "Balanced — a little of everything"}</div>
+        </div>
+        <div class="tag">${sel ? "✓ YOU" : "TAP"}</div></div>` + detail;
+    }).join("");
+  }
+  el.anglerModal.addEventListener("click", (e) => {
+    const o = e.target.closest(".angler-opt"); if (!o) return;
+    if (G.angler !== o.dataset.angler) { G.angler = o.dataset.angler; save(); sfx("ui"); renderAnglers(); }
+  });
+  el.anglerClose.addEventListener("click", () => { el.anglerModal.classList.add("hidden"); exitPrep(); });
+  el.anglerBack.addEventListener("click", () => { sfx("ui"); el.anglerModal.classList.add("hidden"); exitPrep(); });
+  el.anglerNext.addEventListener("click", () => { sfx("ui"); gotoPrep(S.prepTour ? 3 : 2); });
 
   // ===========================================================================
   // THE GUIDE — a warm old-timer built from a family photo: khaki cap, wire
@@ -1908,12 +2090,12 @@
   // the save), so you can put the phone down mid-tournament and pick it up later
   function suspendRun() {
     if (S.tournament && !S.tournament.ended) {
-      G.pausedTour = { t: S.tournament, spot: G.spot, weather: S.cond.weather, hotLure: S.cond.hotLure };
+      G.pausedTour = { t: S.tournament, spot: G.spot, weather: S.cond.weather, hotLure: S.cond.hotLure, angler: G.angler };
       S.tournament = null;
       el.tourHud.classList.add("hidden");
       toast("🏁 Tournament saved — resume from the menu ▶");
     } else if (S.arcade && !S.arcade.ended) {
-      G.pausedArcade = { a: S.arcade, prev: S.arcadePrev, hotLure: S.cond.hotLure };
+      G.pausedArcade = { a: S.arcade, prev: S.arcadePrev, hotLure: S.cond.hotLure, angler: G.angler };
       S.arcade = null; S.arcadePrev = null;
       el.arcadeHud.classList.add("hidden");
       toast("🕹️ Arcade run saved — resume from the menu ▶");
@@ -1924,6 +2106,7 @@
     S.dayStarted = true;
     if (G.pausedTour) {
       const p = G.pausedTour; G.pausedTour = null;
+      if (p.angler) G.angler = p.angler;
       G.spot = p.spot; seedFish();
       if (p.weather) S.cond.weather = p.weather;
       S.cond.hotLure = p.hotLure;
@@ -1933,6 +2116,7 @@
       toast(`🏁 ${p.t.name} — back on the water!`);
     } else if (G.pausedArcade) {
       const p = G.pausedArcade; G.pausedArcade = null;
+      if (p.angler) G.angler = p.angler;
       S.arcade = p.a; S.arcadePrev = p.prev;
       const st = ARCADE_STAGES[S.arcade.stage];
       G.spot = st.spot; G.positions[st.spot] = st.pos;
@@ -1950,14 +2134,15 @@
   // ---- GO FISHING prep wizard: lake → spot → tackle, the theme playing all the
   // way — each step has room to read the weather and conditions before lines-in
   function startPrep() { gotoPrep(1); }
-  // step numbering: free play runs 1..8 (lake..scent); tournaments run 2..8 and
-  // renumber as 1..7 since the event already fixed the lake
-  function prepNum(step) { return S.prepTour ? `${step - 1} of 7` : `${step} of 8`; }
+  // step numbering: free play runs 1..9 (angler..scent); tournaments skip the
+  // lake step (the event fixed it) and renumber the rest as 1..8
+  function prepNum(step) { return S.prepTour ? `${step === 1 ? 1 : step - 1} of 8` : `${step} of 9`; }
   function gotoPrep(step) {
     S.prep = step;
-    el.mapModal.classList.add("hidden"); el.lureModal.classList.add("hidden"); el.rodModal.classList.add("hidden");
-    if (step <= 2) openMap();
-    else if (step === 3) openRods();
+    el.mapModal.classList.add("hidden"); el.lureModal.classList.add("hidden"); el.rodModal.classList.add("hidden"); el.anglerModal.classList.add("hidden");
+    if (step === 1) openAnglers();
+    else if (step <= 3) openMap();
+    else if (step === 4) openRods();
     else openLures();
   }
   // ✕ or backing all the way out of the wizard — to the menu, or back to the
@@ -1966,7 +2151,7 @@
     const wasTour = S.prepTour;
     S.prep = null; S.prepTour = false;
     el.lureFish.classList.add("hidden"); el.lureBack.classList.add("hidden");
-    el.mapModal.classList.add("hidden"); el.lureModal.classList.add("hidden"); el.rodModal.classList.add("hidden");
+    el.mapModal.classList.add("hidden"); el.lureModal.classList.add("hidden"); el.rodModal.classList.add("hidden"); el.anglerModal.classList.add("hidden");
     if (wasTour && pendingTour) { refreshTourStart(); el.tourStartModal.classList.remove("hidden"); }
     else showTitle();
   }
@@ -2512,7 +2697,7 @@
     S.castFt = Math.round(28 + S.bobber.dist * 66);    // how far this cast reached (ft)
     const hz = hotZone();
     const coverDist = Math.hypot(px - hz.x, py - hz.y);
-    S.castAccuracy = clamp(1 - coverDist / (hz.r * 1.7), 0, 1);   // 1 = pitched on the cover, 0 = open water
+    S.castAccuracy = clamp(1 - coverDist / (hz.r * 1.7 * (1 + skill("casting") * 0.5)), 0, 1);   // 1 = pitched on the cover, 0 = open water (a deadeye caster gets credit for near-misses)
     S.castBonus = coverDist < hz.r;
     S.castFacing = facingQuality();   // how well the boat was aimed at the fish when you cast
     S.castLuck = rnd(0.82, 1.28);     // real fishing varies cast-to-cast
@@ -2574,7 +2759,7 @@
     // window + sweep speed scale with the fish: trophies give a tighter, faster
     // meter for more tension; little ones are forgiving
     const diff = clamp(S.hookedFish.difficulty || 0.4, 0, 1);
-    S.strikeWindow = 2900 - diff * 700;                       // ~2.9s easy .. ~2.2s hard — time to react
+    S.strikeWindow = (2900 - diff * 700) * (1 + skill("sense") * 0.25);   // ~2.9s easy .. ~2.2s hard — a sharp angler feels it coming
     // hold = a short cinematic beat: time slows and the camera punches in on the
     // open mouth before the timing marker starts to sweep
     S.hook = { phase: rnd(0, 6.28), marker: 0.5, done: false, speed: 0.0038 + diff * 0.0032, hold: 520 };
@@ -2608,8 +2793,9 @@
     const f = S.hookedFish, d = f.difficulty;
     // hookset quality from how close the marker was to the centre when you tapped
     const off = S.hook ? Math.min(1, Math.abs((S.hook.marker != null ? S.hook.marker : 0.5) - 0.5) * 2) : 0.5;
-    const quality = clamp(1 - off / 0.5, 0, 1);   // full inside the green sweet zone (off<0.5 from edge)
-    const perfect = off < 0.1, good = off < 0.24;
+    const hs = skill("hookset");   // a practiced hookset forgives more of the sweep
+    const quality = clamp(1 - off / (0.5 * (1 + hs * 0.3)), 0, 1);
+    const perfect = off < 0.1 * (1 + hs * 0.8), good = off < 0.24 * (1 + hs * 0.6);
     S.hookQuality = quality;
     S.hookRating = perfect ? "Perfect ✨" : good ? "Good" : quality > 0.12 ? "Fair" : "Weak";
     if (perfect) G.perfectHooks = (G.perfectHooks || 0) + 1;   // achievement tally (saved on the catch)
@@ -2679,8 +2865,8 @@
     const lunk = f.bass && f.weight >= LUNKER_LB;
     sfx(lunk ? "lunker" : "land"); setTimeout(() => sfx("coin"), 450);
     if (S.arcade && !S.arcade.ended) { arcadeLand(f); save(); updateHUD(); return; }
-    if (S.tournament) { tourLand(f, isRecord, prev); G.coins += f.score; save(); updateHUD(); return; }
-    G.coins += f.score;
+    if (S.tournament) { tourLand(f, isRecord, prev); G.coins += f.score; addAnglerXP(f.score); save(); updateHUD(); return; }
+    G.coins += f.score; addAnglerXP(f.score);
     // free-play livewell: every bass updates your session best-5 bag
     let bagPB = false;
     if (f.bass) bagPB = bagAdd(f.weight);
@@ -3053,7 +3239,7 @@
     const fieldBigTop = Math.max(...board.map(b => b.big));
     if (T.big > 0 && T.big >= fieldBigTop) { bigBonus = Math.round(fee * 1.5); payout += bigBonus; }
 
-    G.coins += payout;
+    G.coins += payout; addAnglerXP(payout);
     if (place === 1) { G.tourWins = (G.tourWins || 0) + 1; unlock("tourwin"); }
     if (myTotal > (G.bestBag || 0)) G.bestBag = +myTotal.toFixed(2);
 
@@ -3103,14 +3289,14 @@
     updateHUD();
   }
 
-  // START walks the same spot → rod → lure → size → color → line → scent steps
-  // as free play; the clock only starts at 🏁 LINES IN!
+  // START walks the same angler → spot → rod → lure → size → color → line →
+  // scent steps as free play; the clock only starts at 🏁 LINES IN!
   el.tourStartBtn.addEventListener("click", () => {
     if (!pendingTour) return;
     sfx("ui");
     el.tourStartModal.classList.add("hidden");
     S.prepTour = true;
-    gotoPrep(2);
+    gotoPrep(1);
   });
   el.tourStartCancel.addEventListener("click", () => { pendingTour = null; el.tourStartModal.classList.add("hidden"); });
   el.tourQuit.addEventListener("click", () => {
@@ -3487,6 +3673,7 @@
     const sFit = seasonFit();                                 // fishing the season's pattern?
     const lineMul = lineBiteMul() * (0.94 + line().sens * 0.06);   // line stealth vs clarity (+ topwater, feel)
     const build = (R.action > 0.55 ? 1 : 0.3) * (0.25 + sc) * depthNow * struct * aimed * (S.castLuck || 1) * hot * szBite * sFit * lineMul
+      * anglerBiteMul()      // fish sense finds bites anywhere; finesse pays on light presentations
       * (S.tut ? 1.6 : 1);   // tutorial fish are eager — the lesson shouldn't drag
     R.interest = clamp(R.interest + (build * 0.012 - 0.0016) * step, 0, 1);
     R.follower = R.interest;
@@ -3553,9 +3740,9 @@
     const rodTol = (1 + (rod().power - 1) * 0.55) * line().tol;   // stronger line resists the snap
 
     if (S.holding) {
-      T.tension += dt * (0.00050 + pull * 0.00150) / rodTol;
+      T.tension += dt * (0.00050 + pull * 0.00150) / (rodTol * (1 + skill("power") * 0.35));
       T.dist = clamp(T.dist - dt * 0.00017 * (1.25 - pull * 0.6), 0, 1);
-      T.stamina = clamp(T.stamina - dt * (0.00006 + (T.state === "tire" ? 0.00019 : 0.00004)), 0, 1);
+      T.stamina = clamp(T.stamina - dt * (0.00006 + (T.state === "tire" ? 0.00019 : 0.00004)) * (1 + skill("power") * 0.25), 0, 1);
     } else {
       T.tension -= dt * 0.0016;
       if (T.state === "run") T.dist = clamp(T.dist + dt * 0.00010, 0, 1);
@@ -4294,11 +4481,11 @@
   // ===========================================================================
   // wizard steps 4..8 stage the tackle box one option category at a time
   const LURE_STEPS = {
-    4: { seg: "lure",  ico: "🪱", name: "Pick your lure",  back: "◂ ROD",   next: "NEXT — SIZE ▸" },
-    5: { seg: "size",  ico: "📏", name: "Lure size",       back: "◂ LURE",  next: "NEXT — COLOR ▸" },
-    6: { seg: "color", ico: "🎨", name: "Color",           back: "◂ SIZE",  next: "NEXT — LINE ▸" },
-    7: { seg: "line",  ico: "🧵", name: "Line",            back: "◂ COLOR", next: "NEXT — SCENT ▸" },
-    8: { seg: "scent", ico: "🧪", name: "Scent / flavor",  back: "◂ LINE",  next: null },
+    5: { seg: "lure",  ico: "🪱", name: "Pick your lure",  back: "◂ ROD",   next: "NEXT — SIZE ▸" },
+    6: { seg: "size",  ico: "📏", name: "Lure size",       back: "◂ LURE",  next: "NEXT — COLOR ▸" },
+    7: { seg: "color", ico: "🎨", name: "Color",           back: "◂ SIZE",  next: "NEXT — LINE ▸" },
+    8: { seg: "line",  ico: "🧵", name: "Line",            back: "◂ COLOR", next: "NEXT — SCENT ▸" },
+    9: { seg: "scent", ico: "🧪", name: "Scent / flavor",  back: "◂ LINE",  next: null },
   };
   function openLures() {
     renderLures();
@@ -4413,7 +4600,7 @@
     tackleClosed();
   });
   el.lureFish.addEventListener("click", () => {
-    if (S.prep >= 4 && S.prep < 8) { sfx("ui"); gotoPrep(S.prep + 1); return; }
+    if (S.prep >= 5 && S.prep < 9) { sfx("ui"); gotoPrep(S.prep + 1); return; }
     sfx("cast");
     if (S.prepTour) finishTourPrep(); else finishPrep();
   });
@@ -4440,8 +4627,8 @@
   // ---- Rod picker ----
   function openRods() {
     renderRods();
-    const prep = S.prep === 3;
-    el.rodTitle.textContent = prep ? `🎣 ${prepNum(3)} — Pick your rod` : "🧰 Tackle Box";
+    const prep = S.prep === 4;
+    el.rodTitle.textContent = prep ? `🎣 ${prepNum(4)} — Pick your rod` : "🧰 Tackle Box";
     const tabs = document.getElementById("tbTabsRod");
     if (tabs) tabs.classList.toggle("hidden", prep);
     el.rodBack.classList.toggle("hidden", !prep);
@@ -4471,8 +4658,8 @@
     if (S.prep) { exitPrep(); return; }
     tackleClosed();
   });
-  el.rodBack.addEventListener("click", () => { sfx("ui"); gotoPrep(2); });
-  el.rodNext.addEventListener("click", () => { sfx("ui"); gotoPrep(4); });
+  el.rodBack.addEventListener("click", () => { sfx("ui"); gotoPrep(3); });
+  el.rodNext.addEventListener("click", () => { sfx("ui"); gotoPrep(5); });
   el.rodModal.addEventListener("click", (e) => {
     const opt = e.target.closest(".lure-opt"); if (!opt) return;
     G.rod = opt.dataset.rod; save(); updateHUD(); renderRods();
@@ -4486,18 +4673,18 @@
     // GO FISHING prep wizard: step 1 shows lakes, step 2 the spot + finder —
     // conditions ride along at the top so every pick is an informed one
     const prep = S.prep || 0;
-    el.mapTitle.textContent = prep === 1 ? `🗺️ ${prepNum(1)} — Pick your lake` : prep === 2 ? `📍 ${prepNum(2)} — Pick your spot` : "🗺️ Where to Fish";
+    el.mapTitle.textContent = prep === 2 ? `🗺️ ${prepNum(2)} — Pick your lake` : prep === 3 ? `📍 ${prepNum(3)} — Pick your spot` : "🗺️ Where to Fish";
     const c = S.cond, w = WEATHER[c.weather], sea = SEASONS[c.season] || SEASONS.summer;
     el.mapCond.innerHTML = `${sea.ico} ${sea.name} · ${w.ico} ${w.name} · ${c.temp}° · ${moonNow().ico} ${moonNow().name} · ${fmtClock(c.timeMin)} · bass holding ~<b>${Math.round(c.band * 24)} ft</b>`;
-    el.mapVenues.classList.toggle("hidden", prep === 2);
-    const spotStep = prep !== 1;
+    el.mapVenues.classList.toggle("hidden", prep === 3);
+    const spotStep = prep !== 2;
     el.posHead.classList.toggle("hidden", !spotStep);
     el.lakeMap.classList.toggle("hidden", !spotStep);
     el.posGrid.classList.toggle("hidden", !spotStep);
     el.mapNext.classList.toggle("hidden", !prep);
-    el.mapNext.textContent = prep === 1 ? "NEXT — PICK YOUR SPOT ▸" : "NEXT — PICK YOUR ROD ▸";
+    el.mapNext.textContent = prep === 2 ? "NEXT — PICK YOUR SPOT ▸" : "NEXT — PICK YOUR ROD ▸";
     el.mapBack.classList.toggle("hidden", !prep);
-    el.mapBack.textContent = prep === 1 ? "◂ MENU" : S.prepTour ? "◂ EVENT" : "◂ LAKE";
+    el.mapBack.textContent = prep === 2 ? "◂ ANGLER" : S.prepTour ? "◂ ANGLER" : "◂ LAKE";
     el.endDayBtn.classList.toggle("hidden", !!prep);
     el.menuBtn.classList.toggle("hidden", !!prep);
     el.mapVenues.innerHTML = SPOTS.map(s => {
@@ -4633,12 +4820,13 @@
   });
   el.mapNext.addEventListener("click", () => {
     sfx("ui");
-    if (S.prep === 1) { S.prep = 2; renderMap(); }
-    else if (S.prep === 2) gotoPrep(3);
+    if (S.prep === 2) { S.prep = 3; renderMap(); }
+    else if (S.prep === 3) gotoPrep(4);
   });
   el.mapBack.addEventListener("click", () => {
     sfx("ui");
-    if (S.prep === 2 && !S.prepTour) { S.prep = 1; renderMap(); }
+    if (S.prep === 3 && !S.prepTour) { S.prep = 2; renderMap(); }
+    else if (S.prep === 3 || S.prep === 2) gotoPrep(1);
     else exitPrep();
   });
   el.newDayBtn.addEventListener("click", () => { sfx("ui"); startNewDay(); });
@@ -5004,12 +5192,16 @@
     el.lureModal.classList.add("hidden"); el.rodModal.classList.add("hidden");
     if (t.dataset.tb === "rods") openRods();
     else if (t.dataset.tb === "lures") openLures();
-    else { if (S.prep) S.prep = 2; openMap(); }   // lakes hop inside the wizard rejoins at the spot step
+    else { if (S.prep) S.prep = 3; openMap(); }   // lakes hop inside the wizard rejoins at the spot step
   }));
 
   // ===========================================================================
   // Boot
   // ===========================================================================
+  // the angler stable arrived after launch: existing career points become the
+  // current angler's starting XP, exactly as if they'd been earned in the boat
+  if (!G.angler) G.angler = "roberto";
+  if (!G.anglerXP) G.anglerXP = { [G.angler]: G.coins || 0 };
   // migrate old saves: seed the lifetime tallies from the catch log once, so
   // long-time anglers get credit for what they've already caught
   if (!G.tally && (G.catchLog || []).length) { G.catchLog.forEach(tallyCatch); save(); }

@@ -8,8 +8,8 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>BassBuddy — Bass Fishing</title>
-<script>window.BB_V = "20260702ai";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
-<link rel="stylesheet" href="style.css?v=20260702ai" />
+<script>window.BB_V = "20260702aj";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
+<link rel="stylesheet" href="style.css?v=20260702aj" />
 </head>
 <body>
 <div id="game">
@@ -288,6 +288,21 @@
     </div>
   </div>
 
+  <!-- Angler stable: pick who's in the boat — step 1 of the prep wizard -->
+  <div id="anglerModal" class="modal hidden">
+    <div class="modal-card shop-card">
+      <div class="shop-head">
+        <h2 id="anglerTitle">🧑‍🎣 Pick your angler</h2>
+        <button class="close-btn" id="anglerClose">✕</button>
+      </div>
+      <div class="shop-body" id="anglerList"></div>
+      <div class="prep-row">
+        <button class="big-btn ghost" id="anglerBack">◂ MENU</button>
+        <button class="big-btn" id="anglerNext">NEXT — PICK YOUR LAKE ▸</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Ask the Guide: full conditions read + recommendations from the old-timer -->
   <div id="guideModal" class="modal hidden">
     <div class="modal-card shop-card">
@@ -339,7 +354,7 @@
       </ul>
       <div class="tour-entry">Field of <b id="tourField">10</b></div>
       <div class="tour-tackle" id="tourTackle"></div>
-      <button class="big-btn" id="tourStartBtn">START — PICK YOUR SPOT ▸</button>
+      <button class="big-btn" id="tourStartBtn">START — PICK YOUR ANGLER ▸</button>
       <button class="text-btn" id="tourStartCancel">Back</button>
     </div>
   </div>
@@ -484,7 +499,7 @@
 </div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=20260702ai"></script>
-<script src="game.js?v=20260702ai"></script>
+<script type="module" src="render3d.js?v=20260702aj"></script>
+<script src="game.js?v=20260702aj"></script>
 </body>
 </html>
