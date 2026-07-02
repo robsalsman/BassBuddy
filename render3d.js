@@ -2267,14 +2267,15 @@ const Scene3D = (() => {
     }
     // prefer a real loaded model for this species; else the procedural bass
     ctx.fish = realModel(speciesKey) || makeBass(art || {});
-    ctx.fish.scale.setScalar(ctx.fish.userData.imported ? (spin ? 2.0 : 1.0) : 2.1);   // splash frames the bass larger
+    ctx.fish.scale.setScalar(ctx.fish.userData.imported ? (spin ? 1.34 : 1.0) : 2.1);   // splash framing
     ctx.scene.add(ctx.fish);
     ctx.t = 0;
     const loop = () => {
       ctx.t += 0.016;
       const f = ctx.fish;
-      // splash mode revolves the bass a full 360; catch screens swing to show both flanks
-      f.rotation.y = spin ? ctx.t * 0.85 : -0.55 + Math.sin(ctx.t * 0.55) * 0.85;
+      // splash mode: steady side profile, swimming in place with just a hint of
+      // sway; catch screens swing to show both flanks
+      f.rotation.y = spin ? 0.3 + Math.sin(ctx.t * 0.9) * 0.07 : -0.55 + Math.sin(ctx.t * 0.55) * 0.85;
       f.rotation.z = Math.sin(ctx.t * 0.8) * 0.05;
       f.position.y = -0.1 + Math.sin(ctx.t * 1.1) * 0.12;
       if (f.tail) f.tail.rotation.y = Math.sin(ctx.t * 5) * 0.32;
