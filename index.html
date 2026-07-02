@@ -8,8 +8,8 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>BassBuddy — Bass Fishing</title>
-<script>window.BB_V = "20260702d";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
-<link rel="stylesheet" href="style.css?v=20260702d" />
+<script>window.BB_V = "20260702e";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
+<link rel="stylesheet" href="style.css?v=20260702e" />
 </head>
 <body>
 <div id="game">
@@ -46,6 +46,23 @@
   </div>
   <!-- live tournament leaderboard (rivals fishing alongside you) -->
   <div id="tourBoard" class="tour-board hidden"></div>
+
+  <!-- Arcade HUD: stage / timer / weight quota (Get Bass style) -->
+  <div id="arcadeHud" class="tour-hud hidden">
+    <div class="tour-clock"><span>⏱️</span><b id="arcTimer">2:30</b></div>
+    <b id="arcStage" class="arc-stage">S1/4</b>
+    <div class="arc-quota"><div class="arc-track"><i id="arcFill"></i></div><b id="arcQuota">0/6 lb</b></div>
+  </div>
+
+  <!-- Arcade stage-clear / time-up / results -->
+  <div id="arcadeModal" class="modal hidden">
+    <div class="modal-card">
+      <h2 id="arcadeTitle" style="text-align:center;margin-bottom:8px">🏁 STAGE CLEAR!</h2>
+      <div id="arcadeBody"></div>
+      <button class="big-btn" id="arcadeGo">NEXT STAGE</button>
+      <button class="text-btn hidden" id="arcadeAlt">Give up — back to the lake</button>
+    </div>
+  </div>
 
   <!-- Boat HUD: fish-finder sonar + trolling-motor steering (surface view) -->
   <div id="boatHud" class="boat-hud hidden">
@@ -372,7 +389,7 @@
 </div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=20260702d"></script>
-<script src="game.js?v=20260702d"></script>
+<script type="module" src="render3d.js?v=20260702e"></script>
+<script src="game.js?v=20260702e"></script>
 </body>
 </html>

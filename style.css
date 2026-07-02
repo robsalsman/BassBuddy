@@ -913,3 +913,10 @@ select, input, textarea { font-size: 16px; }
 .score-bd { display: flex; flex-wrap: wrap; gap: 5px; justify-content: center; margin-top: 6px; }
 .score-bd span { font-size: 10.5px; font-weight: 800; color: #cfe6f0; background: rgba(255,255,255,.08); border-radius: 999px; padding: 3px 8px; }
 .score-bd span.hot { color: #06222c; background: var(--gold); }
+/* arcade HUD (Get Bass): stage tag + weight-quota bar */
+.arc-stage { flex: 0 0 auto; font-size: 13px; font-weight: 900; color: var(--gold); letter-spacing: .5px; }
+.arc-quota { flex: 1; display: flex; align-items: center; gap: 7px; min-width: 0; }
+.arc-track { flex: 1; height: 12px; border-radius: 999px; overflow: hidden; background: rgba(0,0,0,.4); border: 1px solid var(--ui-line); }
+.arc-track i { display: block; height: 100%; width: 0%; border-radius: 999px; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); transition: width .25s ease; }
+.arc-quota b { flex: 0 0 auto; font-size: 12px; font-weight: 900; color: #eaf3ff; white-space: nowrap; }
+.arcade-item { border: 1px solid rgba(255,211,92,.45); background: linear-gradient(135deg, rgba(255,211,92,.12), rgba(255,211,92,.03)); }

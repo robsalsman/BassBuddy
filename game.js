@@ -299,7 +299,7 @@
       records: {}, caught: {}, catchLog: [],
       tourWins: 0, bestBag: 0,
       season: { best: {}, titles: 0 },   // circuit season: best points per event + championships won
-      challenges: {}, lakes: {},          // unlocked achievements + lakes you've caught a bass in
+      challenges: {}, lakes: {}, arcadeClears: 0, arcadeNC: false, arcadeBestScore: 0,
       mode: "free",     // "free" fishing (default) — tournaments are entered from the circuit
       muted: false,
     };
@@ -391,6 +391,8 @@
     mapModal: $("mapModal"), daySummaryModal: $("daySummaryModal"), daySummaryBody: $("daySummaryBody"), newDayBtn: $("newDayBtn"), endDayBtn: $("endDayBtn"), mapClose: $("mapClose"), mapVenues: $("mapVenues"), posGrid: $("posGrid"), finder: $("finder"),
     tourneyBtn: $("tourneyBtn"), modeModal: $("modeModal"), modeClose: $("modeClose"),
     tourHud: $("tourHud"), tourClock: $("tourClock"), livewell: $("livewell"), tourTotal: $("tourTotal"), tourBig: $("tourBig"), tourQuit: $("tourQuit"), tourBoard: $("tourBoard"),
+    arcadeHud: $("arcadeHud"), arcTimer: $("arcTimer"), arcStage: $("arcStage"), arcQuota: $("arcQuota"), arcFill: $("arcFill"),
+    arcadeModal: $("arcadeModal"), arcadeTitle: $("arcadeTitle"), arcadeBody: $("arcadeBody"), arcadeGo: $("arcadeGo"), arcadeAlt: $("arcadeAlt"),
     tourStartModal: $("tourStartModal"), tourField: $("tourField"),
     tourStartBtn: $("tourStartBtn"), tourStartCancel: $("tourStartCancel"), tourRules: $("tourRules"),
     tourResultModal: $("tourResultModal"), tourResultMedal: $("tourResultMedal"), tourPlace: $("tourPlace"),
@@ -660,6 +662,8 @@
     { id: "slam",    ico: "🗺️", name: "Lake Slam",         desc: "Catch a bass in all 3 lakes",          test: c => c.lakeCount >= SPOTS.length, prog: c => [c.lakeCount, SPOTS.length] },
     { id: "tourwin", ico: "🏁", name: "Tournament Win",    desc: "Win any tournament",                  test: c => c.tourWins >= 1 },
     { id: "champ",   ico: "🏆", name: "Circuit Champion",  desc: "Win a circuit season",                test: c => c.titles >= 1 },
+    { id: "arcade",  ico: "🕹️", name: "Get Bass!",         desc: "Clear all 4 Arcade stages",           test: c => c.arcadeClears >= 1 },
+    { id: "arcade1cc", ico: "🎖️", name: "One-Credit Clear", desc: "Clear Arcade without continuing",     test: c => c.arcadeNC },
   ];
   // snapshot of everything the achievement tests look at
   function achCtx() {
@@ -670,6 +674,7 @@
       big: recVals.length ? Math.max(...recVals) : 0,
       bestBag: G.bestBag || 0,
       tourWins: G.tourWins || 0, titles: (G.season && G.season.titles) || 0,
+      arcadeClears: G.arcadeClears || 0, arcadeNC: !!G.arcadeNC,
       lureCount: new Set(log.map(e => e.lure)).size,
       lakeCount: Object.keys(G.lakes || {}).filter(k => G.lakes[k]).length,
       night:    log.some(e => { const h = (e.timeMin / 60) % 24; return h < 5 || h >= 20; }),
@@ -956,7 +961,7 @@
   const sfx = n => Sound.play(n);
   function anyModalOpen() {
     return [el.catchModal, el.failModal, el.shopModal, el.lureModal, el.mapModal,
-            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal].some(m => !m.classList.contains("hidden"));
+            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal].some(m => !m.classList.contains("hidden"));
   }
 
   function floatText(txt, color) {
@@ -1007,8 +1012,160 @@
   ];
   let pendingTour = null;   // the event chosen but not yet started
 
+  // ===========================================================================
+  // ARCADE MODE — faithful Get Bass: 4 stages at different lakes & times of day,
+  // a weight quota per stage inside a hard timer, time EXTENSIONS for every fish
+  // landed (bigger = more) and for making it jump, unlimited continues that raise
+  // the quota 2 lb, and a finale where the quota is ONE giant bass.
+  // ===========================================================================
+  const ARCADE_STAGES = [
+    { spot: "cove",  pos: "pads", timeMin: 6 * 60 + 15,  weather: "sun",   quota: 6,  dur: 150000, name: "Lily Cove",     sub: "Dawn" },
+    { spot: "river", pos: "pool", timeMin: 12 * 60 + 30, weather: "sun",   quota: 9,  dur: 150000, name: "Boulder River", sub: "High Noon" },
+    { spot: "bayou", pos: "pads", timeMin: 18 * 60 + 40, weather: "cloud", quota: 12, dur: 150000, name: "Cypress Bayou", sub: "Dusk" },
+    { spot: "deep",  pos: "hole", timeMin: 22 * 60,      weather: "night", quota: 0,  dur: 130000, name: "Trophy Lake",   sub: "THE LUNKER", oneFish: 6 },
+  ];
+  const fmtT = ms => { const s = Math.max(0, Math.ceil(ms / 1000)); return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0"); };
+  function startArcade() {
+    if (S.tournament && !S.tournament.ended) { toast("Tournament in progress ⏱️"); return; }
+    el.modeModal.classList.add("hidden");
+    S.arcadePrev = { spot: G.spot };
+    S.arcade = { stage: 0, timeLeft: 0, bag: 0, quota: 0, bump: 0, continues: 0, score: 0, ended: false };
+    el.arcadeHud.classList.remove("hidden");
+    setupArcadeStage();
+    save();
+  }
+  function setupArcadeStage() {
+    const A = S.arcade, st = ARCADE_STAGES[A.stage];
+    G.spot = st.spot; G.positions[st.spot] = st.pos;
+    S.cond.weather = st.weather; S.cond.timeMin = st.timeMin; S.cond.front = 0;
+    S.cond.hotLure = LURES[Math.floor(Math.random() * LURES.length)].id;   // fresh pattern each stage
+    S.holdBearing = rnd(-1.0, 1.0); S.heading = 0; S.headingTarget = 0;
+    recomputeCond(); renderConditions();
+    A.timeLeft = st.dur; A.bag = 0; A.bump = 0; A.quota = st.quota; A._hurry = false;
+    seedFish(); resetToIdle(); updateHUD(); renderArcadeHud();
+    toast(`🕹️ STAGE ${A.stage + 1}/4 — ${st.name} · ${st.sub}<br><small>${st.oneFish ? `Land ONE ${st.oneFish} lb+ bass!` : `Boat ${A.quota} lb of bass!`}</small>`);
+    sfx("good");
+  }
+  function renderArcadeHud() {
+    const A = S.arcade; if (!A) return;
+    const st = ARCADE_STAGES[A.stage];
+    el.arcTimer.textContent = fmtT(A.timeLeft);
+    el.arcTimer.parentElement.classList.toggle("low", A.timeLeft <= 20000);
+    el.arcStage.textContent = `S${A.stage + 1}/4`;
+    if (st.oneFish) { el.arcQuota.textContent = `ONE ${st.oneFish} lb+`; el.arcFill.style.width = "0%"; }
+    else { el.arcQuota.textContent = `${A.bag.toFixed(1)}/${A.quota} lb`; el.arcFill.style.width = Math.min(100, A.bag / A.quota * 100) + "%"; }
+  }
+  function updateArcadeClock(dt) {
+    const A = S.arcade; if (!A || A.ended) return;
+    if (anyModalOpen()) return;
+    A.timeLeft -= dt;
+    if (A.timeLeft <= 15000 && !A._hurry) { A._hurry = true; toast("⏰ HURRY UP!"); sfx("weak"); vibrate([40, 60, 40]); }
+    if (A.timeLeft <= 0) { A.timeLeft = 0; renderArcadeHud(); arcadeTimeUp(); return; }
+    renderArcadeHud();
+  }
+  // a landed fish in arcade: score it (stage multiplier), extend the clock, check the quota
+  function arcadeLand(f) {
+    const A = S.arcade, st = ARCADE_STAGES[A.stage];
+    checkCatchChallenges(f);
+    f.score = Math.round(f.score * (1 + A.stage * 0.25) / 10) * 10;   // later stages pay more
+    A.score += f.score; G.coins += f.score;
+    let bonus = 8000 + Math.round(f.weight * 2500);                    // every fish buys time
+    const jumps = (S.ft && S.ft.jumps) || 0;
+    if (jumps) bonus += Math.min(3, jumps) * 3000;                     // made it jump — style time
+    A.timeLeft += bonus;
+    vibrate([20, 40, 30]);
+    if (st.oneFish) {
+      if (f.weight >= st.oneFish) { arcadeStageClear(f); return; }
+      toast(`🐟 ${f.weight} lb — need ${st.oneFish} lb+!<br><small>⏱ +${fmtT(bonus)}${jumps ? " · 🎏 jump bonus" : ""} · 🎯 +${f.score}</small>`);
+    } else {
+      A.bag += f.weight;
+      if (A.bag >= A.quota) { renderArcadeHud(); arcadeStageClear(f); return; }
+      toast(`🐟 ${f.weight} lb — ${A.bag.toFixed(1)}/${A.quota} lb<br><small>⏱ +${fmtT(bonus)}${jumps ? " · 🎏 jump bonus" : ""} · 🎯 +${f.score}</small>`);
+    }
+    renderArcadeHud();
+    resetToIdle();
+  }
+  function arcadeStageClear(f) {
+    const A = S.arcade, st = ARCADE_STAGES[A.stage], last = A.stage >= ARCADE_STAGES.length - 1;
+    S.mode = "idle"; showBtn(false);
+    sfx(last ? "pb" : "weighwin"); vibrate([30, 60, 30, 60, 60]);
+    if (last) { arcadeEnd(true); return; }
+    el.arcadeTitle.textContent = "🏁 STAGE CLEAR!";
+    el.arcadeBody.innerHTML =
+      `<p class="muted" style="text-align:center">${st.name} — ${st.sub}</p>
+      <div class="rec-stats" style="grid-template-columns:repeat(3,1fr)">
+        <div class="rec-stat"><div class="rs-ico">🪣</div><div class="rs-v">${st.oneFish ? f.weight.toFixed(1) : A.bag.toFixed(1)} lb</div><div class="rs-l">Bagged</div></div>
+        <div class="rec-stat"><div class="rs-ico">⏱</div><div class="rs-v">${fmtT(A.timeLeft)}</div><div class="rs-l">Time left</div></div>
+        <div class="rec-stat"><div class="rs-ico">🎯</div><div class="rs-v">${A.score.toLocaleString()}</div><div class="rs-l">Score</div></div>
+      </div>`;
+    el.arcadeGo.textContent = `NEXT: ${ARCADE_STAGES[A.stage + 1].name} · ${ARCADE_STAGES[A.stage + 1].sub}`;
+    el.arcadeGo.dataset.act = "next";
+    el.arcadeAlt.classList.add("hidden");
+    el.arcadeModal.classList.remove("hidden");
+  }
+  function arcadeTimeUp() {
+    const A = S.arcade;
+    S.mode = "idle"; showBtn(false);
+    el.fightPanel.classList.add("hidden"); el.retrievePanel.classList.add("hidden"); el.castMeter.classList.add("hidden");
+    sfx("snap"); vibrate(120);
+    const st = ARCADE_STAGES[A.stage];
+    el.arcadeTitle.textContent = "⏰ TIME UP!";
+    el.arcadeBody.innerHTML =
+      `<p class="muted" style="text-align:center">Stage ${A.stage + 1} — ${st.name}: ${st.oneFish ? `no ${st.oneFish} lb+ bass` : `${A.bag.toFixed(1)} of ${A.quota} lb`}</p>
+      <p class="muted" style="text-align:center">Continue? ${st.oneFish ? "The lunker is still out there." : "The quota goes up 2 lb — just like the cabinet."}</p>`;
+    el.arcadeGo.textContent = st.oneFish ? "🕹️ CONTINUE" : "🕹️ CONTINUE (+2 lb quota)";
+    el.arcadeGo.dataset.act = "continue";
+    el.arcadeAlt.classList.remove("hidden");
+    el.arcadeModal.classList.remove("hidden");
+  }
+  function arcadeEnd(cleared) {
+    const A = S.arcade;
+    A.ended = true;
+    G.arcadeBestScore = Math.max(G.arcadeBestScore || 0, A.score);
+    if (cleared) { G.arcadeClears = (G.arcadeClears || 0) + 1; if (!A.continues) G.arcadeNC = true; }
+    evalAchievements(false);
+    el.arcadeTitle.textContent = cleared ? "🏆 GAME CLEAR!" : "🕹️ GAME OVER";
+    el.arcadeBody.innerHTML =
+      `<p class="muted" style="text-align:center">${cleared ? "All four stages — the lunker is yours!" : `Made it to stage ${A.stage + 1} of 4`}</p>
+      <div class="rec-stats" style="grid-template-columns:repeat(2,1fr)">
+        <div class="rec-stat"><div class="rs-ico">🎯</div><div class="rs-v">${A.score.toLocaleString()}</div><div class="rs-l">Arcade score</div></div>
+        <div class="rec-stat"><div class="rs-ico">🕹️</div><div class="rs-v">${A.continues}</div><div class="rs-l">Continues</div></div>
+      </div>` +
+      (cleared && !A.continues ? `<p style="text-align:center;color:var(--gold);font-weight:900">🎖️ ONE-CREDIT CLEAR!</p>` : "");
+    el.arcadeGo.textContent = "BACK TO THE LAKE";
+    el.arcadeGo.dataset.act = "exit";
+    el.arcadeAlt.classList.add("hidden");
+    el.arcadeModal.classList.remove("hidden");
+    save(); updateHUD();
+  }
+  function exitArcade() {
+    const prev = S.arcadePrev || {};
+    S.arcade = null; S.arcadePrev = null;
+    el.arcadeHud.classList.add("hidden");
+    if (prev.spot) G.spot = prev.spot;
+    rollConditions(); seedFish(); resetToIdle(); save(); updateHUD();
+  }
+  el.arcadeModal && el.arcadeModal.addEventListener("click", (e) => {
+    const go = e.target.closest("#arcadeGo"), alt = e.target.closest("#arcadeAlt");
+    if (alt) { el.arcadeModal.classList.add("hidden"); arcadeEnd(false); return; }
+    if (!go) return;
+    el.arcadeModal.classList.add("hidden");
+    const act = el.arcadeGo.dataset.act, A = S.arcade;
+    sfx("ui");
+    if (act === "next") { A.stage++; setupArcadeStage(); }
+    else if (act === "continue") {
+      const st = ARCADE_STAGES[A.stage];
+      A.continues++; if (!st.oneFish) { A.bump += 2; A.quota = st.quota + A.bump; }
+      A.timeLeft = st.dur; A._hurry = false;
+      renderArcadeHud(); resetToIdle();
+      toast(`🕹️ CREDIT IN — ${st.oneFish ? "go get that lunker" : A.quota + " lb to beat now"}!`);
+    }
+    else exitArcade();
+  });
+
   function openCircuit() {
     if (S.tournament && !S.tournament.ended) { toast("Tournament in progress ⏱️"); return; }
+    if (S.arcade && !S.arcade.ended) { toast("Arcade run in progress 🕹️"); return; }
     const season = G.season || { best: {}, titles: 0 };
     const seasonPts = Object.values(season.best || {}).reduce((s, p) => s + p, 0);
     const seasonEvents = Object.keys(season.best || {}).length;
@@ -1016,7 +1173,15 @@
       `Season: <b>${seasonPts} pts</b> · ${seasonEvents}/${TOURNAMENTS.length} events` +
       (season.titles ? ` · 👑 <b>${season.titles}</b> title${season.titles > 1 ? "s" : ""}` : "");
     const list = document.getElementById("circuitList");
-    list.innerHTML = TOURNAMENTS.map(t => {
+    const arcadeBest = G.arcadeBestScore ? ` · best <b style="color:var(--gold)">${G.arcadeBestScore.toLocaleString()}</b>` : "";
+    list.innerHTML = `<div class="item circuit arcade-item" data-arcade="1">
+        <div class="item-ico">🕹️</div>
+        <div class="item-info">
+          <div class="item-name">ARCADE — Get Bass</div>
+          <div class="item-desc">4 stages, 4 lakes, dawn to night. Beat the weight quota before time runs out — every fish buys time. Finale: land ONE giant.${arcadeBest}</div>
+        </div>
+        <button class="item-btn owned" data-arcade="1">PLAY</button>
+      </div>` + TOURNAMENTS.map(t => {
       const sp = SPOTS.find(s => s.id === t.spot) || SPOTS[0];
       const mins = Math.round(t.dur / 60000), secs = Math.round(t.dur / 1000) % 60;
       const best = (season.best || {})[t.id] || 0;
@@ -1055,7 +1220,7 @@
   }
   el.tourneyBtn.addEventListener("click", openCircuit);
   el.modeClose.addEventListener("click", () => el.modeModal.classList.add("hidden"));
-  el.modeModal.addEventListener("click", (e) => { const b = e.target.closest("[data-tour]"); if (b) chooseTour(b.dataset.tour); });
+  el.modeModal.addEventListener("click", (e) => { const a = e.target.closest("[data-arcade]"); if (a) { startArcade(); return; } const b = e.target.closest("[data-tour]"); if (b) chooseTour(b.dataset.tour); });
 
   // ===========================================================================
   // Conditions: time of day, weather, water temperature -> fish holding depth
@@ -1552,7 +1717,7 @@
     const T = S.ft;
     // a good hookset starts the fish more worn down and pulling less = easier fight
     T.stamina = 1 - quality * 0.32; T.tension = 0; T.dist = clamp(S.rv.dist, 0.45, 1);
-    T.cover = 0; T._coverBuzz = 0; T.lat = 0; T.latTarget = 0;
+    T.cover = 0; T._coverBuzz = 0; T.lat = 0; T.latTarget = 0; T.jumps = 0;
     T.state = "run"; T.stateT = rnd(500, 1100); T.pull = 0.85 - quality * 0.3; T.jumpY = 0;
     T.maxStam = T.stamina; T.size = d;
     S.holding = false;
@@ -1604,6 +1769,7 @@
 
     const lunk = f.bass && f.weight >= LUNKER_LB;
     sfx(lunk ? "lunker" : "land"); setTimeout(() => sfx("coin"), 450);
+    if (S.arcade && !S.arcade.ended) { arcadeLand(f); save(); updateHUD(); return; }
     if (S.tournament) { tourLand(f, isRecord, prev); G.coins += f.score; save(); updateHUD(); return; }
     G.coins += f.score;
     // free-play livewell: every bass updates your session best-5 bag
@@ -1702,7 +1868,7 @@
   function loseFish(msg) {
     el.fightPanel.classList.add("hidden");
     sfx("snap");
-    if (S.tournament) { S.mode = "idle"; showBtn(false); vibrate(120); toast("💥 " + (msg || "It got off!")); setStatus("Tap & hold the water to cast"); return; }
+    if (S.tournament || (S.arcade && !S.arcade.ended)) { S.mode = "idle"; showBtn(false); vibrate(120); toast("💥 " + (msg || "It got off!")); setStatus("Tap & hold the water to cast"); return; }
     resetToIdle();
     vibrate(120);
     showFail(msg || "The line snapped!");
@@ -2264,6 +2430,7 @@
 
   function update(dt, now) {
     if (S.tournament && !S.tournament.ended) updateTourClock(dt);
+    else if (S.arcade && !S.arcade.ended) updateArcadeClock(dt);
     else tickClock(dt);                            // the day is always moving in free play
     pollHold(now);
 
@@ -2446,7 +2613,7 @@
     if (T.stateT <= 0) {
       const tired = T.stamina < 0.33, r = Math.random();
       if (T.state === "tire") {
-        if (!tired && r < 0.3) { T.state = "jump"; T.stateT = rnd(450, 800); sfx("jump"); vibrate(20); }
+        if (!tired && r < 0.3) { T.state = "jump"; T.stateT = rnd(450, 800); T.jumps = (T.jumps || 0) + 1; sfx("jump"); vibrate(20); }
         else { T.state = "run"; T.stateT = rnd(650, 1500) * (0.6 + T.size * 0.8); T.latTarget = rnd(-1, 1) * (0.5 + T.size * 0.5); }
       } else { T.state = "tire"; T.stateT = rnd(700, 1400) * (1.2 - T.size * 0.5); T.latTarget = (T.latTarget || 0) * 0.3; }
     }
@@ -3415,7 +3582,7 @@
   el.mapClose.addEventListener("click", () => el.mapModal.classList.add("hidden"));
   el.newDayBtn.addEventListener("click", () => { sfx("ui"); startNewDay(); });
   el.endDayBtn.addEventListener("click", () => {
-    if (S.tournament && !S.tournament.ended) { toast("Finish the tournament first ⏱️"); return; }
+    if (S.tournament && !S.tournament.ended) { toast("Finish the tournament first ⏱️"); return; } if (S.arcade && !S.arcade.ended) { toast("Finish the arcade run first 🕹️"); return; }
     el.mapModal.classList.add("hidden");
     endDay();
   });
@@ -3423,6 +3590,7 @@
     const v = e.target.closest(".venue");
     const p = e.target.closest(".pos-cell");
     if (v) {
+      if (S.arcade && !S.arcade.ended) { toast("Can't switch lakes mid-arcade 🕹️"); return; }
       if (v.dataset.owned === "true") {
         if (G.spot !== v.dataset.venue) { G.spot = v.dataset.venue; seedFish(); rollConditions(); resetToIdle(); }
         save(); updateHUD(); renderMap();
@@ -3804,7 +3972,7 @@
     const d = t.dataset;
     if (d.equipRod) { G.rod = d.equipRod; }
     else if (d.equipLure) { const l = LURES.find(x => x.id === d.equipLure); G.lure.id = l.id; if (!l.colors.includes(G.lure.color)) G.lure.color = l.colors[0]; }
-    else if (d.goSpot) { if (S.tournament && !S.tournament.ended) { toast("Can't switch lakes mid-tournament"); return; } if (!ownsSpot(d.goSpot)) { const sp = SPOTS.find(s => s.id === d.goSpot); toast(sp && sp.unlock ? "🔒 " + sp.unlock.label : "Locked"); return; } if (G.spot !== d.goSpot) { G.spot = d.goSpot; seedFish(); rollConditions(); resetToIdle(); } }
+    else if (d.goSpot) { if (S.tournament && !S.tournament.ended) { toast("Can't switch lakes mid-tournament"); return; } if (S.arcade && !S.arcade.ended) { toast("Can't switch lakes mid-arcade 🕹️"); return; } if (!ownsSpot(d.goSpot)) { const sp = SPOTS.find(s => s.id === d.goSpot); toast(sp && sp.unlock ? "🔒 " + sp.unlock.label : "Locked"); return; } if (G.spot !== d.goSpot) { G.spot = d.goSpot; seedFish(); rollConditions(); resetToIdle(); } }
     else return;
     save(); updateHUD(); renderShop();
   });
