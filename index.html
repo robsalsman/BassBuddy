@@ -8,8 +8,8 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>BassBuddy — Bass Fishing</title>
-<script>window.BB_V = "20260702p";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
-<link rel="stylesheet" href="style.css?v=20260702p" />
+<script>window.BB_V = "20260702q";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
+<link rel="stylesheet" href="style.css?v=20260702q" />
 </head>
 <body>
 <div id="game">
@@ -201,7 +201,10 @@
       <div class="color-row" id="colorRow"></div>
       <div class="color-head">Scent / Flavor</div>
       <div class="scent-row" id="scentRow"></div>
-      <button class="big-btn hidden" id="lureFish" style="margin-top:10px">🎣 GO FISH!</button>
+      <div class="prep-row" style="margin-top:10px">
+        <button class="title-btn hidden" id="lureBack">◂ SPOT</button>
+        <button class="big-btn hidden" id="lureFish">🎣 GO FISH!</button>
+      </div>
     </div>
   </div>
 
@@ -237,7 +240,10 @@
       <div class="pos-grid" id="posGrid"></div>
       <div class="color-head" id="finderHead">📡 Fish Finder</div>
       <div class="finder" id="finder"></div>
-      <button class="big-btn hidden" id="mapNext">NEXT ▸</button>
+      <div class="prep-row">
+        <button class="title-btn hidden" id="mapBack">◂ BACK</button>
+        <button class="big-btn hidden" id="mapNext">NEXT ▸</button>
+      </div>
       <button class="text-btn" id="endDayBtn" style="width:100%;margin-top:8px">🌙 Call it a day — head in</button>
       <button class="text-btn" id="menuBtn" style="width:100%">🏠 Main menu</button>
     </div>
@@ -449,7 +455,7 @@
 </div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=20260702p"></script>
-<script src="game.js?v=20260702p"></script>
+<script type="module" src="render3d.js?v=20260702q"></script>
+<script src="game.js?v=20260702q"></script>
 </body>
 </html>

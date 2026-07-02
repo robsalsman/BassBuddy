@@ -188,6 +188,7 @@
       id: "cove", name: "Lily Cove", ico: "🌿", price: 0, clarity: "stained", baseDepth: 0.30,
       sky: ["#7fd4e8", "#bff0f7"], water: ["#2a93b8", "#0a3a4a"],
       desc: "Calm, clear largemouth water — lily pads and laydowns.",
+      lore: { where: "Sweetwater County, Georgia — a sheltered arm of old farm-country water", size: "85 acres", depth: "14 ft max", record: "11.2 lb", known: "Friendly numbers water. Dawn topwater around the pads; skip the dock shade when the sun gets up." },
       fish: [
         { k: "largemouth", weight: 84 }, { k: "giant", weight: 13 }, { k: "hawg", weight: 3 },
       ],
@@ -206,6 +207,7 @@
       id: "river", name: "Boulder River", ico: "🏞️", price: 200, clarity: "clear", baseDepth: 0.46,
       sky: ["#9fdcc0", "#d7f3e6"], water: ["#2fae8e", "#0c4438"],
       desc: "Clear rocky current — largemouth on the boulders.",
+      lore: { where: "Ozark foothills, Missouri — a cool, clear tailwater below Boulder Dam", size: "12 river miles", depth: "18 ft pools", record: "8.6 lb", known: "Gin-clear current. Downsize, fish the seams and undercut banks — sloppy casts get refused." },
       fish: [
         { k: "largemouth", weight: 84 }, { k: "giant", weight: 13 }, { k: "hawg", weight: 3 },
       ],
@@ -224,6 +226,7 @@
       id: "deep", name: "Trophy Lake", ico: "🏆", price: 900, clarity: "murky", baseDepth: 0.66,
       sky: ["#3a4b7a", "#1b2447"], water: ["#243a78", "#070d2a"],
       desc: "Deep, low-light trophy lake — where giant bass live.",
+      lore: { where: "Piney Woods, East Texas — a flooded river-bottom reservoir", size: "4,200 acres", depth: "62 ft max", record: "17.8 lb", known: "Big-fish factory. Low light and deep structure grow double-digit giants — the night bite is legendary." },
       fish: [
         { k: "largemouth", weight: 46 }, { k: "giant", weight: 44 }, { k: "hawg", weight: 10 },
       ],
@@ -242,6 +245,7 @@
       id: "bayou", name: "Cypress Bayou", ico: "🌾", price: 0, clarity: "stained", baseDepth: 0.26,
       sky: ["#8fb36a", "#d7e6b0"], water: ["#4f7a45", "#12300f"],
       desc: "Warm tea-stained swamp — giant largemouth buried in heavy cover.",
+      lore: { where: "Atchafalaya Basin, Louisiana — a tea-stained backwater swamp", size: "2,900 acres", depth: "9 ft max", record: "12.4 lb", known: "Heavy-cover brawling. Flip the cypress knees and throw the frog over the mats — hold on." },
       unlock: { need: c => c.total >= 25, label: "Catch 25 bass to unlock", prog: c => [c.total, 25] },
       fish: [
         { k: "largemouth", weight: 74 }, { k: "giant", weight: 20 }, { k: "hawg", weight: 6 },
@@ -261,6 +265,7 @@
       id: "highland", name: "Highland Reservoir", ico: "⛰️", price: 0, clarity: "clear", baseDepth: 0.58,
       sky: ["#a7c8e8", "#e2eef7"], water: ["#2b83aa", "#08283a"],
       desc: "Deep, gin-clear highland lake — finesse the rock for suspended giants.",
+      lore: { where: "Cumberland Plateau, Tennessee — a deep, clear mountain impoundment", size: "7,800 acres", depth: "110 ft max", record: "10.9 lb", known: "Suspended fish over standing timber and bluff rock. Finesse tackle and patience pay here." },
       unlock: { need: c => c.big >= LUNKER_LB, label: "Land a 6 lb+ lunker to unlock" },
       fish: [
         { k: "largemouth", weight: 60 }, { k: "giant", weight: 30 }, { k: "hawg", weight: 10 },
@@ -409,7 +414,8 @@
     lbModal: $("lbModal"), lbClose: $("lbClose"), lbBody: $("lbBody"), lbSorts: $("lbSorts"),
     lbProfileModal: $("lbProfileModal"), lbpName: $("lbpName"), lbpClose: $("lbpClose"),
     lbpStats: $("lbpStats"), lbpFav: $("lbpFav"), lbpSorts: $("lbpSorts"), lbpList: $("lbpList"),
-    mapTitle: $("mapTitle"), mapCond: $("mapCond"), posHead: $("posHead"), finderHead: $("finderHead"), mapNext: $("mapNext"), lureFish: $("lureFish"),
+    mapTitle: $("mapTitle"), mapCond: $("mapCond"), posHead: $("posHead"), finderHead: $("finderHead"),
+    mapNext: $("mapNext"), mapBack: $("mapBack"), lureFish: $("lureFish"), lureBack: $("lureBack"),
     tutBanner: $("tutBanner"), tutStep: $("tutStep"), tutText: $("tutText"), tutSkip: $("tutSkip"), menuBtn: $("menuBtn"),
     fx: $("fx"),
   };
@@ -908,8 +914,13 @@
         if (ctx.state === "suspended") ctx.resume();
       } catch (e) {}
     }
-    // one master gain covers every effect + the ambience bed: mute × user volume
-    function applyGain() { if (master) master.gain.value = G.muted ? 0 : 0.45 * (G.sfxVol != null ? G.sfxVol : 1); }
+    // one master gain covers every effect + the ambience bed: mute × user volume.
+    // Ramped, not snapped — a hard gain jump is an audible click ("zipper noise")
+    function applyGain() {
+      if (!master) return;
+      const v = G.muted ? 0 : 0.45 * (G.sfxVol != null ? G.sfxVol : 1);
+      try { master.gain.setTargetAtTime(v, ctx.currentTime, 0.03); } catch (e) { master.gain.value = v; }
+    }
     function setMuted(m) { applyGain(); }
     function setVolume() { applyGain(); }
     // continuous gentle-water ambience (looping filtered noise with a slow swell)
@@ -1066,7 +1077,8 @@
         }
       } catch (e) {}
     }
-    return { ensure, play, ambientCall, setMuted, setVolume, setNight, windGust, setVenue, setRain };
+    return { ensure, play, ambientCall, setMuted, setVolume, setNight, windGust, setVenue, setRain,
+      ctxRef: () => { ensure(); return ctx; } };   // shared context — music must NOT open a second one (iOS crackles)
   })();
   const sfx = n => Sound.play(n);
   function anyModalOpen() {
@@ -1117,15 +1129,23 @@
     let mctx = null, mgain = null, msrc = null;
     function ensureGraph() {
       try {
-        const AC = window.AudioContext || window.webkitAudioContext; if (!AC || !audio) return;
-        if (!mctx) { mctx = new AC(); mgain = mctx.createGain(); mgain.connect(mctx.destination); }
+        if (!audio) return;
+        if (!mctx) {
+          // share the SFX AudioContext — two live contexts make iOS crackle
+          mctx = Sound.ctxRef ? Sound.ctxRef() : null;
+          if (!mctx) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return; mctx = new AC(); }
+          mgain = mctx.createGain(); mgain.gain.value = vol();
+          mgain.connect(mctx.destination);   // straight out — the mute button governs effects, not music
+        }
         if (!msrc) { msrc = mctx.createMediaElementSource(audio); msrc.connect(mgain); }
         if (mctx.state === "suspended") mctx.resume();
       } catch (e) {}
     }
     function applyVol() {
-      if (mgain) { mgain.gain.value = vol(); if (audio) try { audio.volume = 1; } catch (e) {} }
-      else if (audio) try { audio.volume = vol(); } catch (e) {}
+      if (mgain) {
+        try { mgain.gain.setTargetAtTime(vol(), mctx.currentTime, 0.03); } catch (e) { mgain.gain.value = vol(); }
+        if (audio) try { audio.volume = 1; } catch (e) {}
+      } else if (audio) try { audio.volume = vol(); } catch (e) {}
     }
     function ensureEl() {
       if (!audio) { audio = new Audio(); audio.addEventListener("ended", () => { if (!audio.loop) nextGame(); }); }
@@ -1657,7 +1677,7 @@
   function startPrep() { S.prep = 1; openMap(); }
   function finishPrep() {
     S.prep = null;
-    el.lureFish.classList.add("hidden");
+    el.lureFish.classList.add("hidden"); el.lureBack.classList.add("hidden");
     el.lureModal.classList.add("hidden");
     Music.setScene("game");
     resetToIdle(); save(); updateHUD();
@@ -3948,6 +3968,7 @@
   function openLures() {
     renderLures();
     el.lureFish.classList.toggle("hidden", S.prep !== 3);   // final wizard step ends with GO FISH!
+    el.lureBack.classList.toggle("hidden", S.prep !== 3);
     el.lureModal.classList.remove("hidden");
   }
   function ratingColor(p) { return p >= 75 ? "#5be37a" : p >= 50 ? "#ffd35c" : p >= 30 ? "#ff9d3d" : "#ff5d5d"; }
@@ -4037,10 +4058,15 @@
   el.lureChip.addEventListener("click", openLures);
   el.lureClose.addEventListener("click", () => {
     el.lureModal.classList.add("hidden");
-    if (S.prep) { S.prep = null; el.lureFish.classList.add("hidden"); showTitle(); return; }
+    if (S.prep) { S.prep = null; el.lureFish.classList.add("hidden"); el.lureBack.classList.add("hidden"); showTitle(); return; }
     tackleClosed();
   });
   el.lureFish.addEventListener("click", () => { sfx("cast"); finishPrep(); });
+  el.lureBack.addEventListener("click", () => {
+    sfx("ui");
+    el.lureModal.classList.add("hidden"); el.lureFish.classList.add("hidden"); el.lureBack.classList.add("hidden");
+    S.prep = 2; openMap();
+  });
   el.lureModal.addEventListener("click", (e) => {
     const opt = e.target.closest(".lure-opt");
     const dot = e.target.closest(".color-dot");
@@ -4109,6 +4135,8 @@
     el.finder.classList.toggle("hidden", !spotStep);
     el.mapNext.classList.toggle("hidden", !prep);
     el.mapNext.textContent = prep === 1 ? "NEXT — PICK YOUR SPOT ▸" : "NEXT — TACKLE BOX ▸";
+    el.mapBack.classList.toggle("hidden", !prep);
+    el.mapBack.textContent = prep === 1 ? "◂ MENU" : "◂ LAKE";
     el.endDayBtn.classList.toggle("hidden", !!prep);
     el.menuBtn.classList.toggle("hidden", !!prep);
     el.mapVenues.innerHTML = SPOTS.map(s => {
@@ -4119,10 +4147,20 @@
         const p = s.unlock.prog ? s.unlock.prog(achCtx()) : null;
         sub = `🔒 ${s.unlock.label}` + (p ? ` (${Math.min(p[0], p[1])}/${p[1]})` : "");
       }
+      // the selected lake expands with its guidebook entry — where it is, how big,
+      // how deep, the lake record, and how it fishes
+      const detail = sel && owned && s.lore ? `<div class="venue-detail">
+          <div class="vd-where">📍 ${s.lore.where}</div>
+          <div class="vd-chips">
+            <span>📏 ${s.lore.size}</span><span>🌊 ${s.lore.depth}</span>
+            <span>💧 ${s.clarity} water</span><span>🏆 record ${s.lore.record}</span>
+          </div>
+          <div class="vd-known">🎣 ${s.lore.known}</div>
+        </div>` : "";
       return `<div class="venue ${sel ? "sel" : ""} ${owned ? "" : "locked"}" data-venue="${s.id}" data-owned="${owned}">
         <div class="ico">${s.ico}</div>
         <div class="info"><div class="nm">${s.name}</div><div class="ds"${owned ? "" : ' style="color:#ffcf6a"'}>${sub}</div></div>
-        <div class="lk">${owned ? (sel ? "HERE" : "GO") : "🔒"}</div></div>`;
+        <div class="lk">${owned ? (sel ? "HERE" : "GO") : "🔒"}</div></div>` + detail;
     }).join("");
     renderPositions();
   }
@@ -4192,6 +4230,11 @@
     sfx("ui");
     if (S.prep === 1) { S.prep = 2; renderMap(); }
     else if (S.prep === 2) { S.prep = 3; el.mapModal.classList.add("hidden"); openLures(); }
+  });
+  el.mapBack.addEventListener("click", () => {
+    sfx("ui");
+    if (S.prep === 2) { S.prep = 1; renderMap(); }
+    else { S.prep = null; el.mapModal.classList.add("hidden"); showTitle(); }
   });
   el.newDayBtn.addEventListener("click", () => { sfx("ui"); startNewDay(); });
   el.endDayBtn.addEventListener("click", () => {
