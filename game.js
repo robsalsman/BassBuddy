@@ -1146,6 +1146,8 @@
     function renderSetup() {
       el.lbBody.innerHTML = `
         <p class="muted">No global board is linked yet. Create it once — every player lands on the same rankings.</p>
+        <input id="lbEmail" class="clog-sel" style="width:100%;margin-bottom:8px" type="email" inputmode="email"
+               placeholder="your email (goes only to kvdb.io)" autocomplete="email">
         <button class="big-btn" id="lbCreate">🌎 CREATE THE GLOBAL BOARD</button>
         <div style="display:flex;gap:8px;margin-top:10px">
           <input id="lbJoin" class="clog-sel" style="flex:1" placeholder="…or paste a board code" autocomplete="off">
@@ -1153,11 +1155,15 @@
         </div>`;
     }
     async function create() {
+      // kvdb.io requires an email on bucket creation (their service, their record —
+      // it is sent only to kvdb.io, never stored in the game or the repo)
+      const email = (document.getElementById("lbEmail").value || "").trim();
+      if (!/^\S+@\S+\.\S+$/.test(email)) { toast("Enter an email for the board service ✉️"); return; }
       el.lbBody.innerHTML = `<p class="muted" style="text-align:center">Setting up the board…</p>`;
       try {
         const r = await fetch("https://kvdb.io", { method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "email=" });
-        if (!r.ok) throw new Error("HTTP " + r.status);
+          headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "email=" + encodeURIComponent(email) });
+        if (!r.ok) throw new Error("HTTP " + r.status + " — " + (await r.text()).slice(0, 80));
         const id = (await r.text()).trim();
         if (!/^[A-Za-z0-9_-]{8,64}$/.test(id)) throw new Error("unexpected reply: " + id.slice(0, 40));
         G.lbBucket = id; save();
