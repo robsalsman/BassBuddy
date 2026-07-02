@@ -1028,7 +1028,7 @@ select, input, textarea { font-size: 16px; }
   background: radial-gradient(120% 100% at 50% 0%, #0e4a63 0%, #072c3f 45%, #03141d 100%);
   transition: opacity .55s ease;
 }
-#introSplash.done { opacity: 0; pointer-events: none; }
+#introSplash.done { opacity: 0; }
 .is-inner { text-align: center; animation: isSurface 1.6s cubic-bezier(.2,.9,.3,1.15) both; }
 @keyframes isSurface { from { opacity: 0; transform: translateY(60px) scale(.8); } 60% { opacity: 1; } to { opacity: 1; transform: none; } }
 .is-fish { font-size: 44px; animation: isSwim 2.2s ease-in-out infinite alternate; filter: drop-shadow(0 6px 14px rgba(0,0,0,.5)); }
@@ -1060,3 +1060,14 @@ select, input, textarea { font-size: 16px; }
 
 /* while a tournament/arcade bar is up, the lure preview drops beneath it */
 #game.run-on .sega-lure { top: calc(166px + env(safe-area-inset-top,0px)); }
+
+/* PRESS START lives low on the screen, clear of every menu button beneath */
+.is-start {
+  position: absolute; left: 50%; bottom: 7%; transform: translateX(-50%);
+  border: 2px solid var(--gold); border-radius: 999px; cursor: pointer;
+  background: rgba(255,211,92,.12); color: var(--gold);
+  font: 900 17px/1 system-ui; letter-spacing: 3px; padding: 15px 30px;
+  animation: isBlink 1s ease-in-out infinite;
+  box-shadow: 0 6px 22px rgba(0,0,0,.45);
+}
+.is-start:active { transform: translateX(-50%) scale(.95); }

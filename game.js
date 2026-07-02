@@ -4802,15 +4802,17 @@
     Music.tryAutoplay();
     const go = () => {
       if (sp2._go) return; sp2._go = true;
-      Sound.ensure(); sfx("good");   // the tap is the audio gesture — music is already arming via it
-      sp2.classList.add("done");
+      Sound.ensure(); sfx("good");   // the press is the audio gesture — music arms through it
+      sp2.classList.add("done");     // splash keeps eating taps while it fades — no ghost clicks
       setTimeout(() => sp2.remove(), 650);
     };
-    sp2.addEventListener("pointerdown", go);
+    const startBtn = document.getElementById("isStart");
+    if (startBtn) startBtn.addEventListener("pointerdown", go);
     setTimeout(() => {
       if (sp2._go) return;
       const sub = document.getElementById("isSub");
-      if (sub) { sub.textContent = "▶ PRESS START"; sub.classList.add("start"); }
+      if (sub) sub.classList.add("hidden");
+      if (startBtn) startBtn.classList.remove("hidden");
     }, 1900);
   })();
   requestAnimationFrame(frame);
