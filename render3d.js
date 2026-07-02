@@ -138,6 +138,16 @@ function realFightFish(key) {
   g.mouth = new THREE.Object3D(); g.mouth.position.set(1.28, -0.1, 0); g.add(g.mouth);
   return g;
 }
+// a school fish: real model clone with its swim clip running, desynced by seed so
+// the school doesn't beat in lockstep. Shares the template geometry + materials.
+function realSwimmer(seed) {
+  const tpl = LOADED_MODELS.largemouth; if (!tpl) return null;
+  const g = cloneSkinned(tpl); g.userData.imported = true;
+  const inner = g.children[0]; if (inner) inner.scale.multiplyScalar(0.9);   // match makeBass proportions
+  if (attachClips(g, tpl.userData.clips) && g.userData.mixer) g.userData.mixer.update(((seed * 37) % 9) * 0.11);
+  g.mouth = new THREE.Object3D(); g.mouth.position.set(1.28, -0.1, 0); g.add(g.mouth);
+  return g;
+}
 
 // =============================================================================
 // Detailed, realistic procedural bass — shared by the fight, the 3D preview,
@@ -531,7 +541,7 @@ const Scene3D = (() => {
       b.material.opacity = 0.72 * (1 - L); b.scale.setScalar(b.userData.sz * (0.6 + L * 0.6));
     }
   }
-  let pursuers = [], rays = [];
+  let pursuers = [], rays = [], schoolReal = false;
   const clock = { t: 0 };
 
   // surface world (above the water — idle / aim / cast)
@@ -1024,10 +1034,17 @@ const Scene3D = (() => {
     r.scale.setScalar(0.4);
   }
   function ensureSurfFish(art) {
-    const key = JSON.stringify(art || {});
+    // the key includes whether the real model is loaded, so the surface fish
+    // upgrades from procedural the moment the GLB is in
+    const key = JSON.stringify(art || {}) + (LOADED_MODELS.largemouth ? "|glb" : "");
     if (!surfFish || key !== surfFishKey) {
-      if (surfFish) { scene2.remove(surfFish); if (surfFish.disposables) surfFish.disposables.forEach(d => d.dispose && d.dispose()); surfFish.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
-      surfFish = makeBass(art || {}); scene2.add(surfFish); surfFishKey = key;
+      if (surfFish) {
+        scene2.remove(surfFish);
+        if (surfFish.disposables) surfFish.disposables.forEach(d => d.dispose && d.dispose());
+        const shared = surfFish.userData && surfFish.userData.imported;   // clone shares template geometry
+        if (!shared) surfFish.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+      }
+      surfFish = realSwimmer(3) || makeBass(art || {}); scene2.add(surfFish); surfFishKey = key;
     }
     return surfFish;
   }
@@ -1444,6 +1461,7 @@ const Scene3D = (() => {
       // bubbles stream off a green, thrashing fish
       if (green > 0.4 && Math.random() < 0.4) emitBubble(bubbles2, fxw + (Math.random() - 0.5) * sc, fy + 0.1, -dist3d, sc);
       undulate(fish, t, 0.16 + pull * 0.06, true);
+      if (fish.userData.mixer) fish.userData.mixer.update((dt || 16) / 1000 * (1 + pull * 1.5));
       boil.visible = f.state !== "jump";
       boil.position.set(fxw, 0.05, -dist3d); boil.material.opacity = 0.22 + Math.sin(t * 10) * 0.1;
       boil.scale.setScalar(0.7 + sc * 0.3 + Math.sin(t * 6) * 0.12);
@@ -1474,6 +1492,7 @@ const Scene3D = (() => {
       fish.rotation.set(0.2 * Math.sin(t * 7), -Math.PI / 2, 0.3 + Math.sin(t * 9) * 0.25 * (1 - e));
       if (fish.tail) fish.tail.rotation.y = Math.sin(t * 12) * 0.5 * (1 - e * 0.5);
       undulate(fish, t * 1.5, 0.12 * (1 - e * 0.6), true);
+      if (fish.userData.mixer) fish.userData.mixer.update((dt || 16) / 1000 * 2);
       boil.visible = false;
       if (e < 0.06 && !castSplashed) { splashAt(pos.x, pos.z, 1.5); castSplashed = true; }
       fish.updateMatrixWorld(true);
@@ -2053,6 +2072,16 @@ const Scene3D = (() => {
       const it = st.interest || 0;
       // how many fish are here = spot quality (good spot -> a real shoal), and how
       // big they run = the spot's typical fish size — both passed by the game
+      // once the real model is in, the whole school upgrades from procedural to it
+      if (!schoolReal && LOADED_MODELS.largemouth) {
+        schoolReal = true;
+        for (let i = 0; i < pursuers.length; i++) {
+          disposeFish(pursuers[i]);
+          const p = realSwimmer(i); p.visible = false; scene.add(p); pursuers[i] = p;
+        }
+        disposeFish(ambusher);
+        ambusher = realSwimmer(9); ambusher.visible = false; scene.add(ambusher);
+      }
       const density = st.fishDensity != null ? st.fishDensity : 0.4;
       const fishSize = st.fishSize != null ? st.fishSize : 0.4;       // 0..1 typical size here
       const want = st.mode === "strike" ? 1 : Math.max(1, Math.round(1 + density * (pursuers.length - 1)));
@@ -2084,6 +2113,7 @@ const Scene3D = (() => {
         p.scale.setScalar(scl * (1 + burst * 0.1));
         undulate(p, t * (lead ? 1.4 + burst * 2.5 : 1.05) + i * 2, 0.22 + burst * 0.12, true);  // tail beats hard on the burst
         if (p.tail) p.tail.rotation.y = Math.sin(t * (7 + it * 4 + burst * 14) + i) * 0.5;
+        if (p.userData.mixer) p.userData.mixer.update((dt || 16) / 1000 * (lead ? 1.1 + burst * 2.2 : 0.85 + (i % 3) * 0.18));
         if (p.openMouth) p.openMouth(burst);                           // mouth gapes open as it strikes
         if (p.flareGills) p.flareGills(burst * 0.8);                   // gills flare on the lunge
         // bubbles trail off the head when it surges fast
@@ -2107,6 +2137,7 @@ const Scene3D = (() => {
         ambusher.rotation.set(Math.sin(t * 20) * 0.1, (fl ? Math.PI : 0) + (1 - ease) * (fl ? -0.6 : 0.6), Math.sin(t * 18) * 0.14);
         undulate(ambusher, t * 3.2, 0.3, true);                       // thrashing hard on the rush
         if (ambusher.tail) ambusher.tail.rotation.y = Math.sin(t * 24) * 0.6;
+        if (ambusher.userData.mixer) ambusher.userData.mixer.update((dt || 16) / 1000 * 3);
         if (ambusher.openMouth) ambusher.openMouth(ease);             // gapes wide as it reaches the bait
         if (ambusher.flareGills) ambusher.flareGills(0.4 + ease * 0.6);
         if (Math.random() < 0.8) emitBubble(bubbles, ax + (fl ? -mr : mr) * 0.6, ay + 0.1, az, ascl);
