@@ -301,7 +301,7 @@
       season: { best: {}, titles: 0 },   // circuit season: best points per event + championships won
       challenges: {}, lakes: {}, arcadeClears: 0, arcadeNC: false, arcadeBestScore: 0,
       mode: "free",     // "free" fishing (default) — tournaments are entered from the circuit
-      muted: false,
+      muted: false, musicOn: true,
       name: "", tutorialDone: false,
     };
   }
@@ -983,6 +983,53 @@
     setTimeout(() => d.remove(), 1900);
   }
 
+  // ===========================================================================
+  // Soundtrack — drop audio files in music/ and list them in music/playlist.json
+  // ([{ "file": "song.mp3", "title": "Song", "artist": "..." }]). Playback starts
+  // from a title-screen tap (mobile browsers need a gesture) and shuffles forever.
+  // ===========================================================================
+  const Music = (() => {
+    let tracks = [], order = [], idx = 0, audio = null, armed = false;
+    fetch("music/playlist.json" + (window.BB_V ? "?v=" + window.BB_V : ""))
+      .then(r => (r.ok ? r.json() : []))
+      .then(list => {
+        tracks = (Array.isArray(list) ? list : []).filter(t => t && t.file);
+        const b = document.getElementById("musicBtn");
+        if (b && tracks.length) { b.classList.remove("hidden"); updateBtn(); }
+      })
+      .catch(() => {});
+    function shuffle() {
+      order = tracks.map((_, i) => i);
+      for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+      idx = 0;
+    }
+    function next() {
+      if (!tracks.length) return;
+      if (!order.length || idx >= order.length) shuffle();
+      const t = tracks[order[idx++]];
+      audio.src = "music/" + t.file;
+      audio.play().catch(() => {});
+      if (t.title) toast(`🎵 ${t.title}${t.artist ? " — " + t.artist : ""}`);
+    }
+    function start() {   // must be called from inside a user gesture
+      if (!tracks.length || G.musicOn === false || armed) return;
+      if (!audio) { audio = new Audio(); audio.volume = 0.4; audio.addEventListener("ended", next); }
+      armed = true;
+      shuffle(); next();
+    }
+    function setOn(on) {
+      G.musicOn = on; save();
+      if (on) start();
+      else { if (audio) audio.pause(); armed = false; }
+      updateBtn();
+    }
+    function updateBtn() {
+      const b = document.getElementById("musicBtn");
+      if (b) b.textContent = G.musicOn === false ? "🎵 Music: OFF" : "🎵 Music: ON";
+    }
+    return { start, setOn };
+  })();
+
   function updateHUD() {
     el.coins.textContent = G.coins;
     if (el.muteBtn) el.muteBtn.textContent = G.muted ? "🔇" : "🔊";
@@ -1189,6 +1236,7 @@
     if (!G.name) G.name = "ANGLER";
     el.anglerName.blur();
     el.titleScreen.classList.add("hidden");
+    Music.start();   // leaving the menu is a tap — mobile lets audio begin here
     save(); updateHUD();
   }
   el.tsFree.addEventListener("click", () => { closeTitle(); sfx("ui"); openMap(); });
@@ -1196,6 +1244,8 @@
   el.tsTour.addEventListener("click", () => { closeTitle(); sfx("ui"); openCircuit(); });
   el.tsTutorial.addEventListener("click", () => { closeTitle(); sfx("ui"); startTutorial(); });
   el.menuBtn.addEventListener("click", () => { el.mapModal.classList.add("hidden"); sfx("ui"); showTitle(); });
+  const musicBtn = document.getElementById("musicBtn");
+  if (musicBtn) musicBtn.addEventListener("click", () => { Music.setOn(G.musicOn === false); sfx("ui"); });
   el.anglerName.addEventListener("keydown", (e) => { if (e.key === "Enter") el.anglerName.blur(); });
 
   // ===========================================================================
