@@ -1272,11 +1272,13 @@
     }
     async function fetchAll() {
       const r = await fetch(base() + "?values=true&format=json&limit=1000");
-      if (!r.ok) throw new Error("board fetch failed");
-      const arr = await r.json();
-      const out = (Array.isArray(arr) ? arr : []).map(e => {
-        const k = Array.isArray(e) ? e[0] : (e && (e.key || e.k));
-        let v = Array.isArray(e) ? e[1] : (e && (e.value || e.v));
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const data = await r.json();
+      // kvdb's list shape varies — accept [[k,v]], [{key,value}], or {k: v, ...}
+      let pairs = [];
+      if (Array.isArray(data)) pairs = data.map(e => Array.isArray(e) ? e : (e && typeof e === "object" ? [e.key != null ? e.key : e.k, e.value != null ? e.value : e.v] : [e, null]));
+      else if (data && typeof data === "object") pairs = Object.entries(data);
+      const out = pairs.map(([k, v]) => {
         try { if (typeof v === "string") v = JSON.parse(v); } catch (err) { return null; }
         if (!v || !v.n) return null;
         v.id = k; return v;
@@ -1396,7 +1398,13 @@
       rows = null; render();
       if (!bucket()) return;
       submit(true);
-      try { rows = await fetchAll(); } catch (e) { rows = []; }
+      try { rows = await fetchAll(); }
+      catch (e) {
+        rows = null;
+        el.lbBody.innerHTML = `<p class="muted" style="text-align:center">Couldn't read the board — ${esc((e && e.message) || "network error")}.</p>
+          <button class="big-btn" id="lbRetry">↻ TRY AGAIN</button>` + codeFoot();
+        return;
+      }
       render();
     }
     function open() { el.lbModal.classList.remove("hidden"); refresh(); }
@@ -1409,6 +1417,7 @@
     });
     el.lbBody.addEventListener("click", (e) => {
       if (e.target.closest("#lbCreate")) { sfx("ui"); create(); return; }
+      if (e.target.closest("#lbRetry")) { sfx("ui"); refresh(); return; }
       if (e.target.closest("#lbJoinBtn")) {
         const v = (document.getElementById("lbJoin").value || "").trim();
         if (v) { G.lbBucket = v; save(); sfx("good"); refresh(); }

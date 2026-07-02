@@ -68,6 +68,29 @@
     return { status: r.status, body: (await r.text()).slice(0, 80) };
   });
 
+  // ---- the LIVE board: list shape, write, read-back ----
+  const B = "https://kvdb.io/xhguzRgTLvAv2UeWFsn6t/";
+
+  await probe("8. board LIST (raw shape)", async () => {
+    const r = await fetch(B + "?values=true&format=json&limit=1000");
+    return { status: r.status, body: (await r.text()).slice(0, 300) };
+  });
+
+  await probe("9. board LIST (keys only)", async () => {
+    const r = await fetch(B);
+    return { status: r.status, body: (await r.text()).slice(0, 160) };
+  });
+
+  await probe("10. board WRITE (diagtest key)", async () => {
+    const r = await fetch(B + "diagtest", { method: "PUT", body: JSON.stringify({ n: "DIAG", s: 1, t: 1 }) });
+    return { status: r.status, body: (await r.text()).slice(0, 80) };
+  });
+
+  await probe("11. board READ-BACK (diagtest)", async () => {
+    const r = await fetch(B + "diagtest");
+    return { status: r.status, body: (await r.text()).slice(0, 120) };
+  });
+
   const d = document.createElement("div");
   d.className = "t"; d.innerHTML = `<div class="n">done — online: ${navigator.onLine}</div>`;
   out.appendChild(d);
