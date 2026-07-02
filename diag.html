@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BassBuddy — leaderboard service diagnostic</title>
+<style>
+  body { background: #06222c; color: #eaf6fb; font: 13px/1.5 ui-monospace, Menlo, monospace; padding: 14px; }
+  h1 { font-size: 15px; color: #ffd35c; }
+  .t { margin: 14px 0; padding: 10px; border: 1px solid rgba(255,255,255,.2); border-radius: 10px; word-break: break-all; }
+  .n { font-weight: 700; color: #8fd8c9; }
+  .ok { color: #5be37a; } .bad { color: #ff5d5d; }
+</style>
+</head>
+<body>
+<h1>🎣 Leaderboard service diagnostic — screenshot this whole page</h1>
+<div id="out">running…</div>
+<script>
+(async () => {
+  const out = document.getElementById("out");
+  out.innerHTML = "";
+  const show = (name, obj) => {
+    const d = document.createElement("div");
+    d.className = "t";
+    d.innerHTML = `<div class="n">${name}</div><div class="${obj.error ? "bad" : "ok"}">${JSON.stringify(obj)}</div>`;
+    out.appendChild(d);
+  };
+  const probe = async (name, fn) => {
+    try { show(name, await fn()); }
+    catch (e) { show(name, { error: (e && e.name) + ": " + (e && e.message) }); }
+  };
+
+  await probe("1. kvdb.io CREATE (form-encoded POST)", async () => {
+    const r = await fetch("https://kvdb.io", { method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "email=" });
+    return { status: r.status, body: (await r.text()).slice(0, 140) };
+  });
+
+  await probe("2. kvdb.io CREATE (plain POST)", async () => {
+    const r = await fetch("https://kvdb.io", { method: "POST", body: "email=" });
+    return { status: r.status, body: (await r.text()).slice(0, 140) };
+  });
+
+  await probe("3. kvdb.io GET (CORS reachability)", async () => {
+    const r = await fetch("https://kvdb.io/NoSuchBucketProbe123/");
+    return { status: r.status, body: (await r.text()).slice(0, 100) };
+  });
+
+  await probe("4. jsonblob.com CREATE", async () => {
+    const r = await fetch("https://jsonblob.com/api/jsonBlob", { method: "POST",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bb: 1 }) });
+    return { status: r.status, location: r.headers.get("Location"), body: (await r.text()).slice(0, 100) };
+  });
+
+  await probe("5. extendsclass.com CREATE", async () => {
+    const r = await fetch("https://json.extendsclass.com/bin", { method: "POST", body: JSON.stringify({ bb: 1 }) });
+    return { status: r.status, body: (await r.text()).slice(0, 140) };
+  });
+
+  await probe("6. npoint.io CREATE", async () => {
+    const r = await fetch("https://api.npoint.io", { method: "POST",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ contents: { bb: 1 } }) });
+    return { status: r.status, body: (await r.text()).slice(0, 140) };
+  });
+
+  await probe("7. dreamlo.com read (CORS)", async () => {
+    const r = await fetch("https://www.dreamlo.com/lb/probe/json");
+    return { status: r.status, body: (await r.text()).slice(0, 80) };
+  });
+
+  const d = document.createElement("div");
+  d.className = "t"; d.innerHTML = `<div class="n">done — online: ${navigator.onLine}</div>`;
+  out.appendChild(d);
+})();
+</script>
+</body>
+</html>

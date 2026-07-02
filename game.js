@@ -1155,15 +1155,17 @@
     async function create() {
       el.lbBody.innerHTML = `<p class="muted" style="text-align:center">Setting up the board…</p>`;
       try {
-        const r = await fetch("https://kvdb.io", { method: "POST", body: "email=" });
+        const r = await fetch("https://kvdb.io", { method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "email=" });
+        if (!r.ok) throw new Error("HTTP " + r.status);
         const id = (await r.text()).trim();
-        if (!r.ok || !/^[A-Za-z0-9_-]{8,64}$/.test(id)) throw new Error("bad id");
+        if (!/^[A-Za-z0-9_-]{8,64}$/.test(id)) throw new Error("unexpected reply: " + id.slice(0, 40));
         G.lbBucket = id; save();
         toast("🌎 Global board created!");
         refresh();
       } catch (e) {
-        el.lbBody.innerHTML = `<p class="muted" style="text-align:center">Couldn't reach the leaderboard service — check your connection and try again.</p>`;
-        setTimeout(renderSetup, 2200);
+        el.lbBody.innerHTML = `<p class="muted" style="text-align:center">Couldn't set up the board — ${esc((e && e.message) || "network error")}.<br>Check your connection and try again.</p>`;
+        setTimeout(renderSetup, 2600);
       }
     }
     async function refresh() {
