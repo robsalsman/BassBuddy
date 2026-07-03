@@ -5485,6 +5485,14 @@
   // current angler's starting XP, exactly as if they'd been earned in the boat
   if (!G.angler) G.angler = "roberto";
   if (!G.anglerXP) G.anglerXP = { [G.angler]: G.coins || 0 };
+  // a lifetime on the water teaches the whole crew: one-time, every angler is
+  // seeded with up to 12k XP of career experience to spend — then each one
+  // earns solo, by fishing as them and winning achievements in their boat
+  if (!G.crewSeeded) {
+    const seed = Math.min(G.coins || 0, 12000);
+    for (const a of ANGLERS) G.anglerXP[a.id] = Math.max(G.anglerXP[a.id] || 0, seed);
+    G.crewSeeded = true;
+  }
   // migrate old saves: seed the lifetime tallies from the catch log once, so
   // long-time anglers get credit for what they've already caught
   if (!G.tally && (G.catchLog || []).length) { G.catchLog.forEach(tallyCatch); save(); }
