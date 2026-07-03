@@ -5015,17 +5015,44 @@
     else if (shape.deco === "timber") deco = dot(30, 44, "🌲", 3.8) + dot(58, 24, "🌲", 3.2) + dot(82, 52, "🌲", 3.6);
     else if (shape.deco === "deep") deco = dot(50, 34, "〰️", 4);
     const xy = p => [8 + p.zone[0] * 84, 5 + p.zone[1] * 50];
-    const markers = sp.positions.map(p => {
-      const sel = G.positions[sp.id] === p.id;
-      const [x, y] = xy(p);
-      // flip the label above the pin when another pin sits close underneath it
-      const crowdedBelow = sp.positions.some(q => { if (q === p) return false; const [qx, qy] = xy(q); return Math.abs(qx - x) < 24 && qy - y > 0 && qy - y < 16; });
-      return `<g class="mk ${sel ? "sel" : ""}" data-pos="${p.id}" transform="translate(${x.toFixed(1)},${y.toFixed(1)})">
-        <circle r="6" class="mk-c"/>
-        <text y="1.6" font-size="6" text-anchor="middle">${p.ico}</text>
-        <text y="${crowdedBelow ? -8 : 10.5}" class="mk-l" text-anchor="middle">${p.name}</text>
-      </g>`;
-    }).join("");
+    // display-only declutter: nudge overlapping pins apart, then place each
+    // label in the first free slot (below → above → right → left) so names
+    // never stomp on pins or each other
+    const pins = sp.positions.map(p => { const [x, y] = xy(p); return { p, x, y }; });
+    for (let it = 0; it < 3; it++) for (let i = 0; i < pins.length; i++) for (let j = i + 1; j < pins.length; j++) {
+      const a = pins[i], b = pins[j];
+      let dx = b.x - a.x, dy = b.y - a.y; const d = Math.hypot(dx, dy) || 1;
+      if (d < 13) { const push = (13 - d) / 2; dx /= d; dy /= d; a.x -= dx * push; a.y -= dy * push; b.x += dx * push; b.y += dy * push; }
+    }
+    pins.forEach(q => { q.x = Math.min(92, Math.max(8, q.x)); q.y = Math.min(56, Math.max(8, q.y)); });
+    const placed = [];
+    const boxAt = (pin, mode) => {
+      const w = pin.p.name.length * 2.15 + 2, h = 4.4;
+      if (mode === "below") return { x: pin.x - w / 2, y: pin.y + 6.8, w, h, tx: pin.x, ty: pin.y + 10.2, anchor: "middle" };
+      if (mode === "above") return { x: pin.x - w / 2, y: pin.y - 11, w, h, tx: pin.x, ty: pin.y - 7.6, anchor: "middle" };
+      if (mode === "right") return { x: pin.x + 6.6, y: pin.y - 2.2, w, h, tx: pin.x + 7.2, ty: pin.y + 1.2, anchor: "start" };
+      return { x: pin.x - 6.6 - w, y: pin.y - 2.2, w, h, tx: pin.x - 7.2, ty: pin.y + 1.2, anchor: "end" };
+    };
+    const collides = b =>
+      b.x < 1 || b.x + b.w > 99 || b.y < 1 || b.y + b.h > 64 ||
+      pins.some(q => q.x + 5.6 > b.x && q.x - 5.6 < b.x + b.w && q.y + 5.6 > b.y && q.y - 5.6 < b.y + b.h) ||
+      placed.some(o => o.x < b.x + b.w && o.x + o.w > b.x && o.y < b.y + b.h && o.y + o.h > b.y);
+    const labeled = pins.slice().sort((a, b) => a.y - b.y).map(pin => {
+      let box = null;
+      for (const m of ["below", "above", "right", "left"]) { const cand = boxAt(pin, m); if (!collides(cand)) { box = cand; break; } }
+      if (!box) box = boxAt(pin, "below");
+      placed.push(box);
+      return { pin, box };
+    });
+    const isSel = id => G.positions[sp.id] === id;
+    const markers = pins.map(({ p, x, y }) => `<g class="mk ${isSel(p.id) ? "sel" : ""}" data-pos="${p.id}" transform="translate(${x.toFixed(1)},${y.toFixed(1)})">
+        <circle r="9" fill="transparent" stroke="none"/>
+        <circle r="5.2" class="mk-c"/>
+        <text y="1.6" font-size="5" text-anchor="middle">${p.ico}</text>
+      </g>`).join("")
+      + labeled.map(({ pin, box }) => `<g class="mk ${isSel(pin.p.id) ? "sel" : ""}" data-pos="${pin.p.id}">
+        <text x="${box.tx.toFixed(1)}" y="${box.ty.toFixed(1)}" class="mk-l" text-anchor="${box.anchor}">${pin.p.name}</text>
+      </g>`).join("");
     return `<svg viewBox="0 0 100 66" xmlns="http://www.w3.org/2000/svg">
       <defs><radialGradient id="lm-${sp.id}" cx="50%" cy="42%" r="70%">
         <stop offset="0%" stop-color="${deep}"/><stop offset="100%" stop-color="${shallow}"/>
