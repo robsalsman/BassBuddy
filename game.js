@@ -1780,6 +1780,14 @@
     roberto: P => `
       <path d="M14,120 C16,96 34,84 46,81 L74,81 C88,84 104,96 106,120 Z" fill="#4a5258" stroke="#3a4147" stroke-width="1"/>
       <path d="M48,81 Q60,90 72,81 L72,85 Q60,93 48,85 Z" fill="#3a4147"/>
+      <path d="M15,120 C18,96 34,85 46,82 L52,84 L52,120 Z" fill="#6d7a52" stroke="#535e3d" stroke-width="1"/>
+      <path d="M105,120 C102,96 86,85 74,82 L68,84 L68,120 Z" fill="#6d7a52" stroke="#535e3d" stroke-width="1"/>
+      <rect x="23" y="99" width="16" height="13" rx="2" fill="#616e47" stroke="#535e3d" stroke-width=".8"/>
+      <rect x="81" y="99" width="16" height="13" rx="2" fill="#616e47" stroke="#535e3d" stroke-width=".8"/>
+      <path d="M23,103 h16 M81,103 h16" stroke="#535e3d" stroke-width=".8"/>
+      <circle cx="31" cy="103" r="1" fill="#535e3d"/><circle cx="89" cy="103" r="1" fill="#535e3d"/>
+      <path d="M25,92 h12 M83,92 h12" stroke="#535e3d" stroke-width=".9" opacity=".7"/>
+      <path d="M34,92 l2,4 l2,-1.5" stroke="#e8963c" stroke-width="1.2" fill="none" stroke-linecap="round"/>
       <path d="M52,66 L68,66 L67,84 L53,84 Z" fill="#d1a075"/>
       <ellipse cx="38.5" cy="52" rx="4" ry="6" fill="url(#${P}skin)"/>
       <ellipse cx="81.5" cy="52" rx="4" ry="6" fill="url(#${P}skin)"/>
@@ -1832,6 +1840,14 @@
         <path d="M20,96 q20,-6 38,-2"/><path d="M60,92 q22,-4 38,4"/><path d="M26,108 q22,-5 40,0"/><path d="M62,106 q20,-3 34,5"/>
       </g>
       <path d="M47,79 Q60,88 73,79 L73,84 Q60,93 47,84 Z" fill="#aeb2b7"/>
+      <path d="M9,120 C12,95 30,83 44,80 L50,82 L50,120 Z" fill="#b3a077" stroke="#8d7c58" stroke-width="1"/>
+      <path d="M111,120 C108,95 90,83 76,80 L70,82 L70,120 Z" fill="#b3a077" stroke="#8d7c58" stroke-width="1"/>
+      <rect x="17" y="99" width="16" height="13" rx="2" fill="#a6936a" stroke="#8d7c58" stroke-width=".8"/>
+      <rect x="87" y="99" width="16" height="13" rx="2" fill="#a6936a" stroke="#8d7c58" stroke-width=".8"/>
+      <path d="M17,103 h16 M87,103 h16" stroke="#8d7c58" stroke-width=".8"/>
+      <circle cx="25" cy="103" r="1" fill="#8d7c58"/><circle cx="95" cy="103" r="1" fill="#8d7c58"/>
+      <path d="M19,92 h12 M89,92 h12" stroke="#8d7c58" stroke-width=".9" opacity=".7"/>
+      <path d="M28,92 l2,4 l2,-1.5" stroke="#e8963c" stroke-width="1.2" fill="none" stroke-linecap="round"/>
       <path d="M51,66 L69,66 L68,83 L52,83 Z" fill="#d1a075"/>
       <ellipse cx="38.5" cy="52" rx="4" ry="6" fill="url(#${P}skin)"/>
       <ellipse cx="81.5" cy="52" rx="4" ry="6" fill="url(#${P}skin)"/>
@@ -1870,6 +1886,14 @@
     olddog: P => `
       <path d="M12,120 C15,95 33,83 45,80 L75,80 C89,83 105,95 108,120 Z" fill="#35507a" stroke="#294060" stroke-width="1"/>
       <path d="M47,80 Q60,89 73,80 L73,85 Q60,94 47,85 Z" fill="#294060"/>
+      <path d="M13,120 C16,96 32,85 44,81 L50,83 L50,120 Z" fill="#8a8a68" stroke="#6d6d4f" stroke-width="1"/>
+      <path d="M107,120 C104,96 88,85 76,81 L70,83 L70,120 Z" fill="#8a8a68" stroke="#6d6d4f" stroke-width="1"/>
+      <rect x="21" y="99" width="16" height="13" rx="2" fill="#7d7d5c" stroke="#6d6d4f" stroke-width=".8"/>
+      <rect x="83" y="99" width="16" height="13" rx="2" fill="#7d7d5c" stroke="#6d6d4f" stroke-width=".8"/>
+      <path d="M21,103 h16 M83,103 h16" stroke="#6d6d4f" stroke-width=".8"/>
+      <circle cx="29" cy="103" r="1" fill="#6d6d4f"/><circle cx="91" cy="103" r="1" fill="#6d6d4f"/>
+      <path d="M23,92 h12 M85,92 h12" stroke="#6d6d4f" stroke-width=".9" opacity=".7"/>
+      <path d="M32,92 l2,4 l2,-1.5" stroke="#e8963c" stroke-width="1.2" fill="none" stroke-linecap="round"/>
       <path d="M52,66 L68,66 L67,83 L53,83 Z" fill="#c99a72"/>
       <ellipse cx="38.5" cy="53" rx="4" ry="6" fill="url(#${P}skin)"/>
       <ellipse cx="81.5" cy="53" rx="4" ry="6" fill="url(#${P}skin)"/>
@@ -1915,6 +1939,14 @@
       <path d="M46,79 L56,90 L52,96 L44,86 Z" fill="#2d578a"/>
       <path d="M74,79 L64,90 L68,96 L76,86 Z" fill="#2d578a"/>
       <path d="M56,90 L60,120 L64,90 Z" fill="#2d578a" opacity=".6"/>
+      <path d="M9,120 C12,95 30,83 44,80 L50,82 L50,120 Z" fill="#b3a077" stroke="#8d7c58" stroke-width="1"/>
+      <path d="M111,120 C108,95 90,83 76,80 L70,82 L70,120 Z" fill="#b3a077" stroke="#8d7c58" stroke-width="1"/>
+      <rect x="17" y="99" width="16" height="13" rx="2" fill="#a6936a" stroke="#8d7c58" stroke-width=".8"/>
+      <rect x="87" y="99" width="16" height="13" rx="2" fill="#a6936a" stroke="#8d7c58" stroke-width=".8"/>
+      <path d="M17,103 h16 M87,103 h16" stroke="#8d7c58" stroke-width=".8"/>
+      <circle cx="25" cy="103" r="1" fill="#8d7c58"/><circle cx="95" cy="103" r="1" fill="#8d7c58"/>
+      <path d="M19,92 h12 M89,92 h12" stroke="#8d7c58" stroke-width=".9" opacity=".7"/>
+      <path d="M28,92 l2,4 l2,-1.5" stroke="#e8963c" stroke-width="1.2" fill="none" stroke-linecap="round"/>
       <path d="M52,66 L68,66 L67,82 L53,82 Z" fill="#d1a075"/>
       <ellipse cx="38.5" cy="52" rx="4" ry="6" fill="url(#${P}skin)"/>
       <ellipse cx="81.5" cy="52" rx="4" ry="6" fill="url(#${P}skin)"/>
@@ -1963,9 +1995,15 @@
       <path d="M33,38 Q60,31 87,38 Q90,43 85,44.5 Q60,37 35,44.5 Q30,43 33,38 Z" fill="#4d545c"/>
       <path d="M35,44 Q60,37.5 85,44 L84.4,45.4 Q60,39 35.6,45.4 Z" fill="#33383e" opacity=".9"/>`,
     jpbasser: P => `
-      <path d="M14,120 C16,96 34,84 46,81 L74,81 C88,84 104,96 106,120 Z" fill="#26313e" stroke="#1a222c" stroke-width="1"/>
-      <path d="M48,82 L60,96 L72,82 L72,120 L48,120 Z" fill="#eef1f2"/>
-      <path d="M48,82 L54,90 L60,84 L66,90 L72,82 L71,87 L60,97 L49,87 Z" fill="#f7f9fa" stroke="#c9d2d8" stroke-width=".7"/>
+      <path d="M14,120 C16,96 34,84 46,81 L74,81 C88,84 104,96 106,120 Z" fill="#c9bd9a" stroke="#a89c7a" stroke-width="1"/>
+      <path d="M48,81 L54,89 L60,83 L66,89 L72,81 L71,86 L60,95 L49,86 Z" fill="#bdb08c" stroke="#a89c7a" stroke-width=".7"/>
+      <path d="M60,95 L60,120" stroke="#a89c7a" stroke-width="1"/>
+      <circle cx="60" cy="101" r="1.2" fill="#8d8163"/><circle cx="60" cy="109" r="1.2" fill="#8d8163"/><circle cx="60" cy="117" r="1.2" fill="#8d8163"/>
+      <rect x="30" y="99" width="14" height="12" rx="2" fill="#bdb08c" stroke="#a89c7a" stroke-width=".8"/>
+      <rect x="76" y="99" width="14" height="12" rx="2" fill="#bdb08c" stroke="#a89c7a" stroke-width=".8"/>
+      <path d="M30,102.5 h14 M76,102.5 h14" stroke="#a89c7a" stroke-width=".8"/>
+      <circle cx="37" cy="102.5" r="1" fill="#8d8163"/><circle cx="83" cy="102.5" r="1" fill="#8d8163"/>
+      <path d="M84,94 l2,4 l2,-1.5" stroke="#e8963c" stroke-width="1.2" fill="none" stroke-linecap="round"/>
       <path d="M52,68 L68,68 L67,84 L53,84 Z" fill="#d69c74"/>
       <path d="M52,68 L68,68 L67,75 Q60,79 53,75 Z" fill="#b97f57" opacity=".55"/>
       <ellipse cx="38.5" cy="54" rx="4" ry="6" fill="url(#${P}skin)"/>
@@ -1994,6 +2032,14 @@
       <rect x="56.6" y="92" width="6.8" height="28" fill="#5f2c37"/>
       <circle cx="60" cy="98" r="1.4" fill="#3d1c24"/><circle cx="60" cy="106" r="1.4" fill="#3d1c24"/><circle cx="60" cy="114" r="1.4" fill="#3d1c24"/>
       <path d="M48,81 Q60,90 72,81 L72,86 Q60,95 48,86 Z" fill="#5f2c37"/>
+      <path d="M15,120 C18,96 34,85 46,82 L52,84 L52,120 Z" fill="#77704e" stroke="#5c563b" stroke-width="1"/>
+      <path d="M105,120 C102,96 86,85 74,82 L68,84 L68,120 Z" fill="#77704e" stroke="#5c563b" stroke-width="1"/>
+      <rect x="23" y="99" width="16" height="13" rx="2" fill="#6b6445" stroke="#5c563b" stroke-width=".8"/>
+      <rect x="81" y="99" width="16" height="13" rx="2" fill="#6b6445" stroke="#5c563b" stroke-width=".8"/>
+      <path d="M23,103 h16 M81,103 h16" stroke="#5c563b" stroke-width=".8"/>
+      <circle cx="31" cy="103" r="1" fill="#5c563b"/><circle cx="89" cy="103" r="1" fill="#5c563b"/>
+      <path d="M25,92 h12 M83,92 h12" stroke="#5c563b" stroke-width=".9" opacity=".7"/>
+      <path d="M34,92 l2,4 l2,-1.5" stroke="#e8963c" stroke-width="1.2" fill="none" stroke-linecap="round"/>
       <path d="M52,68 L68,68 L67,84 L53,84 Z" fill="#e2ad86"/>
       <path d="M52,68 L68,68 L67,75 Q60,79 53,75 Z" fill="#c68e64" opacity=".5"/>
       <ellipse cx="38.5" cy="54" rx="4" ry="6" fill="url(#${P}skin)"/>
