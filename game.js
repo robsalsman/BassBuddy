@@ -3549,7 +3549,7 @@
       ? T.well.slice().sort((a, b) => b.weight - a.weight).map(f => `<div class="bag-fish">${fishSVG(f, 40)}<b>${f.weight}</b></div>`).join("")
       : `<p class="muted">No keepers in the well — better luck next time!</p>`;
     el.tourResultStats.innerHTML =
-      `5-fish bag: <b>${myTotal.toFixed(2)} lb</b> (${me.fish} fish)<br>` +
+      `5-fish bag: <b>${myTotal.toFixed(2)} lb</b> (${T.well.length} fish)<br>` +
       `Big bass: <b>${T.big ? T.big.toFixed(1) + " lb" : "—"}</b>${bigBonus ? ` &nbsp;<span style="color:var(--gold)">+${bigBonus} pts Big Bass!</span>` : ""}<br>` +
       `Points: <b>+${payout}</b> 🎯` + (place === 1 ? "  🏆" : "") +
       `<br>Circuit: <b>+${pts} pts</b> · season ${seasonPtsNow} (${seasonNow}/${TOURNAMENTS.length} events)` + champBanner;
@@ -3584,6 +3584,7 @@
   el.tourStartCancel.addEventListener("click", () => { pendingTour = null; el.tourStartModal.classList.add("hidden"); });
   el.tourQuit.addEventListener("click", () => {
     if (!S.tournament) return;
+    if (S.tournament.ended) { closeTournament(); return; }   // result screen lost? End still gets you out
     if (S.tournament.well.length) endTournament();   // weigh in what you have
     else { toast("Tournament cancelled"); closeTournament(); }
   });
