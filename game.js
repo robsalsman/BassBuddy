@@ -1761,22 +1761,22 @@
     // every base kit totals 18 — nobody is flatly better, just built different
     { id: "roberto",  name: "Roberto",     tag: "The Captain",    desc: "Steady hand, no weak suit — the boat's in good hands.",
       w: { hookset: 1.05, finesse: 1.05, power: 1.05, casting: 1.05, sense: 1.05 }, hue: "#5d7a45",
-      base: { hookset: 4, finesse: 3, power: 4, casting: 4, sense: 3 } },
+      base: { hookset: 40, finesse: 30, power: 40, casting: 40, sense: 30 } },
     { id: "hotrod",   name: "Hot Rod",     tag: "Full Throttle",  desc: "Big swings and long bombs — subtle is for other people.",
       w: { hookset: 1.0, finesse: 0.6, power: 1.5, casting: 1.3, sense: 0.8 }, hue: "#8f3b2c",
-      base: { hookset: 3, finesse: 1, power: 6, casting: 5, sense: 3 } },
+      base: { hookset: 30, finesse: 10, power: 60, casting: 50, sense: 30 } },
     { id: "wildwest", name: "Wild West",   tag: "The Gunslinger", desc: "Fastest cast in the county — dares any target, hits most.",
       w: { hookset: 1.2, finesse: 0.7, power: 1.1, casting: 1.5, sense: 0.7 }, hue: "#a4762c",
-      base: { hookset: 4, finesse: 2, power: 4, casting: 6, sense: 2 } },
+      base: { hookset: 40, finesse: 20, power: 40, casting: 60, sense: 20 } },
     { id: "drg",      name: "Dr. G",       tag: "The Surgeon",    desc: "Light line, small baits, hooksets like sutures.",
       w: { hookset: 1.4, finesse: 1.5, power: 0.6, casting: 0.9, sense: 1.0 }, hue: "#3f8f6a",
-      base: { hookset: 6, finesse: 6, power: 1, casting: 3, sense: 2 } },
+      base: { hookset: 60, finesse: 60, power: 10, casting: 30, sense: 20 } },
     { id: "jpbasser", name: "J.P. Basser", tag: "The Pro",        desc: "Reads water like a tournament sheet — always on fish.",
       w: { hookset: 1.1, finesse: 1.1, power: 0.9, casting: 1.0, sense: 1.4 }, hue: "#39557f",
-      base: { hookset: 4, finesse: 4, power: 2, casting: 3, sense: 5 } },
+      base: { hookset: 40, finesse: 40, power: 20, casting: 30, sense: 50 } },
     { id: "olddog",   name: "Old Dog",     tag: "The Veteran",    desc: "Seen every trick a bass has. Slow, sure, never fooled.",
       w: { hookset: 1.3, finesse: 1.2, power: 0.7, casting: 0.7, sense: 1.5 }, hue: "#6b5a44",
-      base: { hookset: 5, finesse: 4, power: 1, casting: 2, sense: 6 } },
+      base: { hookset: 50, finesse: 40, power: 10, casting: 20, sense: 60 } },
   ];
   const angler = () => ANGLERS.find(a => a.id === G.angler) || ANGLERS[0];
   const anglerXP = id => (G.anglerXP || {})[id] || 0;
@@ -1792,15 +1792,15 @@
   const upSpent = id => { const u = (G.anglerUp || {})[id] || {}; return Object.values(u).reduce((s2, n) => s2 + n, 0); };
   const spEarned = id => Math.floor(anglerXP(id) / SP_PER) + ((G.anglerAchSP || {})[id] || 0);
   const spAvail = id => Math.max(0, spEarned(id) - upSpent(id));
-  const skillLvl = (a, k) => Math.min(10, (a.base[k] || 0) + (((G.anglerUp || {})[a.id] || {})[k] || 0));
-  const skill = k => skillLvl(angler(), k) / 10;   // 0..1 bonus strength right now
+  const skillLvl = (a, k) => Math.min(100, (a.base[k] || 0) + (((G.anglerUp || {})[a.id] || {})[k] || 0));
+  const skill = k => skillLvl(angler(), k) / 100;   // 0..1 bonus strength right now
   function grantAchSP() {
     if (!G.anglerAchSP) G.anglerAchSP = {};
     G.anglerAchSP[angler().id] = (G.anglerAchSP[angler().id] || 0) + 1;
   }
   function spendSP(id, k) {
     const a = ANGLERS.find(x => x.id === id); if (!a) return;
-    if (spAvail(id) <= 0 || skillLvl(a, k) >= 10) return;
+    if (spAvail(id) <= 0 || skillLvl(a, k) >= 100) return;
     if (!G.anglerUp) G.anglerUp = {};
     if (!G.anglerUp[id]) G.anglerUp[id] = {};
     G.anglerUp[id][k] = (G.anglerUp[id][k] || 0) + 1;
@@ -2179,10 +2179,10 @@
       const av = spAvail(a.id);
       const rows = Object.keys(SKILLS).map(k => {
         const lvl = skillLvl(a, k);
-        const plus = sel && av > 0 && lvl < 10 ? `<button class="sp-plus" data-up="${a.id}:${k}">＋</button>` : "";
+        const plus = sel && av > 0 && lvl < 100 ? `<button class="sp-plus" data-up="${a.id}:${k}">＋</button>` : "";
         return `<div class="cat"><span>${SKILLS[k].ico} ${SKILLS[k].name}</span>
-          <div class="cat-bar"><i style="width:${lvl * 10}%;background:${ratingColor(lvl * 10)}"></i></div>
-          <b style="color:${ratingColor(lvl * 10)}">${lvl}</b>${plus}</div>`;
+          <div class="cat-bar"><i style="width:${lvl}%;background:${ratingColor(lvl)}"></i></div>
+          <b style="color:${ratingColor(lvl)}">${lvl}</b>${plus}</div>`;
       }).join("");
       const spLine = av > 0
         ? `<div class="sp-line hot">🔺 ${av} skill point${av > 1 ? "s" : ""} to spend — tap ＋ on a skill</div>`
@@ -5558,6 +5558,14 @@
     const seed = Math.min(G.coins || 0, 12000);
     for (const a of ANGLERS) G.anglerXP[a.id] = Math.max(G.anglerXP[a.id] || 0, seed);
     G.crewSeeded = true;
+  }
+  // the skill scale went 10 → 100: refund every point spent at the old fat
+  // value so it can be re-spent on the fine scale, and deepen the crew seed
+  if (!G.skill100) {
+    G.anglerUp = {};
+    const seed = Math.min(G.coins || 0, 40000);
+    for (const a of ANGLERS) G.anglerXP[a.id] = Math.max(G.anglerXP[a.id] || 0, seed);
+    G.skill100 = true;
   }
   // migrate old saves: seed the lifetime tallies from the catch log once, so
   // long-time anglers get credit for what they've already caught
