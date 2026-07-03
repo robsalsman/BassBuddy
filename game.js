@@ -1826,6 +1826,47 @@
       <path d="M38,39 Q60,34 82,39 L82,41 Q60,36 38,41 Z" fill="#33383c" opacity=".6"/>
       <path d="M44,41.5 q5,-2 10,-.6" stroke="#4d4640" stroke-width="2" fill="none" stroke-linecap="round"/>
       <path d="M66,40.9 q5,-1.4 10,.6" stroke="#4d4640" stroke-width="2" fill="none" stroke-linecap="round"/>`,
+    hotrod: P => `
+      <path d="M8,120 C11,94 30,82 44,79 L76,79 C90,82 109,94 112,120 Z" fill="#c3c7cb" stroke="#a9adb2" stroke-width="1"/>
+      <g stroke="#d7dade" stroke-width=".9" opacity=".8" fill="none">
+        <path d="M20,96 q20,-6 38,-2"/><path d="M60,92 q22,-4 38,4"/><path d="M26,108 q22,-5 40,0"/><path d="M62,106 q20,-3 34,5"/>
+      </g>
+      <path d="M47,79 Q60,88 73,79 L73,84 Q60,93 47,84 Z" fill="#aeb2b7"/>
+      <path d="M51,66 L69,66 L68,83 L52,83 Z" fill="#d1a075"/>
+      <ellipse cx="38.5" cy="52" rx="4" ry="6" fill="url(#${P}skin)"/>
+      <ellipse cx="81.5" cy="52" rx="4" ry="6" fill="url(#${P}skin)"/>
+      <path d="M40,42 Q40,25 60,25 Q80,25 80,42 L80,52 Q80,72 60,75 Q40,72 40,52 Z" fill="url(#${P}skin)"/>
+      <!-- full dark beard, groomed tight, a touch of frost at the chin -->
+      <path d="M40,50 Q40,68 47,76 Q53,83 60,83 Q67,83 73,76 Q80,68 80,50 L80,55 Q80,71 71,78 Q66,82 60,82 Q54,82 49,78 Q40,71 40,55 Z" fill="#33271d"/>
+      <path d="M41,52 Q41,68 48,75 Q54,81 60,81 Q66,81 72,75 Q79,68 79,52 Q79,58 76,63 Q74,56 70,54 L66,58 Q63,55.5 60,55.5 Q57,55.5 54,58 L50,54 Q46,56 44,63 Q41,58 41,52 Z" fill="#3d2f23"/>
+      <g stroke="#241a12" stroke-width=".9" fill="none" opacity=".7">
+        <path d="M46,58 q-1,8 2,14"/><path d="M74,58 q1,8 -2,14"/><path d="M53,63 q-.5,8 1.5,13"/><path d="M67,63 q.5,8 -1.5,13"/>
+      </g>
+      <path d="M56,76 q4,3 8,0 q-2,4 -4,4 q-2,0 -4,-4 Z" fill="#8b8378" opacity=".65"/>
+      <path d="M51,61.5 Q60,65 69,61.5 Q66,59.4 60,59.4 Q54,59.4 51,61.5 Z" fill="#241a12"/>
+      <path d="M52.4,63.6 Q60,68.6 67.6,63.6 Q66,69.8 60,69.8 Q54,69.8 52.4,63.6 Z" fill="#7e3f2e"/>
+      <path d="M54,64.8 Q60,68.2 66,64.8 Q60,67 54,64.8 Z" fill="#f4efe6"/>
+      <path d="M60,48 q-1.5,5.4 -2.4,7.6 q2.4,1.9 4.8,0 Q61.3,53.4 60,48" fill="#c98a5f" opacity=".85"/>
+      <ellipse cx="46.5" cy="58" rx="3.2" ry="2" fill="#dd8a62" opacity=".35"/>
+      <ellipse cx="73.5" cy="58" rx="3.2" ry="2" fill="#dd8a62" opacity=".35"/>
+      <!-- black rectangular frames -->
+      <ellipse cx="50.5" cy="50" rx="2" ry="2.2" fill="#4a3423"/>
+      <ellipse cx="69.5" cy="50" rx="2" ry="2.2" fill="#4a3423"/>
+      <circle cx="51.2" cy="49.3" r=".6" fill="#fff" opacity=".9"/>
+      <circle cx="70.2" cy="49.3" r=".6" fill="#fff" opacity=".9"/>
+      <g stroke="#1c1c1e" stroke-width="1.9" fill="rgba(228,236,242,.16)">
+        <rect x="42" y="44.5" width="15.5" height="11" rx="2.6"/>
+        <rect x="62.5" y="44.5" width="15.5" height="11" rx="2.6"/>
+      </g>
+      <path d="M57.5,48.5 h5" stroke="#1c1c1e" stroke-width="1.9" fill="none"/>
+      <path d="M42,48 L38,49 M78,48 L82,49" stroke="#1c1c1e" stroke-width="1.6" fill="none"/>
+      <path d="M44,43 q5,-2.2 10,-.8" stroke="#33271d" stroke-width="2.1" fill="none" stroke-linecap="round"/>
+      <path d="M66,42.2 q5,-1.4 10,.8" stroke="#33271d" stroke-width="2.1" fill="none" stroke-linecap="round"/>
+      <!-- short dark hair, faded sides, a little length up top -->
+      <path d="M39,42 Q38,20 60,19 Q82,20 81,42 Q81,31 74,27 Q66,22 52,24 Q44,26 41,32 Q39,36 39,42 Z" fill="#3a2d22"/>
+      <path d="M41,38 Q40,30 46,26 L44,38 Z" fill="#4a3a2c" opacity=".7"/>
+      <path d="M79,38 Q80,30 74,26 L76,38 Z" fill="#4a3a2c" opacity=".7"/>
+      <path d="M46,23 q6,-3 12,-2 M60,20.5 q7,-1 12,3" stroke="#241a12" stroke-width="1" fill="none" opacity=".8"/>`,
     jpbasser: P => `
       <path d="M14,120 C16,96 34,84 46,81 L74,81 C88,84 104,96 106,120 Z" fill="#26313e" stroke="#1a222c" stroke-width="1"/>
       <path d="M48,82 L60,96 L72,82 L72,120 L48,120 Z" fill="#eef1f2"/>
