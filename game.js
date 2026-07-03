@@ -1287,13 +1287,17 @@
   // shared board code.
   // ===========================================================================
   const LB = (() => {
-    let baked = "", rows = null, sortKey = "s";
+    let baked = "", bakedFb = "", rows = null, sortKey = "s";
     fetch("lb-config.json" + (window.BB_V ? "?v=" + window.BB_V : ""))
       .then(r => (r.ok ? r.json() : {}))
-      .then(c => { baked = (c && c.bucket) || ""; })
+      .then(c => { baked = (c && c.bucket) || ""; bakedFb = (c && c.firebase) || ""; })
       .catch(() => {});
     const bucket = () => baked || G.lbBucket || "";
     const base = () => "https://kvdb.io/" + bucket() + "/";
+    // a real database (Firebase RTDB) beats the anonymous key-store whenever
+    // it's configured: one GET returns the whole board, writes are per-angler
+    const fbOk = u => /^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)*\.(firebaseio\.com|firebasedatabase\.app)\/?$/i.test(u || "");
+    const fb = () => { const u = (G.lbFb && fbOk(G.lbFb) ? G.lbFb : bakedFb) || ""; return u.replace(/\/+$/, ""); };
     const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
     function pid() { if (!G.pid) { G.pid = "p" + Math.random().toString(36).slice(2, 10); save(); } return G.pid; }
     function biggest() { const v = Object.values(G.records || {}); return v.length ? Math.max(...v) : 0; }
@@ -1323,6 +1327,7 @@
       if (!force && Date.now() - lastPush < 30000) return;
       lastPush = Date.now(); lastSent = payload;
       const id = pid();
+      if (fb()) { fetch(fb() + "/board/" + id + ".json", { method: "PUT", body: payload }).catch(() => {}); return; }
       fetch(base() + id, { method: "PUT", body: payload })
         .then(() => getRoster())
         .then(ro => { if (!ro.includes(id)) return putRoster(ro.concat(id)); })
@@ -1358,6 +1363,20 @@
     }
     async function fetchAll() {
       const id = pid();
+      if (fb()) {
+        const r = await fetch(fb() + "/board.json");
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        const data = await r.json();
+        const out = Object.entries(data || {}).map(([k, v]) => {
+          try { if (typeof v === "string") v = JSON.parse(v); } catch (e) { return null; }
+          if (!v || !v.n || !/^p[a-z0-9]{4,20}$/.test(k)) return null;
+          v.id = k; return v;
+        }).filter(Boolean);
+        const mine = myEntry(); mine.id = id;
+        const i = out.findIndex(o => o.id === mine.id);
+        if (i >= 0) out[i] = mine; else if (G.name) out.push(mine);
+        return out;
+      }
       let roster = [], rosterErr = null;
       try { roster = await getRoster(); } catch (e) { rosterErr = e; }
       const extra = await listPids();
@@ -1376,7 +1395,19 @@
       return out;
     }
     function codeFoot() {
-      return `<p class="muted" style="text-align:center;margin-top:10px;font-size:11px">Board code: <b>${esc(bucket())}</b><br>Anyone on this game version is on this board automatically.</p>`;
+      const via = fb() ? `⚡ live database` : `Board code: <b>${esc(bucket())}</b>`;
+      return `<p class="muted" style="text-align:center;margin-top:10px;font-size:11px">${via}<br>Anyone on this game version is on this board automatically.
+        <br><span id="lbDbLink" style="text-decoration:underline;cursor:pointer">⚙️ connect a database</span></p>`;
+    }
+    function renderDbSetup() {
+      el.lbBody.innerHTML = `
+        <p class="muted">Paste a Firebase Realtime Database URL (looks like <b>https://something-default-rtdb.firebaseio.com</b>). One player sets it up once — everyone lands on it.</p>
+        <input id="lbFbUrl" class="clog-sel" style="width:100%;margin-bottom:8px" type="url" inputmode="url"
+               placeholder="https://…firebaseio.com" autocomplete="off" value="${esc(G.lbFb || "")}">
+        <div style="display:flex;gap:8px">
+          <button class="big-btn" id="lbFbSave" style="flex:1">🔌 CONNECT</button>
+          <button class="item-btn owned" id="lbFbCancel" style="flex:0 0 auto">CANCEL</button>
+        </div>`;
     }
     function render() {
       if (!bucket()) { renderSetup(); return; }
@@ -1504,6 +1535,13 @@
     el.lbBody.addEventListener("click", (e) => {
       if (e.target.closest("#lbCreate")) { sfx("ui"); create(); return; }
       if (e.target.closest("#lbRetry")) { sfx("ui"); refresh(); return; }
+      if (e.target.closest("#lbDbLink")) { sfx("ui"); renderDbSetup(); return; }
+      if (e.target.closest("#lbFbCancel")) { sfx("ui"); refresh(); return; }
+      if (e.target.closest("#lbFbSave")) {
+        const v = (document.getElementById("lbFbUrl").value || "").trim().replace(/\/+$/, "");
+        if (!fbOk(v)) { toast("That doesn't look like a Firebase URL 🤔"); return; }
+        G.lbFb = v; save(); sfx("good"); toast("🔌 Database connected!"); refresh(); return;
+      }
       if (e.target.closest("#lbJoinBtn")) {
         const v = (document.getElementById("lbJoin").value || "").trim();
         if (v) { G.lbBucket = v; save(); sfx("good"); refresh(); }
