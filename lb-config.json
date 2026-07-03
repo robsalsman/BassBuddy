@@ -1,1 +1,4 @@
-{ "bucket": "xhguzRgTLvAv2UeWFsn6t" }
+{
+  "firebase": "https://bassbuddy-17d9c-default-rtdb.firebaseio.com",
+  "bucket": "xhguzRgTLvAv2UeWFsn6t"
+}
