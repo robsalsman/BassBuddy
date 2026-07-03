@@ -1910,6 +1910,58 @@
       <path d="M53,66.5 Q56,65.5 58,66 L60,66.4 L62,66 Q64,65.5 67,66.5 Q68,74 65,80 Q62.5,84.5 60,84.5 Q57.5,84.5 55,80 Q52,74 53,66.5 Z" fill="#e8e8e3"/>
       <path d="M56,68 q-.5,7 1.5,11 M64,68 q.5,7 -1.5,11 M60,68.5 q0,7.5 0,12" stroke="#c4c4be" stroke-width=".8" fill="none" opacity=".9"/>
       <path d="M56.5,64.6 Q60,66.4 63.5,64.6" stroke="#8a5a3c" stroke-width="1.1" fill="none" stroke-linecap="round"/>`,
+    drg: P => `
+      <path d="M8,120 C11,94 30,82 44,79 L76,79 C90,82 109,94 112,120 Z" fill="#3a6ea8" stroke="#2d578a" stroke-width="1"/>
+      <path d="M46,79 L56,90 L52,96 L44,86 Z" fill="#2d578a"/>
+      <path d="M74,79 L64,90 L68,96 L76,86 Z" fill="#2d578a"/>
+      <path d="M56,90 L60,120 L64,90 Z" fill="#2d578a" opacity=".6"/>
+      <path d="M52,66 L68,66 L67,82 L53,82 Z" fill="#d1a075"/>
+      <ellipse cx="38.5" cy="52" rx="4" ry="6" fill="url(#${P}skin)"/>
+      <ellipse cx="81.5" cy="52" rx="4" ry="6" fill="url(#${P}skin)"/>
+      <path d="M40,42 Q40,25 60,25 Q80,25 80,42 L80,52 Q80,71 60,74 Q40,71 40,52 Z" fill="url(#${P}skin)"/>
+      <!-- the long beard: full at the cheeks, flowing to a point at the chest -->
+      <path d="M41,48 Q40,64 45,74 Q50,86 55,93 Q58,98 60,98 Q62,98 65,93 Q70,86 75,74 Q80,64 79,48 L79,54 Q79,68 73,78 Q68,88 63,93 Q60,96 57,93 Q52,88 47,78 Q41,68 41,54 Z" fill="#463526"/>
+      <path d="M42,50 Q42,66 48,76 Q53,87 58,93 Q60,95.5 62,93 Q67,87 72,76 Q78,66 78,50 Q78,57 75,63 Q73,55 69,53 L65,57 Q62.5,54.5 60,54.5 Q57.5,54.5 55,57 L51,53 Q47,55 45,63 Q42,57 42,50 Z" fill="#52402e"/>
+      <g stroke="#2f2418" stroke-width=".9" fill="none" opacity=".7">
+        <path d="M47,60 q0,12 6,22"/><path d="M73,60 q0,12 -6,22"/><path d="M54,66 q1,12 5,20"/><path d="M66,66 q-1,12 -5,20"/>
+      </g>
+      <g stroke="#8d8478" stroke-width=".8" fill="none" opacity=".65">
+        <path d="M50,62 q0,10 5,18"/><path d="M70,62 q0,10 -5,18"/><path d="M60,68 q0,12 0,20"/>
+      </g>
+      <path d="M51,60.5 Q60,64.5 69,60.5 Q66,58 60,58 Q54,58 51,60.5 Z" fill="#2f2418"/>
+      <path d="M52.4,62.8 Q60,67.6 67.6,62.8 Q66,68.8 60,68.8 Q54,68.8 52.4,62.8 Z" fill="#7e3f2e"/>
+      <path d="M54,64 Q60,67.2 66,64 Q60,66.2 54,64 Z" fill="#f4efe6"/>
+      <path d="M60,47 q-1.5,5.4 -2.4,7.6 q2.4,1.9 4.8,0 Q61.3,52.4 60,47" fill="#c98a5f" opacity=".85"/>
+      <ellipse cx="46" cy="56.5" rx="3.4" ry="2.1" fill="#dd8a62" opacity=".4"/>
+      <ellipse cx="74" cy="56.5" rx="3.4" ry="2.1" fill="#dd8a62" opacity=".4"/>
+      <!-- happy squint: eyes nearly closed by the grin -->
+      <ellipse cx="50.5" cy="50.5" rx="2.6" ry="1.5" fill="#5b6f7d"/>
+      <ellipse cx="69.5" cy="50.5" rx="2.6" ry="1.5" fill="#5b6f7d"/>
+      <circle cx="50.5" cy="50.2" r="1" fill="#33261c"/>
+      <circle cx="69.5" cy="50.2" r="1" fill="#33261c"/>
+      <path d="M47.2,49 q3.3,-2 6.6,-.4" stroke="#a8724e" stroke-width="1" fill="none"/>
+      <path d="M66.2,48.6 q3.3,-1.6 6.6,.4" stroke="#a8724e" stroke-width="1" fill="none"/>
+      <path d="M46.8,53 q3.5,1.6 7,.4" stroke="#b07a52" stroke-width=".9" fill="none" opacity=".8"/>
+      <path d="M66.2,53.4 q3.5,1.2 7,-.4" stroke="#b07a52" stroke-width=".9" fill="none" opacity=".8"/>
+      <path d="M43.5,42.5 q5,-2 10,-.6" stroke="#3a2d20" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      <path d="M66.5,41.9 q5,-1.4 10,.6" stroke="#3a2d20" stroke-width="2.2" fill="none" stroke-linecap="round"/>
+      <!-- charcoal trucker cap, black mesh back, orange shop logo -->
+      <path d="M37,37 Q37,14 60,14 Q83,14 83,37 L83,40 L37,40 Z" fill="#4d545c"/>
+      <path d="M37,37 Q37,20 44,16 L44,40 L37,40 Z" fill="#23262a"/>
+      <path d="M83,37 Q83,20 76,16 L76,40 L83,40 Z" fill="#23262a"/>
+      <g stroke="#3a3e44" stroke-width=".7" opacity=".9">
+        <path d="M38,26 l4,4 M38,31 l4,4 M40,22 l3,3"/>
+        <path d="M82,26 l-4,4 M82,31 l-4,4 M80,22 l-3,3"/>
+      </g>
+      <circle cx="60" cy="15.5" r="1.6" fill="#23262a"/>
+      <g stroke="#e8963c" stroke-width="1.4" fill="none" opacity=".95">
+        <path d="M49,25 q2.5,-3 5,0 q-2.5,3 -5,0 Z"/>
+        <path d="M56,22.5 q3,-1.5 6,0"/>
+        <path d="M56,26.5 q3,1.5 6,0"/>
+      </g>
+      <path d="M64.5,21.5 l2.4,4.6 l2.6,-4.6 l2.4,4.6 l2.2,-4.2" stroke="#f0f0ec" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+      <path d="M33,38 Q60,31 87,38 Q90,43 85,44.5 Q60,37 35,44.5 Q30,43 33,38 Z" fill="#4d545c"/>
+      <path d="M35,44 Q60,37.5 85,44 L84.4,45.4 Q60,39 35.6,45.4 Z" fill="#33383e" opacity=".9"/>`,
     jpbasser: P => `
       <path d="M14,120 C16,96 34,84 46,81 L74,81 C88,84 104,96 106,120 Z" fill="#26313e" stroke="#1a222c" stroke-width="1"/>
       <path d="M48,82 L60,96 L72,82 L72,120 L48,120 Z" fill="#eef1f2"/>
