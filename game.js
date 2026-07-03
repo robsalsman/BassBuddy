@@ -1905,7 +1905,6 @@
       <ellipse cx="81.5" cy="54" rx="4" ry="6" fill="url(#${P}skin)"/>
       <path d="M41,42 Q41,26 60,26 Q79,26 79,42 L79,53 Q79,73 60,76 Q41,73 41,53 Z" fill="url(#${P}skin)"/>
       <g fill="#4c3826">
-        <circle cx="60" cy="17" r="9"/><circle cx="47" cy="20" r="8"/><circle cx="73" cy="20" r="8"/>
         <circle cx="38" cy="28" r="7.5"/><circle cx="82" cy="28" r="7.5"/>
         <circle cx="34.5" cy="39" r="6.5"/><circle cx="85.5" cy="39" r="6.5"/>
         <circle cx="34.5" cy="50" r="5.5"/><circle cx="85.5" cy="50" r="5.5"/>
@@ -1914,7 +1913,6 @@
         <path d="M40,34 Q41,26 47,24 L52,36 Q45,38 40,34 Z"/><path d="M80,34 Q79,26 73,24 L68,36 Q75,38 80,34 Z"/>
       </g>
       <g stroke="#6a523a" stroke-width="1.1" fill="none" opacity=".7">
-        <path d="M44,18 q4,-3 8,-1"/><path d="M56,14 q5,-2 9,1"/><path d="M69,17 q4,-1 7,3"/>
         <path d="M37,30 q1,-5 5,-6"/><path d="M84,31 q-1,-5 -5,-6"/>
         <path d="M50,29 q4,-3 8,-1"/><path d="M63,28 q4,-2 7,1"/>
         <path d="M35,46 q0,-4 3,-6"/><path d="M85,46 q0,-4 -3,-6"/>
@@ -1934,7 +1932,24 @@
       <path d="M60,52 q-1.4,5.2 -2.3,7.4 q2.3,1.8 4.6,0 Q61.2,57.2 60,52" fill="#d69468" opacity=".8"/>
       <path d="M50,64 Q60,72.5 70,64 Q66,71 60,71 Q54,71 50,64 Z" fill="#7e4432"/>
       <path d="M52.4,65.2 Q60,70.4 67.6,65.2 Q60,68.4 52.4,65.2 Z" fill="#f4efe6"/>
-      <path d="M50,64 Q60,72.5 70,64" stroke="#6e3a2a" stroke-width="1" fill="none"/>`,
+      <path d="M50,64 Q60,72.5 70,64" stroke="#6e3a2a" stroke-width="1" fill="none"/>
+      <!-- trucker hat: tall foam front, navy mesh back, red bass on the panel -->
+      <path d="M37,36 Q37,13 60,13 Q83,13 83,36 L83,39 L37,39 Z" fill="#2e4a68"/>
+      <path d="M44,36 Q44,16 60,15 Q76,16 76,36 Z" fill="#f2efe8"/>
+      <path d="M44,36 Q44,26 46,21 Q45,30 46,36 Z" fill="#d9d5ca"/>
+      <path d="M76,36 Q76,26 74,21 Q75,30 74,36 Z" fill="#d9d5ca"/>
+      <g stroke="#22394f" stroke-width=".7" opacity=".8">
+        <path d="M38,26 l4,4 M38,31 l4,4 M40,23 l3,3"/>
+        <path d="M82,26 l-4,4 M82,31 l-4,4 M80,23 l-3,3"/>
+      </g>
+      <circle cx="60" cy="14.5" r="1.6" fill="#22394f"/>
+      <path d="M52.5,26.5 Q57,22.5 62.5,24 Q66,25 67,26.8 Q66,28.6 62.5,29.6 Q57,31 52.5,26.5 Z" fill="#c23b28"/>
+      <path d="M67,26.8 L71.5,23.8 L70.2,26.8 L71.5,29.8 Z" fill="#c23b28"/>
+      <path d="M58,23.6 L59.4,21 L61,23.3 Z" fill="#c23b28"/>
+      <circle cx="56" cy="25.6" r=".8" fill="#f2efe8"/>
+      <path d="M53.5,31.5 q6.5,1.8 13,0" stroke="#c23b28" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+      <path d="M33,38 Q60,31 87,38 Q90,43 85,44.5 Q60,37 35,44.5 Q30,43 33,38 Z" fill="#2e4a68"/>
+      <path d="M35,44 Q60,37.5 85,44 L84.4,45.4 Q60,39 35.6,45.4 Z" fill="#22394f" opacity=".9"/>`,
   };
   function mysteryFace() {
     return `
