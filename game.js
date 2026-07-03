@@ -1777,6 +1777,55 @@
   // ---- portraits: same barn-wood template the Guide set; anglers without a
   // photo yet get a mystery-silhouette card until their real face lands
   const FACES = {
+    roberto: P => `
+      <path d="M14,120 C16,96 34,84 46,81 L74,81 C88,84 104,96 106,120 Z" fill="#4a5258" stroke="#3a4147" stroke-width="1"/>
+      <path d="M48,81 Q60,90 72,81 L72,85 Q60,93 48,85 Z" fill="#3a4147"/>
+      <path d="M52,66 L68,66 L67,84 L53,84 Z" fill="#d1a075"/>
+      <ellipse cx="38.5" cy="52" rx="4" ry="6" fill="url(#${P}skin)"/>
+      <ellipse cx="81.5" cy="52" rx="4" ry="6" fill="url(#${P}skin)"/>
+      <path d="M40,42 Q40,24 60,24 Q80,24 80,42 L80,52 Q80,70 60,73 Q40,70 40,52 Z" fill="url(#${P}skin)"/>
+      <!-- the big salt-and-pepper beard: full, bushy, proud -->
+      <path d="M40,50 Q39,72 46,82 Q52,90 60,90 Q68,90 74,82 Q81,72 80,50 L80,56 Q81,74 72,82 Q66,88 60,88 Q54,88 48,82 Q39,74 40,56 Z" fill="#8f8f89"/>
+      <path d="M41,52 Q41,72 48,80 Q54,87 60,87 Q66,87 72,80 Q79,72 79,52 Q79,60 76,66 Q74,58 71,56 L66,60 Q63,57 60,57 Q57,57 54,60 L49,56 Q46,58 44,66 Q41,60 41,52 Z" fill="#9d9d97"/>
+      <g stroke="#c9c9c2" stroke-width=".9" fill="none" opacity=".8">
+        <path d="M45,60 q-1,9 3,15"/><path d="M75,60 q1,9 -3,15"/><path d="M52,66 q-1,9 3,14"/>
+        <path d="M68,66 q1,9 -3,14"/><path d="M60,70 q0,8 0,13"/>
+      </g>
+      <g stroke="#5f5f5a" stroke-width=".9" fill="none" opacity=".7">
+        <path d="M48,58 q-1,10 2,17"/><path d="M72,58 q1,10 -2,17"/><path d="M56,64 q-.5,10 1,15"/><path d="M64,64 q.5,10 -1,15"/>
+      </g>
+      <path d="M51,62.5 Q60,66.5 69,62.5 Q66,60 60,60 Q54,60 51,62.5 Z" fill="#7d7d78"/>
+      <path d="M52.6,64.4 Q60,69.4 67.4,64.4 Q66,70.4 60,70.4 Q54,70.4 52.6,64.4 Z" fill="#7e3f2e"/>
+      <path d="M54,65.6 Q60,68.8 66,65.6 Q60,67.6 54,65.6 Z" fill="#f2ede4"/>
+      <path d="M60,48 q-1.5,5.4 -2.5,7.6 q2.5,1.9 5,0 Q61.4,53.4 60,48" fill="#c98a5f" opacity=".85"/>
+      <!-- yellow shades, purple mirror lenses -->
+      <linearGradient id="${P}lens" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#c04a97"/><stop offset=".55" stop-color="#8c2f74"/><stop offset="1" stop-color="#5e2050"/>
+      </linearGradient>
+      <g stroke="#f2c531" stroke-width="2.2" fill="url(#${P}lens)">
+        <rect x="42" y="43" width="15.5" height="12" rx="4.5"/>
+        <rect x="62.5" y="43" width="15.5" height="12" rx="4.5"/>
+      </g>
+      <path d="M57.5,47.5 q2.5,-2 5,0" stroke="#f2c531" stroke-width="2.2" fill="none"/>
+      <path d="M42,47 L38,48 M78,47 L82,48" stroke="#f2c531" stroke-width="1.8" fill="none"/>
+      <path d="M45.5,46 q3,-1.6 6,0" stroke="#e9b7dd" stroke-width="1" fill="none" opacity=".7"/>
+      <path d="M66,46 q3,-1.6 6,0" stroke="#e9b7dd" stroke-width="1" fill="none" opacity=".7"/>
+      <!-- camo bucket hat -->
+      <path d="M38,38 Q38,18 60,18 Q82,18 82,38 L82,40 L38,40 Z" fill="#585d61"/>
+      <path d="M32,39 Q60,32 88,39 Q91,44 86,46 Q60,39 34,46 Q29,44 32,39 Z" fill="#4c5155"/>
+      <g opacity=".9">
+        <path d="M44,24 q6,-4 12,-1 q2,4 -3,5 q-7,1 -9,-4 Z" fill="#c9cdd0"/>
+        <path d="M62,20 q7,-1 10,3 q-1,4 -6,3 q-6,-1 -4,-6 Z" fill="#23272a"/>
+        <path d="M50,32 q5,-3 9,0 q1,3 -4,4 q-6,0 -5,-4 Z" fill="#23272a"/>
+        <path d="M68,30 q5,-2 8,1 q0,4 -5,3 q-4,-1 -3,-4 Z" fill="#c9cdd0"/>
+        <path d="M40,32 q4,-4 7,-1 q1,4 -3,4 q-4,0 -4,-3 Z" fill="#8b9094"/>
+        <path d="M37,42 q6,-2 11,0 q1,3 -4,3 q-6,0 -7,-3 Z" fill="#c9cdd0"/>
+        <path d="M56,40 q6,-2 9,1 q-1,3 -5,2 q-5,0 -4,-3 Z" fill="#8b9094"/>
+        <path d="M72,41 q5,-2 9,1 q0,3 -5,2 q-5,0 -4,-3 Z" fill="#23272a"/>
+      </g>
+      <path d="M38,39 Q60,34 82,39 L82,41 Q60,36 38,41 Z" fill="#33383c" opacity=".6"/>
+      <path d="M44,41.5 q5,-2 10,-.6" stroke="#4d4640" stroke-width="2" fill="none" stroke-linecap="round"/>
+      <path d="M66,40.9 q5,-1.4 10,.6" stroke="#4d4640" stroke-width="2" fill="none" stroke-linecap="round"/>`,
     jpbasser: P => `
       <path d="M14,120 C16,96 34,84 46,81 L74,81 C88,84 104,96 106,120 Z" fill="#26313e" stroke="#1a222c" stroke-width="1"/>
       <path d="M48,82 L60,96 L72,82 L72,120 L48,120 Z" fill="#eef1f2"/>
