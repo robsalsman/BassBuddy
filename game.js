@@ -1867,6 +1867,49 @@
       <path d="M41,38 Q40,30 46,26 L44,38 Z" fill="#4a3a2c" opacity=".7"/>
       <path d="M79,38 Q80,30 74,26 L76,38 Z" fill="#4a3a2c" opacity=".7"/>
       <path d="M46,23 q6,-3 12,-2 M60,20.5 q7,-1 12,3" stroke="#241a12" stroke-width="1" fill="none" opacity=".8"/>`,
+    olddog: P => `
+      <path d="M12,120 C15,95 33,83 45,80 L75,80 C89,83 105,95 108,120 Z" fill="#35507a" stroke="#294060" stroke-width="1"/>
+      <path d="M47,80 Q60,89 73,80 L73,85 Q60,94 47,85 Z" fill="#294060"/>
+      <path d="M52,66 L68,66 L67,83 L53,83 Z" fill="#c99a72"/>
+      <ellipse cx="38.5" cy="53" rx="4" ry="6" fill="url(#${P}skin)"/>
+      <ellipse cx="81.5" cy="53" rx="4" ry="6" fill="url(#${P}skin)"/>
+      <!-- the silver side wings flare out past the ears -->
+      <path d="M40,44 Q34,50 30,60 Q28,66 33,64 Q40,61 42,54 Z" fill="#d9d9d4"/>
+      <path d="M80,44 Q86,50 90,60 Q92,66 87,64 Q80,61 78,54 Z" fill="#d9d9d4"/>
+      <path d="M41,52 Q36,58 34,64 Q33,68 38,66 Q43,63 44,57 Z" fill="#c7c7c1"/>
+      <path d="M79,52 Q84,58 86,64 Q87,68 82,66 Q77,63 76,57 Z" fill="#c7c7c1"/>
+      <path d="M41,42 Q41,26 60,26 Q79,26 79,42 L79,53 Q79,72 60,75 Q41,72 41,53 Z" fill="url(#${P}skin)"/>
+      <path d="M44,62 Q52,73 60,74 Q68,73 76,62 Q71,71 60,72 Q49,71 44,62 Z" fill="#b07a52" opacity=".4"/>
+      <!-- weathered lines: a life squinting at the water -->
+      <g stroke="#b07a52" stroke-width=".8" fill="none" opacity=".55">
+        <path d="M48,36 q12,-2.5 24,0"/><path d="M50,32.5 q10,-2 20,0"/>
+        <path d="M43,56 q1.5,3 3.5,4"/><path d="M77,56 q-1.5,3 -3.5,4"/>
+      </g>
+      <!-- swept-back silver mane -->
+      <path d="M39,44 Q38,18 60,17 Q82,18 81,44 Q81,30 74,26 Q66,22 54,23 Q45,25 42,32 Q39,37 39,44 Z" fill="#d9d9d4"/>
+      <path d="M42,30 q8,-6 17,-6 M52,22.5 q9,-1.5 17,2 M44,37 q4,-8 11,-11" stroke="#b9b9b3" stroke-width="1" fill="none" opacity=".9"/>
+      <path d="M60,17.5 q10,1 15,7" stroke="#efefec" stroke-width="1.1" fill="none" opacity=".9"/>
+      <!-- thin half-rim glasses -->
+      <path d="M44,45 q5,-1.8 10,-.6" stroke="#a8a8a2" stroke-width="1.9" fill="none" stroke-linecap="round"/>
+      <path d="M66,44.4 q5,-1.2 10,.6" stroke="#a8a8a2" stroke-width="1.9" fill="none" stroke-linecap="round"/>
+      <ellipse cx="50.5" cy="51.6" rx="1.9" ry="1.9" fill="#41525c"/>
+      <ellipse cx="69.5" cy="51.6" rx="1.9" ry="1.9" fill="#41525c"/>
+      <circle cx="51.2" cy="51" r=".55" fill="#fff" opacity=".9"/>
+      <circle cx="70.2" cy="51" r=".55" fill="#fff" opacity=".9"/>
+      <path d="M47,54.8 q3.6,1.3 7,.2" stroke="#b07a52" stroke-width=".8" fill="none" opacity=".7"/>
+      <path d="M66,55 q3.6,1.1 7,-.2" stroke="#b07a52" stroke-width=".8" fill="none" opacity=".7"/>
+      <g stroke="#2a2a2c" stroke-width="1.5" fill="rgba(230,238,244,.14)">
+        <rect x="42.5" y="47" width="15" height="9.5" rx="2.2"/>
+        <rect x="62.5" y="47" width="15" height="9.5" rx="2.2"/>
+      </g>
+      <path d="M57.5,50 h5" stroke="#2a2a2c" stroke-width="1.4" fill="none"/>
+      <path d="M42.5,50 L38.5,51 M77.5,50 L81.5,51" stroke="#2a2a2c" stroke-width="1.3" fill="none"/>
+      <path d="M60,50 q-1.4,5.6 -2.3,7.8 q2.3,1.8 4.6,0 Q61.2,55.6 60,50" fill="#b87f57" opacity=".8"/>
+      <!-- white Van Dyke: heavy mustache, pointed chin beard -->
+      <path d="M49.5,62.5 Q54,59.5 60,61 Q66,59.5 70.5,62.5 Q68,65.5 63,64.5 Q61.5,64 60,64 Q58.5,64 57,64.5 Q52,65.5 49.5,62.5 Z" fill="#e8e8e3"/>
+      <path d="M53,66.5 Q56,65.5 58,66 L60,66.4 L62,66 Q64,65.5 67,66.5 Q68,74 65,80 Q62.5,84.5 60,84.5 Q57.5,84.5 55,80 Q52,74 53,66.5 Z" fill="#e8e8e3"/>
+      <path d="M56,68 q-.5,7 1.5,11 M64,68 q.5,7 -1.5,11 M60,68.5 q0,7.5 0,12" stroke="#c4c4be" stroke-width=".8" fill="none" opacity=".9"/>
+      <path d="M56.5,64.6 Q60,66.4 63.5,64.6" stroke="#8a5a3c" stroke-width="1.1" fill="none" stroke-linecap="round"/>`,
     jpbasser: P => `
       <path d="M14,120 C16,96 34,84 46,81 L74,81 C88,84 104,96 106,120 Z" fill="#26313e" stroke="#1a222c" stroke-width="1"/>
       <path d="M48,82 L60,96 L72,82 L72,120 L48,120 Z" fill="#eef1f2"/>
