@@ -2229,7 +2229,7 @@
     sfx("ui");
   }
   function startBowfish() {
-    S.bow = { t: GAR_MS, gars: [], arrows: [], hits: [], haul: [], spawnT: 500, shots: 0, over: false };
+    S.bow = { t: GAR_MS, gars: [], arrows: [], hits: [], haul: [], spawnT: 500, shots: 0, over: false, penalty: 0, fight: null, holding: false };
     S.mode = "bowfish";
     S.view = "surface"; S.viewT = 1;
     el.garModal.classList.add("hidden");
@@ -2242,17 +2242,58 @@
   function updateBowfish(dt) {
     const B = S.bow; if (!B || B.over) return;
     B.t -= dt;
-    B.spawnT -= dt;
     const wl = waterLine();
-    if (B.spawnT <= 0) {
-      B.spawnT = rnd(650, 1800);
-      const giant = Math.random() < 0.2;
-      const w = +(giant ? rnd(15, 48) : rnd(3, 12)).toFixed(1);
-      B.gars.push({ x: rnd(W * 0.14, W * 0.86), y: wl + 24 + rnd(0, (H - wl) * 0.5),
-        w, r: 15 + w * 0.85, t: 0, dur: rnd(950, 1500) * (giant ? 0.82 : 1),
-        dir: Math.random() < 0.5 ? -1 : 1, hit: false });
+    // ---- a stuck giant fights on the bow reel ----
+    if (B.fight) {
+      const F = B.fight;
+      F.stT -= dt;
+      if (F.stT <= 0) {
+        F.state = F.state === "run" ? "jump" : "run";
+        F.stT = F.state === "jump" ? 680 : rnd(900, 1700);
+        if (F.state === "jump") { sfx("jump"); splash(F.x, F.y); if (Math.random() < 0.5) F.dir *= -1; }
+      }
+      F.jp = F.state === "jump" ? 1 - F.stT / 680 : 0;
+      F.x = clamp(F.x + F.dir * dt * 0.028, W * 0.12, W * 0.88);
+      if (B.holding) {
+        F.dist = clamp(F.dist - dt * 0.00009 * (F.state === "jump" ? 0.25 : 1), 0, 1);
+        F.strain = clamp(F.strain + dt * (F.state === "jump" ? 0.00075 : 0.00016), 0, 1);
+      } else {
+        F.strain = clamp(F.strain - dt * 0.0006, 0, 1);
+        F.dist = clamp(F.dist + dt * 0.00002, 0, 1);
+      }
+      if (F.strain >= 1) {          // it threw the arrow
+        toast("💢 It threw the arrow!"); sfx("snap"); vibrate([60, 40, 60]);
+        splash(F.x, F.y); B.fight = null;
+      } else if (F.dist <= 0.06) {  // boated!
+        B.haul.push(F.w);
+        B.hits.push({ x: W * 0.5, y: wl + 60, t: 0, w: F.w });
+        B.t = Math.min(GAR_MS, B.t + 6000);   // a giant buys you time
+        toast(`🐊 GIANT GAR boated — <b>${F.w} lb</b> (+6s)`);
+        sfx("lunker"); vibrate([30, 40, 30, 40]);
+        B.fight = null;
+      }
+    } else {
+      // ---- the river rolls: gar, and things you'd better not shoot ----
+      B.spawnT -= dt;
+      if (B.spawnT <= 0) {
+        B.spawnT = rnd(650, 1800);
+        const roll = Math.random();
+        if (roll < 0.12) {          // beaver crossing, tail up
+          B.gars.push({ type: "beaver", x: rnd(W * 0.16, W * 0.84), y: wl + 24 + rnd(0, (H - wl) * 0.45),
+            w: 0, r: 24, t: 0, dur: rnd(2100, 2800), dir: Math.random() < 0.5 ? -1 : 1, hit: false });
+        } else if (roll < 0.22) {   // gator gliding, eyes and snout
+          B.gars.push({ type: "gator", x: rnd(W * 0.16, W * 0.84), y: wl + 24 + rnd(0, (H - wl) * 0.5),
+            w: 0, r: 30, t: 0, dur: rnd(2600, 3400), dir: Math.random() < 0.5 ? -1 : 1, hit: false });
+        } else {
+          const giant = Math.random() < 0.2;
+          const w = +(giant ? rnd(15, 48) : rnd(3, 12)).toFixed(1);
+          B.gars.push({ type: "gar", x: rnd(W * 0.14, W * 0.86), y: wl + 24 + rnd(0, (H - wl) * 0.5),
+            w, r: 15 + w * 0.85, t: 0, dur: rnd(950, 1500) * (giant ? 0.82 : 1),
+            dir: Math.random() < 0.5 ? -1 : 1, hit: false });
+        }
+      }
     }
-    for (const g of B.gars) g.t += dt;
+    for (const g of B.gars) { g.t += dt; if (g.type !== "gar") g.x += g.dir * dt * 0.012; }
     B.gars = B.gars.filter(g => g.t < g.dur && !g.hit);
     for (const a of B.arrows) {
       a.t += dt;
@@ -2260,23 +2301,42 @@
         a.done = true;
         const g = B.gars.find(g2 => !g2.hit && g2.t < g2.dur && Math.hypot(g2.x - a.tx, g2.y - a.ty) < g2.r);
         splash(a.tx, a.ty);
-        if (g) {
-          g.hit = true; B.haul.push(g.w);
+        if (!g) { sfx("splash"); continue; }
+        g.hit = true;
+        if (g.type === "beaver") {
+          B.penalty += 300;
+          B.hits.push({ x: g.x, y: g.y, t: 0, bad: "NOT THE BEAVER! −300" });
+          sfx("weak"); vibrate([70, 50, 70]);
+        } else if (g.type === "gator") {
+          B.penalty += 500;
+          B.hits.push({ x: g.x, y: g.y, t: 0, bad: "THAT'S A GATOR!! −500" });
+          // the thrash spooks everything in the pool
+          for (const o of B.gars) if (o.type === "gar") o.hit = true;
+          B.spawnT = Math.max(B.spawnT, 2600);
+          splash(g.x, g.y); splash(g.x + 14, g.y); splash(g.x - 14, g.y);
+          sfx("snap"); vibrate([90, 60, 90]);
+        } else if (g.w >= 15) {     // a giant doesn't come easy — reel it in
+          B.fight = { x: g.x, y: g.y, w: g.w, r: g.r, dist: 1, strain: 0, state: "run", stT: 900, dir: g.dir, jp: 0 };
+          toast("🏹 STUCK A GIANT — <b>hold</b> to reel, let go when it jumps!");
+          sfx("strike"); vibrate([30, 50, 30]);
+        } else {
+          B.haul.push(g.w);
           B.hits.push({ x: g.x, y: g.y, t: 0, w: g.w });
-          sfx(g.w >= 20 ? "lunker" : "good"); vibrate([20, 30, 20]);
-        } else sfx("splash");
+          sfx("good"); vibrate([20, 30, 20]);
+        }
       }
     }
     B.arrows = B.arrows.filter(a => a.t < a.dur + 350);
     for (const h of B.hits) h.t += dt;
-    B.hits = B.hits.filter(h => h.t < 1000);
+    B.hits = B.hits.filter(h => h.t < 1100);
     if (B.t <= 0) endBowfish();
   }
   function bowShoot(x, y) {
     const B = S.bow; if (!B || B.over) return;
+    if (B.fight) { B.holding = true; return; }           // mid-fight the tap IS the reel
     if (y < waterLine() + 6) return;                     // arrows go in the water
     B.shots++;
-    B.arrows.push({ sx: W * 0.64, sy: H - 46, tx: x, ty: y, t: 0, dur: 170, done: false });
+    B.arrows.push({ sx: W * 0.56, sy: H - 96, tx: x, ty: y, t: 0, dur: 170, done: false });
     sfx("cast"); vibrate(10);
   }
   function endBowfish() {
@@ -2284,7 +2344,7 @@
     B.over = true;
     const total = +B.haul.reduce((a, w) => a + w, 0).toFixed(1);
     const big = B.haul.length ? Math.max(...B.haul) : 0;
-    const pts = Math.round(total * 60 + B.haul.length * 120);
+    const pts = Math.max(0, Math.round(total * 60 + B.haul.length * 120) - B.penalty);
     G.coins += pts; addAnglerXP(pts);
     G.garTrips = (G.garTrips || 0) + 1;
     G.garCount = (G.garCount || 0) + B.haul.length;
@@ -2295,7 +2355,7 @@
     el.garFace.innerHTML = anglerSVG(ANGLERS.find(a => a.id === "roberto"), false);
     el.garBody.innerHTML = `<p><b>Roberto:</b> “${B.haul.length ? "Now THAT'S bowfishing!" : "They rolled right past us — quicker on the draw next time!"}”</p>
       <p>🏹 <b>${B.haul.length}</b> gar arrowed · <b>${total.toFixed(1)} lb</b>${big ? ` · biggest <b>${big.toFixed(1)} lb</b>` : ""}<br>
-      🎯 <b>+${pts.toLocaleString()}</b> points${G.garBestHaul === total && B.haul.length ? " · best haul yet!" : ""}</p>`;
+      🎯 <b>+${pts.toLocaleString()}</b> points${B.penalty ? ` <span style="color:#ff9d8a">(−${B.penalty} for the wildlife…)</span>` : ""}${G.garBestHaul === total && B.haul.length ? " · best haul yet!" : ""}</p>`;
     el.garYes.textContent = "🎣 BACK TO THE BASS";
     el.garNo.classList.add("hidden");
     el.garModal.classList.remove("hidden");
@@ -2332,23 +2392,92 @@
     ctx.save(); ctx.globalAlpha = 0.12; ctx.strokeStyle = "#cfe4ef"; ctx.lineWidth = 1;
     for (let i = 0; i < 7; i++) { const yy = wl + 26 + i * ((H - wl) / 7); ctx.beginPath(); ctx.moveTo(0, yy + Math.sin(now / 900 + i * 2) * 3); ctx.bezierCurveTo(W * 0.3, yy - 4, W * 0.7, yy + 4, W, yy); ctx.stroke(); }
     ctx.restore();
-    // rolling gar
+    // what's moving on the river: gar roll, beavers cross, gators glide
     for (const gr of B.gars) {
-      const p = gr.t / gr.dur, up = Math.sin(p * Math.PI);        // rise and sound
-      const len = gr.r * 2.2, hgt = gr.r * 0.5 * up;
+      const p = gr.t / gr.dur, up = Math.sin(p * Math.PI);
+      ctx.save(); ctx.globalAlpha = 0.3 * up; ctx.strokeStyle = "#cfe4ef"; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.ellipse(gr.x, gr.y + 3, gr.r * 1.35 + p * 14, 6 + p * 5, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
       ctx.save(); ctx.translate(gr.x, gr.y); ctx.scale(gr.dir, 1);
-      ctx.globalAlpha = 0.35 + up * 0.6;
-      ctx.fillStyle = "#4a5537";
-      ctx.beginPath(); ctx.ellipse(0, 2 - hgt * 0.5, len * 0.5, Math.max(2, hgt), 0, Math.PI, 0); ctx.fill();
-      if (up > 0.45) {   // the long snout breaks water on the roll
-        ctx.fillStyle = "#5b6844";
-        ctx.beginPath(); ctx.moveTo(len * 0.42, 1 - hgt * 0.4); ctx.lineTo(len * 0.72, 3 - hgt * 0.1); ctx.lineTo(len * 0.42, 4); ctx.closePath(); ctx.fill();
-        ctx.fillStyle = "#39422b";
-        ctx.beginPath(); ctx.moveTo(-len * 0.28, -hgt); ctx.lineTo(-len * 0.16, -hgt - 6 * up); ctx.lineTo(-len * 0.06, -hgt); ctx.closePath(); ctx.fill();
+      if (gr.type === "beaver") {
+        ctx.globalAlpha = 0.45 + up * 0.55;
+        ctx.fillStyle = "#5c4128";
+        ctx.beginPath(); ctx.ellipse(6, -2, 12, 6.5, 0, 0, Math.PI * 2); ctx.fill();      // wet brown back
+        ctx.beginPath(); ctx.arc(17, -6, 6, 0, Math.PI * 2); ctx.fill();                  // round head
+        ctx.fillStyle = "#4a3420";
+        ctx.beginPath(); ctx.arc(14.5, -11, 2.2, 0, Math.PI * 2); ctx.arc(20, -10.5, 2.2, 0, Math.PI * 2); ctx.fill();   // little ears
+        ctx.beginPath(); ctx.ellipse(-10, 0, 8, 3.4, -0.35, 0, Math.PI * 2); ctx.fill();  // the flat tail
+        ctx.fillStyle = "#1c1410"; ctx.beginPath(); ctx.arc(19.5, -6.5, 1.1, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "rgba(207,228,239,0.5)"; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(24, -3); ctx.lineTo(34, -8); ctx.moveTo(24, 1); ctx.lineTo(36, 3); ctx.stroke();     // V wake
+      } else if (gr.type === "gator") {
+        ctx.globalAlpha = 0.5 + up * 0.5;
+        ctx.fillStyle = "#33402a";
+        ctx.beginPath(); ctx.ellipse(-14, -1, 12, 4, 0, 0, Math.PI * 2); ctx.fill();      // back ridge
+        ctx.beginPath(); ctx.ellipse(6, -2, 14, 3.4, 0, 0, Math.PI * 2); ctx.fill();      // long snout ridge
+        ctx.fillStyle = "#25301e";
+        ctx.beginPath(); ctx.arc(-1, -6, 3.4, 0, Math.PI * 2); ctx.arc(6, -6.2, 3.2, 0, Math.PI * 2); ctx.fill();        // eye knobs
+        ctx.fillStyle = "#ffd35c";
+        ctx.beginPath(); ctx.arc(-1, -6.5, 1, 0, Math.PI * 2); ctx.arc(6, -6.7, 1, 0, Math.PI * 2); ctx.fill();          // eyeshine
+        ctx.strokeStyle = "#25301e"; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(-24, -4); ctx.lineTo(-19, -6.5); ctx.moveTo(-17, -5); ctx.lineTo(-12, -7); ctx.stroke();   // tail scutes
+      } else {
+        const len = gr.r * 2.2, hgt = gr.r * 0.5 * up;
+        ctx.globalAlpha = 0.35 + up * 0.6;
+        ctx.fillStyle = "#4a5537";
+        ctx.beginPath(); ctx.ellipse(0, 2 - hgt * 0.5, len * 0.5, Math.max(2, hgt), 0, Math.PI, 0); ctx.fill();
+        if (up > 0.45) {
+          ctx.fillStyle = "#5b6844";
+          ctx.beginPath(); ctx.moveTo(len * 0.42, 1 - hgt * 0.4); ctx.lineTo(len * 0.72, 3 - hgt * 0.1); ctx.lineTo(len * 0.42, 4); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = "#39422b";
+          ctx.beginPath(); ctx.moveTo(-len * 0.28, -hgt); ctx.lineTo(-len * 0.16, -hgt - 6 * up); ctx.lineTo(-len * 0.06, -hgt); ctx.closePath(); ctx.fill();
+        }
       }
       ctx.restore();
-      ctx.save(); ctx.globalAlpha = 0.3 * up; ctx.strokeStyle = "#cfe4ef"; ctx.lineWidth = 1.4;
-      ctx.beginPath(); ctx.ellipse(gr.x, gr.y + 3, len * 0.62 + p * 14, 6 + p * 5, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    }
+    // ---- the hooked giant: thrashing, jumping, arrow buried in its back ----
+    if (B.fight) {
+      const F = B.fight;
+      const bowX = W * 0.56, bowY = H - 96;
+      const gx = bowX + (F.x - bowX) * F.dist, gy = (waterLine() + 74) + (F.y - waterLine() - 74) * F.dist;
+      const lift = Math.sin((F.jp || 0) * Math.PI) * 52;
+      const len = 30 + F.w * 1.1;
+      const thrash = Math.sin(now / 55) * (F.state === "jump" ? 0.34 : 0.13);
+      // taut line from the bow reel to the fish
+      ctx.save(); ctx.strokeStyle = "rgba(240,240,235,0.7)"; ctx.lineWidth = 1.3;
+      ctx.beginPath(); ctx.moveTo(bowX, bowY); ctx.quadraticCurveTo((bowX + gx) / 2, Math.min(bowY, gy - lift) - 8, gx, gy - lift); ctx.stroke(); ctx.restore();
+      ctx.save(); ctx.translate(gx, gy - lift); ctx.rotate(thrash * (F.dir || 1));
+      ctx.scale(F.dir || 1, 1);
+      ctx.globalAlpha = F.state === "jump" ? 1 : 0.85;
+      ctx.fillStyle = "#57653f";
+      ctx.beginPath(); ctx.ellipse(0, 0, len * 0.5, len * 0.14, 0, 0, Math.PI * 2); ctx.fill();     // long body
+      ctx.beginPath(); ctx.moveTo(len * 0.44, -2); ctx.lineTo(len * 0.78, 1); ctx.lineTo(len * 0.44, 4); ctx.closePath(); ctx.fill();   // the snout
+      ctx.fillStyle = "#48543a";
+      ctx.beginPath(); ctx.moveTo(-len * 0.48, 0); ctx.lineTo(-len * 0.66, -8); ctx.lineTo(-len * 0.62, 8); ctx.closePath(); ctx.fill(); // tail
+      ctx.fillStyle = "#e6ecda"; ctx.beginPath(); ctx.ellipse(2, len * 0.07, len * 0.4, len * 0.05, 0, 0, Math.PI); ctx.fill();          // pale belly
+      ctx.fillStyle = "#1c2416"; ctx.beginPath(); ctx.arc(len * 0.34, -2, 2, 0, Math.PI * 2); ctx.fill();                                 // eye
+      // the arrow, buried and waving
+      ctx.strokeStyle = "#e8d9b0"; ctx.lineWidth = 2.4;
+      ctx.beginPath(); ctx.moveTo(-len * 0.1, -len * 0.1); ctx.lineTo(-len * 0.1 - 10, -len * 0.1 - 18); ctx.stroke();
+      ctx.fillStyle = "#c23b28";
+      ctx.beginPath(); ctx.moveTo(-len * 0.1 - 10, -len * 0.1 - 18); ctx.lineTo(-len * 0.1 - 16, -len * 0.1 - 24); ctx.lineTo(-len * 0.1 - 6, -len * 0.1 - 22); ctx.closePath(); ctx.fill();
+      ctx.restore();
+      if (F.state === "jump") { ctx.save(); ctx.globalAlpha = 0.5; ctx.strokeStyle = "#cfe4ef"; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.ellipse(gx, gy + 4, len * 0.5, 7, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
+      // line-strain bar + coaching
+      const sw = 150, sx2 = (W - sw) / 2, sy2 = 54;
+      ctx.save();
+      ctx.fillStyle = "rgba(6,26,36,0.72)"; ctx.beginPath(); ctx.roundRect(sx2 - 8, sy2 - 7, sw + 16, 24, 12); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,0.18)"; ctx.beginPath(); ctx.roundRect(sx2, sy2, sw, 10, 5); ctx.fill();
+      ctx.fillStyle = F.strain > 0.72 ? "#ff5d5d" : F.strain > 0.45 ? "#ffd35c" : "#8fe3a0";
+      ctx.beginPath(); ctx.roundRect(sx2, sy2, sw * F.strain, 10, 5); ctx.fill();
+      ctx.restore();
+      if (!B.holding) {
+        ctx.save(); ctx.globalAlpha = 0.75 + Math.sin(now / 180) * 0.25;
+        ctx.font = "800 17px system-ui"; ctx.textAlign = "center";
+        ctx.fillStyle = "#ffd35c"; ctx.strokeStyle = "rgba(0,0,0,.6)"; ctx.lineWidth = 4; ctx.lineJoin = "round";
+        ctx.strokeText("HOLD TO REEL!", W / 2, sy2 + 40); ctx.fillText("HOLD TO REEL!", W / 2, sy2 + 40);
+        ctx.restore();
+      }
     }
     // arrows with the line trailing back to the bow
     for (const a of B.arrows) {
@@ -2367,30 +2496,67 @@
     }
     // hit callouts float up
     for (const h of B.hits) {
-      const p = h.t / 1000;
+      const p = h.t / 1100;
       ctx.save(); ctx.globalAlpha = 1 - p;
-      ctx.font = "800 " + (h.w >= 20 ? 24 : 18) + "px system-ui"; ctx.textAlign = "center";
-      ctx.fillStyle = h.w >= 20 ? "#ffd35c" : "#8fe3a0";
+      const msg2 = h.bad || `${h.w} lb!`;
+      ctx.font = "800 " + (h.bad ? 17 : h.w >= 20 ? 24 : 18) + "px system-ui"; ctx.textAlign = "center";
+      ctx.fillStyle = h.bad ? "#ff5d5d" : h.w >= 20 ? "#ffd35c" : "#8fe3a0";
       ctx.strokeStyle = "rgba(0,0,0,.6)"; ctx.lineWidth = 4; ctx.lineJoin = "round";
       const ty = h.y - 24 - p * 34;
-      ctx.strokeText(`${h.w} lb!`, h.x, ty); ctx.fillText(`${h.w} lb!`, h.x, ty);
+      const hx2 = clamp(h.x, 70, W - 70);
+      ctx.strokeText(msg2, hx2, ty); ctx.fillText(msg2, hx2, ty);
       ctx.restore();
     }
-    // the boat bow + the bow: Dr. G is shooting, Roberto's driving
+    // the boat bow — and Dr. G standing on the deck with the bow, Roberto driving
     ctx.fillStyle = "#7e2f3b";
     ctx.beginPath(); ctx.moveTo(W * 0.08, H); ctx.quadraticCurveTo(W * 0.5, H - 72, W * 0.92, H); ctx.closePath(); ctx.fill();
     ctx.fillStyle = "#5f232d";
     ctx.beginPath(); ctx.moveTo(W * 0.2, H); ctx.quadraticCurveTo(W * 0.5, H - 46, W * 0.8, H); ctx.closePath(); ctx.fill();
-    const bx = W * 0.64, by = H - 46, flying = B.arrows.some(a => !a.done);
-    ctx.save(); ctx.translate(bx, by); ctx.rotate(-0.5);
-    ctx.strokeStyle = "#6b4a2a"; ctx.lineWidth = 5; ctx.lineCap = "round";
-    ctx.beginPath(); ctx.arc(0, 0, 34, -1.15, 1.15); ctx.stroke();
-    ctx.strokeStyle = "rgba(235,235,225,0.85)"; ctx.lineWidth = 1.5;
-    const tipX = Math.cos(1.15) * 34, tipY = Math.sin(1.15) * 34;
-    ctx.beginPath(); ctx.moveTo(Math.cos(-1.15) * 34, Math.sin(-1.15) * 34);
-    if (flying) ctx.lineTo(tipX, tipY); else { ctx.lineTo(-12, 0); ctx.lineTo(tipX, tipY); }
+    const flying = B.arrows.some(a => !a.done);
+    const fighting = !!B.fight, straining = fighting && B.holding;
+    const px = W * 0.66, deckY = H - 34;
+    const lean = straining ? 0.16 : fighting ? 0.06 : 0;
+    ctx.save(); ctx.translate(px, deckY); ctx.rotate(lean);
+    // legs planted on the deck
+    ctx.strokeStyle = "#2c3238"; ctx.lineWidth = 9; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(-7, 0); ctx.lineTo(-10, -30); ctx.moveTo(9, 0); ctx.lineTo(10, -30); ctx.stroke();
+    // torso: the blue polo, back-quarter view
+    ctx.fillStyle = "#3a6ea8";
+    ctx.beginPath(); ctx.moveTo(-15, -30); ctx.quadraticCurveTo(-17, -62, -8, -66) ; ctx.lineTo(10, -66); ctx.quadraticCurveTo(18, -60, 15, -30); ctx.closePath(); ctx.fill();
+    // the long beard peeking past the shoulder
+    ctx.fillStyle = "#463526";
+    ctx.beginPath(); ctx.moveTo(-4, -64); ctx.quadraticCurveTo(-9, -52, -3, -44); ctx.quadraticCurveTo(2, -52, 2, -63); ctx.closePath(); ctx.fill();
+    // head + the charcoal trucker cap
+    ctx.fillStyle = "#dfae85"; ctx.beginPath(); ctx.arc(0, -75, 9.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#4d545c"; ctx.beginPath(); ctx.arc(0, -78, 10, Math.PI * 0.95, Math.PI * 2.02); ctx.fill();
+    ctx.fillStyle = "#4d545c"; ctx.beginPath(); ctx.ellipse(7, -78.5, 8, 3, -0.12, 0, Math.PI * 2); ctx.fill();
+    // bow arm reaching out over the water
+    ctx.strokeStyle = "#3a6ea8"; ctx.lineWidth = 8; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(-8, -58); ctx.lineTo(-34, -66); ctx.stroke();
+    ctx.fillStyle = "#dfae85"; ctx.beginPath(); ctx.arc(-37, -67, 4.5, 0, Math.PI * 2); ctx.fill();
+    // draw arm: pulled to the cheek at rest, thrown forward on release
+    ctx.strokeStyle = "#35638f"; ctx.lineWidth = 8;
+    ctx.beginPath(); ctx.moveTo(9, -58);
+    if (flying || fighting) ctx.lineTo(-16, -64); else ctx.lineTo(-6, -70);
     ctx.stroke();
-    if (!flying) { ctx.strokeStyle = "#e8d9b0"; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(-12, 0); ctx.lineTo(30, 0); ctx.stroke(); }
+    ctx.fillStyle = "#dfae85"; ctx.beginPath();
+    if (flying || fighting) ctx.arc(-18, -64.5, 4, 0, Math.PI * 2); else ctx.arc(-7, -70.5, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    // the bow itself sits in the lead hand (arrows launch from here: W*0.56, H-96)
+    const bx = px - 37 + lean * 20, by = deckY - 67;
+    ctx.save(); ctx.translate(bx, by); ctx.rotate(-0.62 + lean * 0.6);
+    ctx.strokeStyle = "#6b4a2a"; ctx.lineWidth = 5; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.arc(0, 0, 30, -1.12, 1.12); ctx.stroke();
+    // the bow reel: a little drum under the grip with line on it
+    ctx.fillStyle = "#2e3338"; ctx.beginPath(); ctx.arc(-6, 8, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "#c9c9c2"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(-6, 8, 3.4, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = "rgba(235,235,225,0.85)"; ctx.lineWidth = 1.5;
+    const tX = Math.cos(1.12) * 30, tY = Math.sin(1.12) * 30;
+    ctx.beginPath(); ctx.moveTo(Math.cos(-1.12) * 30, Math.sin(-1.12) * 30);
+    if (flying || fighting) ctx.lineTo(tX, tY); else { ctx.lineTo(-11, 0); ctx.lineTo(tX, tY); }
+    ctx.stroke();
+    if (!flying && !fighting) { ctx.strokeStyle = "#e8d9b0"; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(-11, 0); ctx.lineTo(27, 0); ctx.stroke(); }
     ctx.restore();
     // canvas HUD: the clock and the stringer
     const sec = Math.max(0, Math.ceil(B.t / 1000));
@@ -3179,6 +3345,7 @@
     const dur = performance.now() - S.pressT;
     if (S.mode === "retrieve") { if (!holdCandidate || dur < HOLD_MS) twitch(); S.holding = false; holdCandidate = false; }
     else if (S.mode === "fight") S.holding = false;
+    else if (S.mode === "bowfish" && S.bow) S.bow.holding = false;
   }
   // unlock the audio context on the first touch (mobile policy) + a soft click on any control
   document.addEventListener("pointerdown", (e) => {
