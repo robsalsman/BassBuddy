@@ -755,6 +755,8 @@
     { id: "champ",   ico: "👑", name: "Circuit Champion",  desc: "Win a circuit season",                test: c => c.titles >= 1 },
     { id: "garrun",  ico: "🏹", name: "River Secret",      desc: "Somebody saw big gar up the river…",  test: c => c.garTrips >= 1 },
     { id: "garslam", ico: "🐊", name: "Gar Wrangler",      desc: "Arrow 100 lb of gar in one river run", test: c => c.garBestHaul >= 100 },
+    { id: "creekrun", ico: "🥄", name: "Creek Secret",     desc: "Word at the marina: something's running…", test: c => c.sandTrips >= 1 },
+    { id: "sandslam", ico: "🐟", name: "Sandy Slam",       desc: "Boat 20 lb of sand bass in one creek run", test: c => c.sandBestHaul >= 20 },
     { id: "champ3",  ico: "💍", name: "Three-Peat",        desc: "Win 3 circuit seasons",               test: c => c.titles >= 3, prog: c => [c.titles, 3] },
     // ---- the arcade ----
     { id: "arcade",  ico: "🕹️", name: "Get Bass!",         desc: "Clear all 4 Arcade stages",           test: c => c.arcadeClears >= 1 },
@@ -787,6 +789,7 @@
       bestCatchScore: G.bestCatchScore || 0, bestDayCatches: G.bestDayCatches || 0,
       lifeScore: G.coins || 0, tutorial: !!G.tutorialDone,
       garTrips: G.garTrips || 0, garBestHaul: G.garBestHaul || 0,
+      sandTrips: G.sandTrips || 0, sandBestHaul: G.sandBestHaul || 0,
       lureCount: Math.max(new Set(log.map(e => e.lure)).size, cnt(t.lure)),
       rodCount: cnt(t.rod), lineCount: cnt(t.line), sizeCount: cnt(t.size),
       scentCount: Object.keys(t.scent || {}).filter(k => k && k !== "none").length,
@@ -2219,24 +2222,31 @@
   // ===========================================================================
   const GAR_MS = 75000;
   function eggAvailable() {
-    return G.spot === "deep" && angler().id === "drg" && !(S.tournament && !S.tournament.ended) && !(S.arcade && !S.arcade.ended) && !S.tut;
+    return G.spot === "deep" && (angler().id === "drg" || angler().id === "jpbasser")
+      && !(S.tournament && !S.tournament.ended) && !(S.arcade && !S.arcade.ended) && !S.tut;
   }
+  const eggKind = () => (angler().id === "jpbasser" ? "sand" : "gar");
   function openGarInvite() {
     el.garFace.innerHTML = anglerSVG(ANGLERS.find(a => a.id === "roberto"), false);
-    el.garBody.innerHTML = `<p><b>Roberto:</b> “Hey Jake, I saw some <b>big gar</b> up the river — let's grab our bows and head up!”</p>`;
-    el.garYes.textContent = "🏹 GRAB THE BOWS";
+    if (eggKind() === "sand") {
+      el.garBody.innerHTML = `<p><b>Roberto:</b> “Hey James! I heard at the marina the <b>sand bass</b> are running up the creek — wanna check it out?”</p>`;
+      el.garYes.textContent = "🎣 RUN THE CREEK";
+    } else {
+      el.garBody.innerHTML = `<p><b>Roberto:</b> “Hey Jake, I saw some <b>big gar</b> up the river — let's grab our bows and head up!”</p>`;
+      el.garYes.textContent = "🏹 GRAB THE BOWS";
+    }
     el.garNo.classList.remove("hidden");
     el.garModal.classList.remove("hidden");
     sfx("ui");
   }
   function startBowfish() {
-    S.bow = { t: GAR_MS, gars: [], arrows: [], hits: [], haul: [], spawnT: 500, shots: 0, over: false, penalty: 0, fight: null, holding: false, quiver: 3, quiverOut: false };
+    S.bow = { kind: eggKind(), t: GAR_MS, gars: [], arrows: [], hits: [], haul: [], spawnT: 500, shots: 0, over: false, penalty: 0, fight: null, holding: false, quiver: 3, quiverOut: false };
     S.mode = "bowfish";
     S.view = "surface"; S.viewT = 1;
     el.garModal.classList.add("hidden");
     el.mapModal.classList.add("hidden");
     setStatus("");
-    toast("🏹 Tap a gar when it rolls!");
+    toast(S.bow.kind === "sand" ? "🥄 Cast on a sand bass when it rolls!" : "🏹 Tap a gar when it rolls!");
     sfx("cast");
   }
   function cancelBowfish() { S.bow = null; if (S.mode === "bowfish") { S.mode = "idle"; showBtn(false); } }
@@ -2264,9 +2274,10 @@
         F.strain = clamp(F.strain - dt * 0.0007, 0, 1);
         F.dist = clamp(F.dist + dt * 0.00002, 0, 1);
       }
-      if (F.strain >= 1) {          // it threw the arrow — that's one gone
+      if (F.strain >= 1) {          // it threw the hook — that one's gone
         B.quiver--;
-        toast(`💢 It threw the arrow!${B.quiver > 0 ? ` ${B.quiver} left` : ""}`); sfx("snap"); vibrate([60, 40, 60]);
+        toast(B.kind === "sand" ? `💢 Broke off with the spoon!${B.quiver > 0 ? ` ${B.quiver} left` : ""}`
+          : `💢 It threw the arrow!${B.quiver > 0 ? ` ${B.quiver} left` : ""}`); sfx("snap"); vibrate([60, 40, 60]);
         splash(F.x, F.y); B.fight = null; B.holding = false; showBtn(false);
         if (B.quiver <= 0) { B.quiverOut = true; endBowfish(); return; }
       } else if (F.dist <= 0.06) {  // boated — and the arrow comes back with it
@@ -2275,17 +2286,29 @@
         B.hits.push({ x: rp.x, y: rp.y - 46, t: 0, w: F.w });
         const bonus = Math.round(2 + F.k * 5);
         B.t = Math.min(GAR_MS, B.t + bonus * 1000);
-        toast(`${F.w >= 15 ? "🐊 GIANT GAR" : "🏹 Gar"} boated — <b>${F.w} lb</b> (+${bonus}s)`);
-        sfx(F.w >= 15 ? "lunker" : "land"); vibrate([30, 40, 30, 40]);
+        const big2 = B.kind === "sand" ? F.w >= 2.5 : F.w >= 15;
+        toast(`${B.kind === "sand" ? (big2 ? "🐟 SLAB sand bass" : "🎣 Sand bass") : (big2 ? "🐊 GIANT GAR" : "🏹 Gar")} boated — <b>${F.w} lb</b> (+${bonus}s)`);
+        sfx(big2 ? "lunker" : "land"); vibrate([30, 40, 30, 40]);
         B.fight = null; B.holding = false; showBtn(false);
       }
     } else {
-      // ---- the river rolls: gar, and things you'd better not shoot ----
+      // ---- the river rolls: the quarry, and things you'd better not hit ----
       B.spawnT -= dt;
       if (B.spawnT <= 0) {
         B.spawnT = rnd(650, 1800);
         const roll = Math.random();
-        if (roll < 0.12) {          // beaver crossing, tail up
+        if (B.kind === "sand") {
+          if (roll < 0.2) {         // a gar rolls through the school — do NOT cast at it
+            B.gars.push({ type: "gar", x: rnd(W * 0.14, W * 0.86), y: wl + 24 + rnd(0, (H - wl) * 0.5),
+              w: 0, r: 26, t: 0, dur: rnd(1400, 2200), dir: Math.random() < 0.5 ? -1 : 1, hit: false, hazard: true });
+          } else {
+            const slab = Math.random() < 0.2;
+            const w = +(slab ? rnd(2.5, 4.8) : rnd(0.7, 2.3)).toFixed(1);
+            B.gars.push({ type: "sand", x: rnd(W * 0.14, W * 0.86), y: wl + 24 + rnd(0, (H - wl) * 0.5),
+              w, r: 13 + w * 4, t: 0, dur: rnd(950, 1500) * (slab ? 0.85 : 1),
+              dir: Math.random() < 0.5 ? -1 : 1, hit: false });
+          }
+        } else if (roll < 0.12) {          // beaver crossing, tail up
           B.gars.push({ type: "beaver", x: rnd(W * 0.16, W * 0.84), y: wl + 24 + rnd(0, (H - wl) * 0.45),
             w: 0, r: 24, t: 0, dur: rnd(2100, 2800), dir: Math.random() < 0.5 ? -1 : 1, hit: false });
         } else if (roll < 0.22) {   // gator gliding, eyes and snout
@@ -2309,11 +2332,26 @@
         const g = B.gars.find(g2 => !g2.hit && g2.t < g2.dur && Math.hypot(g2.x - a.tx, g2.y - a.ty) < g2.r);
         splash(a.tx, a.ty);
         if (!g) {
-          B.quiver--; sfx("splash");
-          if (B.quiver > 0) toast(`💦 Miss — ${B.quiver} arrow${B.quiver > 1 ? "s" : ""} left`);
+          B.quiver--; sfx(B.kind === "sand" ? "snap" : "splash");
+          if (B.quiver > 0) toast(B.kind === "sand" ? `💥 Hung up — line snapped! ${B.quiver} spoon${B.quiver > 1 ? "s" : ""} left`
+            : `💦 Miss — ${B.quiver} arrow${B.quiver > 1 ? "s" : ""} left`);
           continue;
         }
         g.hit = true;
+        if (g.type === "gar" && g.hazard) {   // the gar takes the spoon with it
+          B.quiver--;
+          B.hits.push({ x: g.x, y: g.y, t: 0, bad: "GAR BIT IT OFF!" });
+          sfx("snap"); vibrate([70, 50, 70]);
+          continue;
+        }
+        if (g.type === "sand") {              // hooked up — fight sized to the fish
+          const k = clamp((g.w - 0.7) / 4, 0, 1);
+          B.fight = { x: g.x, y: g.y, w: g.w, r: g.r, k, dist: 1, strain: 0, state: "run", stT: rnd(700, 1200), dir: g.dir, jp: 0 };
+          toast(g.w >= 2.5 ? "🎣 STUCK A SLAB — hold to reel, let go when it jumps!" : "🎣 Hooked up — reel it to the boat!");
+          setBtn("HOLD TO REEL", "reel"); showBtn(true);
+          sfx("strike"); vibrate([30, 50, 30]);
+          continue;
+        }
         if (g.type === "beaver") {
           B.penalty += 300; B.quiver--;
           B.hits.push({ x: g.x, y: g.y, t: 0, bad: "NOT THE BEAVER! −300" });
@@ -2341,7 +2379,10 @@
     if (B.quiver <= 0 && !B.over) { B.quiverOut = true; endBowfish(); return; }
     if (B.t <= 0) endBowfish();
   }
-  function bowAnchor() { return { x: W * 0.74 - 70, y: H - 251 }; }
+  function bowAnchor() {
+    if (S.bow && S.bow.kind === "sand") return { x: W * 0.74 - 118, y: H - 316 };   // the rod tip
+    return { x: W * 0.74 - 70, y: H - 251 };                                        // the bow grip
+  }
   function reelPoint() {
     let btnTop = H - 170;
     try { const br = el.actionBtn.getBoundingClientRect(); if (br && br.height) btnTop = br.top; } catch (e) {}
@@ -2362,18 +2403,28 @@
     B.over = true; B.holding = false; showBtn(false);
     const total = +B.haul.reduce((a, w) => a + w, 0).toFixed(1);
     const big = B.haul.length ? Math.max(...B.haul) : 0;
-    const pts = Math.max(0, Math.round(total * 60 + B.haul.length * 120) - B.penalty);
+    const sand = B.kind === "sand";
+    const pts = Math.max(0, Math.round(total * (sand ? 220 : 60) + B.haul.length * 120) - B.penalty);
     G.coins += pts; addAnglerXP(pts);
-    G.garTrips = (G.garTrips || 0) + 1;
-    G.garCount = (G.garCount || 0) + B.haul.length;
-    G.garBestHaul = Math.max(G.garBestHaul || 0, total);
+    if (sand) {
+      G.sandTrips = (G.sandTrips || 0) + 1;
+      G.sandCount = (G.sandCount || 0) + B.haul.length;
+      G.sandBestHaul = Math.max(G.sandBestHaul || 0, total);
+    } else {
+      G.garTrips = (G.garTrips || 0) + 1;
+      G.garCount = (G.garCount || 0) + B.haul.length;
+      G.garBestHaul = Math.max(G.garBestHaul || 0, total);
+    }
     evalAchievements(false);
     save(); updateHUD();
     sfx(B.haul.length ? "weighwin" : "weighin");
     el.garFace.innerHTML = anglerSVG(ANGLERS.find(a => a.id === "roberto"), false);
-    el.garBody.innerHTML = `<p><b>Roberto:</b> “${B.quiverOut ? "That's the last arrow, partner — we're done for tonight!" : B.haul.length ? "Now THAT'S bowfishing!" : "They rolled right past us — quicker on the draw next time!"}”</p>
-      <p>🏹 <b>${B.haul.length}</b> gar arrowed · <b>${total.toFixed(1)} lb</b>${big ? ` · biggest <b>${big.toFixed(1)} lb</b>` : ""}<br>
-      🎯 <b>+${pts.toLocaleString()}</b> points${B.penalty ? ` <span style="color:#ff9d8a">(−${B.penalty} for the wildlife…)</span>` : ""}${G.garBestHaul === total && B.haul.length ? " · best haul yet!" : ""}</p>`;
+    const say = sand
+      ? (B.quiverOut ? "That was the last spoon, James — the creek wins this round!" : B.haul.length ? "The marina wasn't lying — that's a MESS of sandies!" : "They were rolling everywhere and we couldn't hook one… don't tell the marina.")
+      : (B.quiverOut ? "That's the last arrow, partner — we're done for tonight!" : B.haul.length ? "Now THAT'S bowfishing!" : "They rolled right past us — quicker on the draw next time!");
+    el.garBody.innerHTML = `<p><b>Roberto:</b> “${say}”</p>
+      <p>${sand ? "🥄" : "🏹"} <b>${B.haul.length}</b> ${sand ? "sand bass caught" : "gar arrowed"} · <b>${total.toFixed(1)} lb</b>${big ? ` · biggest <b>${big.toFixed(1)} lb</b>` : ""}<br>
+      🎯 <b>+${pts.toLocaleString()}</b> points${B.penalty ? ` <span style="color:#ff9d8a">(−${B.penalty} for the wildlife…)</span>` : ""}${(sand ? G.sandBestHaul : G.garBestHaul) === total && B.haul.length ? " · best haul yet!" : ""}</p>`;
     el.garYes.textContent = "🎣 BACK TO THE BASS";
     el.garNo.classList.add("hidden");
     el.garModal.classList.remove("hidden");
@@ -2438,6 +2489,20 @@
         ctx.beginPath(); ctx.arc(-1, -6.5, 1, 0, Math.PI * 2); ctx.arc(6, -6.7, 1, 0, Math.PI * 2); ctx.fill();          // eyeshine
         ctx.strokeStyle = "#25301e"; ctx.lineWidth = 1.4;
         ctx.beginPath(); ctx.moveTo(-24, -4); ctx.lineTo(-19, -6.5); ctx.moveTo(-17, -5); ctx.lineTo(-12, -7); ctx.stroke();   // tail scutes
+      } else if (gr.type === "sand") {
+        const len = gr.r * 2, hgt = gr.r * 0.6 * up;
+        ctx.globalAlpha = 0.35 + up * 0.6;
+        ctx.fillStyle = "#8a95a0";
+        ctx.beginPath(); ctx.ellipse(0, 2 - hgt * 0.5, len * 0.5, Math.max(2, hgt), 0, Math.PI, 0); ctx.fill();
+        if (up > 0.4) {
+          ctx.fillStyle = "#6d7680";   // dark striped back breaking the surface
+          ctx.beginPath(); ctx.ellipse(0, 2 - hgt * 0.62, len * 0.42, Math.max(1.5, hgt * 0.55), 0, Math.PI, 0); ctx.fill();
+          ctx.fillStyle = "#59616a";   // the spiny dorsal
+          ctx.beginPath(); ctx.moveTo(-len * 0.18, -hgt); ctx.lineTo(-len * 0.1, -hgt - 7 * up); ctx.lineTo(-len * 0.02, -hgt);
+          ctx.lineTo(len * 0.04, -hgt - 5 * up); ctx.lineTo(len * 0.1, -hgt); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = "#d7dde2";   // silver flank flash
+          ctx.beginPath(); ctx.ellipse(len * 0.14, 2 - hgt * 0.3, len * 0.22, Math.max(1, hgt * 0.3), 0.1, 0, Math.PI * 2); ctx.fill();
+        }
       } else {
         const len = gr.r * 2.2, hgt = gr.r * 0.5 * up;
         ctx.globalAlpha = 0.35 + up * 0.6;
@@ -2470,18 +2535,39 @@
       ctx.save(); ctx.translate(gx, gy - lift); ctx.rotate(thrash * (F.dir || 1));
       ctx.scale(F.dir || 1, 1);
       ctx.globalAlpha = F.state === "jump" ? 1 : 0.85;
-      ctx.fillStyle = "#57653f";
-      ctx.beginPath(); ctx.ellipse(0, 0, len * 0.5, len * 0.14, 0, 0, Math.PI * 2); ctx.fill();     // long body
-      ctx.beginPath(); ctx.moveTo(len * 0.44, -2); ctx.lineTo(len * 0.78, 1); ctx.lineTo(len * 0.44, 4); ctx.closePath(); ctx.fill();   // the snout
-      ctx.fillStyle = "#48543a";
-      ctx.beginPath(); ctx.moveTo(-len * 0.48, 0); ctx.lineTo(-len * 0.66, -8); ctx.lineTo(-len * 0.62, 8); ctx.closePath(); ctx.fill(); // tail
-      ctx.fillStyle = "#e6ecda"; ctx.beginPath(); ctx.ellipse(2, len * 0.07, len * 0.4, len * 0.05, 0, 0, Math.PI); ctx.fill();          // pale belly
-      ctx.fillStyle = "#1c2416"; ctx.beginPath(); ctx.arc(len * 0.34, -2, 2, 0, Math.PI * 2); ctx.fill();                                 // eye
-      // the arrow, buried and waving
-      ctx.strokeStyle = "#e8d9b0"; ctx.lineWidth = 2.4;
-      ctx.beginPath(); ctx.moveTo(-len * 0.1, -len * 0.1); ctx.lineTo(-len * 0.1 - 10, -len * 0.1 - 18); ctx.stroke();
-      ctx.fillStyle = "#c23b28";
-      ctx.beginPath(); ctx.moveTo(-len * 0.1 - 10, -len * 0.1 - 18); ctx.lineTo(-len * 0.1 - 16, -len * 0.1 - 24); ctx.lineTo(-len * 0.1 - 6, -len * 0.1 - 22); ctx.closePath(); ctx.fill();
+      if (B.kind === "sand") {
+        const L2 = len * 1.6;   // sandies are deep-bodied, not eels
+        ctx.fillStyle = "#8a95a0";
+        ctx.beginPath(); ctx.ellipse(0, 0, L2 * 0.5, L2 * 0.26, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#6d7680";
+        ctx.beginPath(); ctx.ellipse(0, -L2 * 0.1, L2 * 0.46, L2 * 0.14, 0, Math.PI, 0); ctx.fill();
+        ctx.strokeStyle = "#5c646d"; ctx.lineWidth = 1;
+        for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.moveTo(-L2 * 0.34, i * L2 * 0.08 - 1); ctx.lineTo(L2 * 0.3, i * L2 * 0.08 - 2); ctx.stroke(); }
+        ctx.fillStyle = "#59616a";      // spiny dorsal up top
+        ctx.beginPath(); ctx.moveTo(-L2 * 0.22, -L2 * 0.22); ctx.lineTo(-L2 * 0.1, -L2 * 0.4); ctx.lineTo(L2 * 0.06, -L2 * 0.22); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#77808a";
+        ctx.beginPath(); ctx.moveTo(-L2 * 0.48, 0); ctx.lineTo(-L2 * 0.68, -L2 * 0.16); ctx.lineTo(-L2 * 0.64, L2 * 0.16); ctx.closePath(); ctx.fill();   // tail
+        ctx.fillStyle = "#e8edf1"; ctx.beginPath(); ctx.ellipse(2, L2 * 0.12, L2 * 0.38, L2 * 0.1, 0, 0, Math.PI); ctx.fill();   // white belly
+        ctx.fillStyle = "#1c2025"; ctx.beginPath(); ctx.arc(L2 * 0.34, -L2 * 0.05, 2.2, 0, Math.PI * 2); ctx.fill();             // eye
+        // the silver spoon flashing in its jaw
+        ctx.save(); ctx.translate(L2 * 0.48, 2); ctx.rotate(0.5 + thrash);
+        ctx.fillStyle = "#d9dee3"; ctx.beginPath(); ctx.ellipse(0, 4, 3, 6.5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#f6f9fb"; ctx.beginPath(); ctx.ellipse(-0.8, 2.6, 1.2, 3, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+      } else {
+        ctx.fillStyle = "#57653f";
+        ctx.beginPath(); ctx.ellipse(0, 0, len * 0.5, len * 0.14, 0, 0, Math.PI * 2); ctx.fill();     // long body
+        ctx.beginPath(); ctx.moveTo(len * 0.44, -2); ctx.lineTo(len * 0.78, 1); ctx.lineTo(len * 0.44, 4); ctx.closePath(); ctx.fill();   // the snout
+        ctx.fillStyle = "#48543a";
+        ctx.beginPath(); ctx.moveTo(-len * 0.48, 0); ctx.lineTo(-len * 0.66, -8); ctx.lineTo(-len * 0.62, 8); ctx.closePath(); ctx.fill(); // tail
+        ctx.fillStyle = "#e6ecda"; ctx.beginPath(); ctx.ellipse(2, len * 0.07, len * 0.4, len * 0.05, 0, 0, Math.PI); ctx.fill();          // pale belly
+        ctx.fillStyle = "#1c2416"; ctx.beginPath(); ctx.arc(len * 0.34, -2, 2, 0, Math.PI * 2); ctx.fill();                                 // eye
+        // the arrow, buried and waving
+        ctx.strokeStyle = "#e8d9b0"; ctx.lineWidth = 2.4;
+        ctx.beginPath(); ctx.moveTo(-len * 0.1, -len * 0.1); ctx.lineTo(-len * 0.1 - 10, -len * 0.1 - 18); ctx.stroke();
+        ctx.fillStyle = "#c23b28";
+        ctx.beginPath(); ctx.moveTo(-len * 0.1 - 10, -len * 0.1 - 18); ctx.lineTo(-len * 0.1 - 16, -len * 0.1 - 24); ctx.lineTo(-len * 0.1 - 6, -len * 0.1 - 22); ctx.closePath(); ctx.fill();
+      }
       ctx.restore();
       if (F.state === "jump") { ctx.save(); ctx.globalAlpha = 0.5; ctx.strokeStyle = "#cfe4ef"; ctx.lineWidth = 1.6;
         ctx.beginPath(); ctx.ellipse(gx, gy + 4, len * 0.5, 7, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
@@ -2523,8 +2609,14 @@
       if (!a.done) {
         const ang = Math.atan2(a.ty - a.sy, a.tx - a.sx);
         ctx.translate(ax, ay); ctx.rotate(ang);
-        ctx.strokeStyle = "#e8d9b0"; ctx.lineWidth = 3.4; ctx.beginPath(); ctx.moveTo(-22, 0); ctx.lineTo(11, 0); ctx.stroke();
-        ctx.fillStyle = "#d8dee2"; ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(4, -4); ctx.lineTo(4, 4); ctx.closePath(); ctx.fill();
+        if (B.kind === "sand") {   // the spoon tumbles as it flies
+          ctx.rotate(a.t / 60);
+          ctx.fillStyle = "#d9dee3"; ctx.beginPath(); ctx.ellipse(0, 0, 4, 8, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = "#f6f9fb"; ctx.beginPath(); ctx.ellipse(-1, -2, 1.6, 3.6, 0, 0, Math.PI * 2); ctx.fill();
+        } else {
+          ctx.strokeStyle = "#e8d9b0"; ctx.lineWidth = 3.4; ctx.beginPath(); ctx.moveTo(-22, 0); ctx.lineTo(11, 0); ctx.stroke();
+          ctx.fillStyle = "#d8dee2"; ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(4, -4); ctx.lineTo(4, 4); ctx.closePath(); ctx.fill();
+        }
       }
       ctx.restore();
     }
@@ -2565,25 +2657,34 @@
     // legs planted on the deck
     ctx.strokeStyle = "#2c3238"; ctx.lineWidth = 9;
     ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(-5, -30); ctx.moveTo(11, 0); ctx.lineTo(8, -30); ctx.stroke();
-    // torso: the blue polo, squared to the shot
-    ctx.fillStyle = "#3a6ea8";
+    const sandRun = B.kind === "sand";
+    // torso: J.P.'s khaki guide shirt on the creek, Dr. G's blue polo on the river
+    ctx.fillStyle = sandRun ? "#c9bd9a" : "#3a6ea8";
     ctx.beginPath(); ctx.moveTo(-11, -28); ctx.quadraticCurveTo(-13, -56, -7, -60);
     ctx.lineTo(9, -60); ctx.quadraticCurveTo(14, -54, 12, -28); ctx.closePath(); ctx.fill();
-    // head in profile, eyes down the arrow
+    // head in profile, eyes on the water
     ctx.fillStyle = "#dfae85"; ctx.beginPath(); ctx.arc(-4, -71, 9.5, 0, Math.PI * 2); ctx.fill();
-    // the long beard running down the chest
-    ctx.fillStyle = "#463526";
-    ctx.beginPath(); ctx.moveTo(-12, -67); ctx.quadraticCurveTo(-13, -52, -5, -42);
-    ctx.quadraticCurveTo(0, -52, -2, -65); ctx.closePath(); ctx.fill();
-    // charcoal cap, brim toward the target
-    ctx.fillStyle = "#4d545c";
-    ctx.beginPath(); ctx.arc(-4, -74, 10, Math.PI * 0.9, Math.PI * 2.02); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(-12, -75.5, 8, 3, 0.12, 0, Math.PI * 2); ctx.fill();
+    if (sandRun) {
+      // sandy hair and the chinstrap
+      ctx.fillStyle = "#8a744f";
+      ctx.beginPath(); ctx.arc(-4, -73, 10, Math.PI * 0.95, Math.PI * 1.98); ctx.fill();
+      ctx.strokeStyle = "#96603c"; ctx.lineWidth = 2.4;
+      ctx.beginPath(); ctx.arc(-4.5, -70, 9, Math.PI * 0.32, Math.PI * 0.78); ctx.stroke();
+    } else {
+      // the long beard running down the chest
+      ctx.fillStyle = "#463526";
+      ctx.beginPath(); ctx.moveTo(-12, -67); ctx.quadraticCurveTo(-13, -52, -5, -42);
+      ctx.quadraticCurveTo(0, -52, -2, -65); ctx.closePath(); ctx.fill();
+      // charcoal cap, brim toward the target
+      ctx.fillStyle = "#4d545c";
+      ctx.beginPath(); ctx.arc(-4, -74, 10, Math.PI * 0.9, Math.PI * 2.02); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(-12, -75.5, 8, 3, 0.12, 0, Math.PI * 2); ctx.fill();
+    }
     // lead arm straight out to the grip
-    ctx.strokeStyle = "#3a6ea8"; ctx.lineWidth = 8;
+    ctx.strokeStyle = sandRun ? "#c9bd9a" : "#3a6ea8"; ctx.lineWidth = 8;
     ctx.beginPath(); ctx.moveTo(-6, -56); ctx.lineTo(-36, -61); ctx.stroke();
     // draw arm: on the string until the shot; on the reel crank in a fight
-    ctx.strokeStyle = "#35638f"; ctx.lineWidth = 8;
+    ctx.strokeStyle = sandRun ? "#b8ab88" : "#35638f"; ctx.lineWidth = 8;
     ctx.beginPath(); ctx.moveTo(6, -56);
     let hx, hy;
     if (fighting) { ctx.lineTo(-8, -42); hx = -44; hy = -52; }
@@ -2593,6 +2694,25 @@
     ctx.fillStyle = "#dfae85";
     ctx.beginPath(); ctx.arc(hx, hy, 4, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(-38, -61, 4.5, 0, Math.PI * 2); ctx.fill();   // grip hand
+    if (sandRun) {
+      // the spinning rod in the lead hand, tip out over the creek
+      ctx.save(); ctx.translate(-38, -61);
+      const tipX = -26, tipY = -35;   // rod tip (matches bowAnchor: px-118*, deckY-316 in screen space)
+      ctx.strokeStyle = "#4a3a2c"; ctx.lineWidth = 3.2; ctx.lineCap = "round";
+      if (fighting) { ctx.beginPath(); ctx.moveTo(6, 4); ctx.quadraticCurveTo(-14, -22, tipX - 5, tipY + 14); ctx.stroke(); }
+      else { ctx.beginPath(); ctx.moveTo(6, 4); ctx.lineTo(tipX, tipY); ctx.stroke(); }
+      ctx.strokeStyle = "#6b5a44"; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(2, 1); ctx.lineTo(tipX * 0.6, tipY * 0.6); ctx.stroke();   // highlight up the blank
+      ctx.fillStyle = "#2e3338"; ctx.beginPath(); ctx.arc(3, 8, 5, 0, Math.PI * 2); ctx.fill();   // the reel
+      ctx.strokeStyle = "#c9c9c2"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(3, 8, 2.8, 0, Math.PI * 2); ctx.stroke();
+      if (!flying && !fighting) {     // spoon dangling off the tip, catching light
+        ctx.strokeStyle = "rgba(235,235,225,0.7)"; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(tipX, tipY); ctx.lineTo(tipX, tipY + 14); ctx.stroke();
+        ctx.fillStyle = "#d9dee3"; ctx.beginPath(); ctx.ellipse(tipX, tipY + 19, 2.6, 5.2, 0.15, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#f6f9fb"; ctx.beginPath(); ctx.ellipse(tipX - 0.8, tipY + 17.5, 1, 2.4, 0.15, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    } else {
     // the bow in the lead hand: belly to the river, string to the man
     ctx.save(); ctx.translate(-38, -61); ctx.rotate(-0.1);
     ctx.strokeStyle = "#6b4a2a"; ctx.lineWidth = 4.5;
@@ -2609,13 +2729,13 @@
       ctx.fillStyle = "#d8dee2"; ctx.beginPath(); ctx.moveTo(-31, -3.2); ctx.lineTo(-23, -6.6); ctx.lineTo(-23, 0.2); ctx.closePath(); ctx.fill();
     }
     ctx.restore();
-    ctx.restore();
+    }
     ctx.restore();
     // canvas HUD: the clock and the stringer
     const sec = Math.max(0, Math.ceil(B.t / 1000));
     const total = B.haul.reduce((a2, w) => a2 + w, 0);
     ctx.save(); ctx.font = "700 15px system-ui"; ctx.textAlign = "center";
-    const msg = `${"➳".repeat(Math.max(0, B.quiver))}${"·".repeat(3 - Math.max(0, B.quiver))}  ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}  ·  ${B.haul.length} gar · ${total.toFixed(1)} lb`;
+    const msg = `${(B.kind === "sand" ? "🥄" : "➳").repeat(Math.max(0, B.quiver))}${"·".repeat(3 - Math.max(0, B.quiver))}  ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}  ·  ${B.haul.length} ${B.kind === "sand" ? "sandies" : "gar"} · ${total.toFixed(1)} lb`;
     const tw = ctx.measureText(msg).width + 26;
     ctx.fillStyle = "rgba(6,26,36,0.72)";
     ctx.beginPath(); ctx.roundRect((W - tw) / 2, 14, tw, 30, 15); ctx.fill();
