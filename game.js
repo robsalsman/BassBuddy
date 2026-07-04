@@ -2271,7 +2271,8 @@
         if (B.quiver <= 0) { B.quiverOut = true; endBowfish(); return; }
       } else if (F.dist <= 0.06) {  // boated — and the arrow comes back with it
         B.haul.push(F.w);
-        B.hits.push({ x: W * 0.52, y: H - 220, t: 0, w: F.w });
+        const rp = reelPoint();
+        B.hits.push({ x: rp.x, y: rp.y - 46, t: 0, w: F.w });
         const bonus = Math.round(2 + F.k * 5);
         B.t = Math.min(GAR_MS, B.t + bonus * 1000);
         toast(`${F.w >= 15 ? "🐊 GIANT GAR" : "🏹 Gar"} boated — <b>${F.w} lb</b> (+${bonus}s)`);
@@ -2339,6 +2340,11 @@
     B.hits = B.hits.filter(h => h.t < 1100);
     if (B.quiver <= 0 && !B.over) { B.quiverOut = true; endBowfish(); return; }
     if (B.t <= 0) endBowfish();
+  }
+  function reelPoint() {
+    let btnTop = H - 170;
+    try { const br = el.actionBtn.getBoundingClientRect(); if (br && br.height) btnTop = br.top; } catch (e) {}
+    return { x: W * 0.5, y: Math.max(waterLine() + 110, btnTop - 90) };
   }
   function bowShoot(x, y) {
     const B = S.bow; if (!B || B.over) return;
@@ -2448,9 +2454,10 @@
     if (B.fight) {
       const F = B.fight;
       const bowX = W * 0.56, bowY = H - 96;
-      // reeling drags it DOWN the screen to the boat — closer means lower and bigger
-      const boatX = W * 0.52, boatY = H - 150;
-      const gx = boatX + (F.x - boatX) * F.dist, gy = boatY + (F.y - boatY) * F.dist;
+      // reeling drags it down to a landing spot just ABOVE the reel button,
+      // so the fish never disappears under the player's thumb
+      const rp = reelPoint();
+      const gx = rp.x + (F.x - rp.x) * F.dist, gy = rp.y + (F.y - rp.y) * F.dist;
       const near = 1 + (1 - F.dist) * 0.9;                 // perspective: it grows as it comes
       const lift = Math.sin((F.jp || 0) * Math.PI) * 52 * near;
       const len = (30 + F.w * 1.1) * near;
