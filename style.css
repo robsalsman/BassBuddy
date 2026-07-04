@@ -1143,3 +1143,7 @@ select, input, textarea { font-size: 16px; }
 .sp-plus:active { transform: scale(.9); }
 .sp-line { font-size: 11px; opacity: .75; margin: 6px 0 2px; }
 .sp-line.hot { opacity: 1; color: #ffd35c; font-weight: 700; }
+
+/* the mystery pin glints gold so a sharp eye catches it */
+.lake-map .mk-egg .mk-c { fill: rgba(255, 211, 92, .3); stroke: #ffd35c; animation: eggGlint 1.8s ease-in-out infinite; }
+@keyframes eggGlint { 0%, 100% { stroke-opacity: .5; } 50% { stroke-opacity: 1; } }

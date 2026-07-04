@@ -441,6 +441,7 @@
     guideBtn: $("guideBtn"), guideModal: $("guideModal"), guideClose: $("guideClose"),
     anglerModal: $("anglerModal"), anglerTitle: $("anglerTitle"), anglerList: $("anglerList"),
     anglerBack: $("anglerBack"), anglerNext: $("anglerNext"), anglerClose: $("anglerClose"),
+    garModal: $("garModal"), garFace: $("garFace"), garBody: $("garBody"), garYes: $("garYes"), garNo: $("garNo"),
     fx: $("fx"),
   };
 
@@ -751,6 +752,8 @@
     { id: "tour3",   ico: "🥇", name: "Front Runner",      desc: "Win 3 tournaments",                   test: c => c.tourWins >= 3,  prog: c => [c.tourWins, 3] },
     { id: "tour10",  ico: "🏆", name: "Dynasty",           desc: "Win 10 tournaments",                  test: c => c.tourWins >= 10, prog: c => [c.tourWins, 10] },
     { id: "champ",   ico: "👑", name: "Circuit Champion",  desc: "Win a circuit season",                test: c => c.titles >= 1 },
+    { id: "garrun",  ico: "🏹", name: "River Secret",      desc: "Somebody saw big gar up the river…",  test: c => c.garTrips >= 1 },
+    { id: "garslam", ico: "🐊", name: "Gar Wrangler",      desc: "Arrow 100 lb of gar in one river run", test: c => c.garBestHaul >= 100 },
     { id: "champ3",  ico: "💍", name: "Three-Peat",        desc: "Win 3 circuit seasons",               test: c => c.titles >= 3, prog: c => [c.titles, 3] },
     // ---- the arcade ----
     { id: "arcade",  ico: "🕹️", name: "Get Bass!",         desc: "Clear all 4 Arcade stages",           test: c => c.arcadeClears >= 1 },
@@ -782,6 +785,7 @@
       lunkers: G.lunkers || 0, perfectHooks: G.perfectHooks || 0, acro: G.acro || 0,
       bestCatchScore: G.bestCatchScore || 0, bestDayCatches: G.bestDayCatches || 0,
       lifeScore: G.coins || 0, tutorial: !!G.tutorialDone,
+      garTrips: G.garTrips || 0, garBestHaul: G.garBestHaul || 0,
       lureCount: Math.max(new Set(log.map(e => e.lure)).size, cnt(t.lure)),
       rodCount: cnt(t.rod), lineCount: cnt(t.line), sizeCount: cnt(t.size),
       scentCount: Object.keys(t.scent || {}).filter(k => k && k !== "none").length,
@@ -1107,7 +1111,7 @@
   const sfx = n => Sound.play(n);
   function anyModalOpen() {
     return [el.catchModal, el.failModal, el.lureModal, el.mapModal,
-            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal, el.titleScreen, el.lbModal, el.lbProfileModal, el.guideModal, el.anglerModal].some(m => !m.classList.contains("hidden"));
+            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal, el.titleScreen, el.lbModal, el.lbProfileModal, el.guideModal, el.anglerModal, el.garModal].some(m => !m.classList.contains("hidden"));
   }
 
   function floatText(txt, color) {
@@ -2208,6 +2212,204 @@
   el.anglerNext.addEventListener("click", () => { sfx("ui"); gotoPrep(S.prepTour ? 3 : 2); });
 
   // ===========================================================================
+  // 🏹 GAR RUN — hidden Easter egg. Fish Trophy Lake as Dr. G and a mystery
+  // pin appears upriver: Roberto's got the bows in the truck. Tap a rolling
+  // gar to put an arrow on it before it sounds. Nothing anywhere hints at it.
+  // ===========================================================================
+  const GAR_MS = 75000;
+  function eggAvailable() {
+    return G.spot === "deep" && angler().id === "drg" && !(S.tournament && !S.tournament.ended) && !(S.arcade && !S.arcade.ended) && !S.tut;
+  }
+  function openGarInvite() {
+    el.garFace.innerHTML = anglerSVG(ANGLERS.find(a => a.id === "roberto"), false);
+    el.garBody.innerHTML = `<p><b>Roberto:</b> “Hey Jake, I saw some <b>big gar</b> up the river — let's grab our bows and head up!”</p>`;
+    el.garYes.textContent = "🏹 GRAB THE BOWS";
+    el.garNo.classList.remove("hidden");
+    el.garModal.classList.remove("hidden");
+    sfx("ui");
+  }
+  function startBowfish() {
+    S.bow = { t: GAR_MS, gars: [], arrows: [], hits: [], haul: [], spawnT: 500, shots: 0, over: false };
+    S.mode = "bowfish";
+    S.view = "surface"; S.viewT = 1;
+    el.garModal.classList.add("hidden");
+    el.mapModal.classList.add("hidden");
+    setStatus("");
+    toast("🏹 Tap a gar when it rolls!");
+    sfx("cast");
+  }
+  function cancelBowfish() { S.bow = null; if (S.mode === "bowfish") S.mode = "idle"; }
+  function updateBowfish(dt) {
+    const B = S.bow; if (!B || B.over) return;
+    B.t -= dt;
+    B.spawnT -= dt;
+    const wl = waterLine();
+    if (B.spawnT <= 0) {
+      B.spawnT = rnd(650, 1800);
+      const giant = Math.random() < 0.2;
+      const w = +(giant ? rnd(15, 48) : rnd(3, 12)).toFixed(1);
+      B.gars.push({ x: rnd(W * 0.14, W * 0.86), y: wl + 24 + rnd(0, (H - wl) * 0.5),
+        w, r: 15 + w * 0.85, t: 0, dur: rnd(950, 1500) * (giant ? 0.82 : 1),
+        dir: Math.random() < 0.5 ? -1 : 1, hit: false });
+    }
+    for (const g of B.gars) g.t += dt;
+    B.gars = B.gars.filter(g => g.t < g.dur && !g.hit);
+    for (const a of B.arrows) {
+      a.t += dt;
+      if (!a.done && a.t >= a.dur) {
+        a.done = true;
+        const g = B.gars.find(g2 => !g2.hit && g2.t < g2.dur && Math.hypot(g2.x - a.tx, g2.y - a.ty) < g2.r);
+        splash(a.tx, a.ty);
+        if (g) {
+          g.hit = true; B.haul.push(g.w);
+          B.hits.push({ x: g.x, y: g.y, t: 0, w: g.w });
+          sfx(g.w >= 20 ? "lunker" : "good"); vibrate([20, 30, 20]);
+        } else sfx("splash");
+      }
+    }
+    B.arrows = B.arrows.filter(a => a.t < a.dur + 350);
+    for (const h of B.hits) h.t += dt;
+    B.hits = B.hits.filter(h => h.t < 1000);
+    if (B.t <= 0) endBowfish();
+  }
+  function bowShoot(x, y) {
+    const B = S.bow; if (!B || B.over) return;
+    if (y < waterLine() + 6) return;                     // arrows go in the water
+    B.shots++;
+    B.arrows.push({ sx: W * 0.64, sy: H - 46, tx: x, ty: y, t: 0, dur: 170, done: false });
+    sfx("cast"); vibrate(10);
+  }
+  function endBowfish() {
+    const B = S.bow; if (!B || B.over) return;
+    B.over = true;
+    const total = +B.haul.reduce((a, w) => a + w, 0).toFixed(1);
+    const big = B.haul.length ? Math.max(...B.haul) : 0;
+    const pts = Math.round(total * 60 + B.haul.length * 120);
+    G.coins += pts; addAnglerXP(pts);
+    G.garTrips = (G.garTrips || 0) + 1;
+    G.garCount = (G.garCount || 0) + B.haul.length;
+    G.garBestHaul = Math.max(G.garBestHaul || 0, total);
+    evalAchievements(false);
+    save(); updateHUD();
+    sfx(B.haul.length ? "weighwin" : "weighin");
+    el.garFace.innerHTML = anglerSVG(ANGLERS.find(a => a.id === "roberto"), false);
+    el.garBody.innerHTML = `<p><b>Roberto:</b> “${B.haul.length ? "Now THAT'S bowfishing!" : "They rolled right past us — quicker on the draw next time!"}”</p>
+      <p>🏹 <b>${B.haul.length}</b> gar arrowed · <b>${total.toFixed(1)} lb</b>${big ? ` · biggest <b>${big.toFixed(1)} lb</b>` : ""}<br>
+      🎯 <b>+${pts.toLocaleString()}</b> points${G.garBestHaul === total && B.haul.length ? " · best haul yet!" : ""}</p>`;
+    el.garYes.textContent = "🎣 BACK TO THE BASS";
+    el.garNo.classList.add("hidden");
+    el.garModal.classList.remove("hidden");
+  }
+  function renderBowfish(now) {
+    const B = S.bow; if (!B) return;
+    const wl = waterLine();
+    // dusk sky over the piney bottoms
+    let g = ctx.createLinearGradient(0, 0, 0, wl);
+    g.addColorStop(0, "#241d4e"); g.addColorStop(0.55, "#a44a2e"); g.addColorStop(1, "#f2a05c");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, wl);
+    ctx.fillStyle = "rgba(255,196,130,0.9)";
+    ctx.beginPath(); ctx.arc(W * 0.5, wl - 6, 24, 0, Math.PI * 2); ctx.fill();
+    // pine silhouettes crowding both banks upriver
+    const pineRow = (y, h, col, step, off) => {
+      ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, y);
+      for (let x = -10; x < W + 20; x += step) {
+        const ph = h * (0.6 + 0.4 * Math.abs(Math.sin((x + off) * 0.13)));
+        const mid = Math.abs(x - W * 0.5) / (W * 0.5);           // river gap in the middle
+        const hh = ph * (0.25 + mid * 0.95);
+        ctx.lineTo(x, y - hh); ctx.lineTo(x + step * 0.5, y - hh * 0.42);
+      }
+      ctx.lineTo(W + 20, y); ctx.closePath(); ctx.fill();
+    };
+    pineRow(wl, 90, "#3a2f45", 26, 3);
+    pineRow(wl + 2, 130, "#241f30", 34, 40);
+    // the river: dark tea water with the sundown streak
+    g = ctx.createLinearGradient(0, wl, 0, H);
+    g.addColorStop(0, "#3d3242"); g.addColorStop(0.4, "#1d2430"); g.addColorStop(1, "#0c1218");
+    ctx.fillStyle = g; ctx.fillRect(0, wl, W, H - wl);
+    ctx.save(); ctx.globalAlpha = 0.16; ctx.fillStyle = "#ffbe82";
+    for (let i = 0; i < 9; i++) { const yy = wl + 12 + i * 16, ww = 60 - i * 5; ctx.fillRect(W * 0.5 - ww / 2 + Math.sin(now / 700 + i) * 6, yy, ww, 2.5); }
+    ctx.restore();
+    ctx.save(); ctx.globalAlpha = 0.12; ctx.strokeStyle = "#cfe4ef"; ctx.lineWidth = 1;
+    for (let i = 0; i < 7; i++) { const yy = wl + 26 + i * ((H - wl) / 7); ctx.beginPath(); ctx.moveTo(0, yy + Math.sin(now / 900 + i * 2) * 3); ctx.bezierCurveTo(W * 0.3, yy - 4, W * 0.7, yy + 4, W, yy); ctx.stroke(); }
+    ctx.restore();
+    // rolling gar
+    for (const gr of B.gars) {
+      const p = gr.t / gr.dur, up = Math.sin(p * Math.PI);        // rise and sound
+      const len = gr.r * 2.2, hgt = gr.r * 0.5 * up;
+      ctx.save(); ctx.translate(gr.x, gr.y); ctx.scale(gr.dir, 1);
+      ctx.globalAlpha = 0.35 + up * 0.6;
+      ctx.fillStyle = "#4a5537";
+      ctx.beginPath(); ctx.ellipse(0, 2 - hgt * 0.5, len * 0.5, Math.max(2, hgt), 0, Math.PI, 0); ctx.fill();
+      if (up > 0.45) {   // the long snout breaks water on the roll
+        ctx.fillStyle = "#5b6844";
+        ctx.beginPath(); ctx.moveTo(len * 0.42, 1 - hgt * 0.4); ctx.lineTo(len * 0.72, 3 - hgt * 0.1); ctx.lineTo(len * 0.42, 4); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#39422b";
+        ctx.beginPath(); ctx.moveTo(-len * 0.28, -hgt); ctx.lineTo(-len * 0.16, -hgt - 6 * up); ctx.lineTo(-len * 0.06, -hgt); ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+      ctx.save(); ctx.globalAlpha = 0.3 * up; ctx.strokeStyle = "#cfe4ef"; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.ellipse(gr.x, gr.y + 3, len * 0.62 + p * 14, 6 + p * 5, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+    }
+    // arrows with the line trailing back to the bow
+    for (const a of B.arrows) {
+      const p = Math.min(1, a.t / a.dur);
+      const ax = a.sx + (a.tx - a.sx) * p, ay = a.sy + (a.ty - a.sy) * p - Math.sin(p * Math.PI) * 46;
+      ctx.save(); ctx.globalAlpha = a.done ? Math.max(0, 1 - (a.t - a.dur) / 350) : 1;
+      ctx.strokeStyle = "rgba(240,240,235,0.55)"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.quadraticCurveTo((a.sx + ax) / 2, Math.min(a.sy, ay) - 14, ax, ay); ctx.stroke();
+      if (!a.done) {
+        const ang = Math.atan2(a.ty - a.sy, a.tx - a.sx);
+        ctx.translate(ax, ay); ctx.rotate(ang);
+        ctx.strokeStyle = "#e8d9b0"; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(-16, 0); ctx.lineTo(8, 0); ctx.stroke();
+        ctx.fillStyle = "#d8dee2"; ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(2, -3); ctx.lineTo(2, 3); ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+    }
+    // hit callouts float up
+    for (const h of B.hits) {
+      const p = h.t / 1000;
+      ctx.save(); ctx.globalAlpha = 1 - p;
+      ctx.font = "800 " + (h.w >= 20 ? 24 : 18) + "px system-ui"; ctx.textAlign = "center";
+      ctx.fillStyle = h.w >= 20 ? "#ffd35c" : "#8fe3a0";
+      ctx.strokeStyle = "rgba(0,0,0,.6)"; ctx.lineWidth = 4; ctx.lineJoin = "round";
+      const ty = h.y - 24 - p * 34;
+      ctx.strokeText(`${h.w} lb!`, h.x, ty); ctx.fillText(`${h.w} lb!`, h.x, ty);
+      ctx.restore();
+    }
+    // the boat bow + the bow: Dr. G is shooting, Roberto's driving
+    ctx.fillStyle = "#7e2f3b";
+    ctx.beginPath(); ctx.moveTo(W * 0.08, H); ctx.quadraticCurveTo(W * 0.5, H - 72, W * 0.92, H); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#5f232d";
+    ctx.beginPath(); ctx.moveTo(W * 0.2, H); ctx.quadraticCurveTo(W * 0.5, H - 46, W * 0.8, H); ctx.closePath(); ctx.fill();
+    const bx = W * 0.64, by = H - 46, flying = B.arrows.some(a => !a.done);
+    ctx.save(); ctx.translate(bx, by); ctx.rotate(-0.5);
+    ctx.strokeStyle = "#6b4a2a"; ctx.lineWidth = 5; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.arc(0, 0, 34, -1.15, 1.15); ctx.stroke();
+    ctx.strokeStyle = "rgba(235,235,225,0.85)"; ctx.lineWidth = 1.5;
+    const tipX = Math.cos(1.15) * 34, tipY = Math.sin(1.15) * 34;
+    ctx.beginPath(); ctx.moveTo(Math.cos(-1.15) * 34, Math.sin(-1.15) * 34);
+    if (flying) ctx.lineTo(tipX, tipY); else { ctx.lineTo(-12, 0); ctx.lineTo(tipX, tipY); }
+    ctx.stroke();
+    if (!flying) { ctx.strokeStyle = "#e8d9b0"; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(-12, 0); ctx.lineTo(30, 0); ctx.stroke(); }
+    ctx.restore();
+    // canvas HUD: the clock and the stringer
+    const sec = Math.max(0, Math.ceil(B.t / 1000));
+    const total = B.haul.reduce((a2, w) => a2 + w, 0);
+    ctx.save(); ctx.font = "700 15px system-ui"; ctx.textAlign = "center";
+    const msg = `🏹 ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}  ·  ${B.haul.length} gar · ${total.toFixed(1)} lb`;
+    const tw = ctx.measureText(msg).width + 26;
+    ctx.fillStyle = "rgba(6,26,36,0.72)";
+    ctx.beginPath(); ctx.roundRect((W - tw) / 2, 14, tw, 30, 15); ctx.fill();
+    ctx.fillStyle = sec <= 10 ? "#ff9d8a" : "#eaf6fb"; ctx.fillText(msg, W / 2, 34);
+    ctx.restore();
+  }
+  el.garYes.addEventListener("click", () => {
+    if (S.bow && S.bow.over) { cancelBowfish(); el.garModal.classList.add("hidden"); sfx("ui"); resetToIdle(); updateHUD(); }
+    else { sfx("good"); startBowfish(); }
+  });
+  el.garNo.addEventListener("click", () => { el.garModal.classList.add("hidden"); sfx("ui"); });
+
+  // ===========================================================================
   // THE GUIDE — a warm old-timer built from a family photo: khaki cap, wire
   // glasses, blue plaid. One tap and he reads the water like a real guide.
   // (This portrait style is the template for future angler avatars.)
@@ -2403,6 +2605,7 @@
   // 🏠 from anywhere: an active tournament/arcade run is saved, not lost
   el.homeBtn.addEventListener("click", () => {
     if ((S.tournament && !S.tournament.ended) || (S.arcade && !S.arcade.ended)) suspendRun();
+    if (S.bow) cancelBowfish();
     if (S.tut) endTutorial(false);
     sfx("ui"); showTitle();
   });
@@ -2959,6 +3162,7 @@
     if (anyModalOpen()) return;
     pressActive = true; holdCandidate = false; swiped = false;
     S.pressT = performance.now(); downX = x; downY = y;
+    if (S.mode === "bowfish") { bowShoot(x, y); return; }
     if (S.mode === "idle") startCast(x, y);
     // NOTE: strike has no canvas/reel-button handler on purpose — the hookset is
     // its own target on the timing meter, so working the lure can't trigger it early
@@ -3635,6 +3839,7 @@
   function frame(now) {
     const dt = Math.min(50, now - last); last = now;
     update(dt, now);
+    if (S.bow && !anyModalOpen()) updateBowfish(dt);
     render(now);
     drive3D(dt, now);
     updateBoatHud(now);
@@ -3695,9 +3900,9 @@
       menuHud: $("hud"), loadout: $("loadout"),
     };
     const e = _sega;
-    const fishing = ["casting", "splashdown", "retrieve", "strike", "fight", "landing"].includes(S.mode);
+    const fishing = ["casting", "splashdown", "retrieve", "strike", "fight", "landing", "bowfish"].includes(S.mode);
     const show = fishing && !anyModalOpen();
-    e.hud.classList.toggle("hidden", !show);
+    e.hud.classList.toggle("hidden", !show || S.mode === "bowfish");
     // hide the menu chrome while fishing so the Sega overlay owns the screen
     e.menuHud.classList.toggle("fishing-off", show);
     e.loadout.classList.toggle("fishing-off", show);
@@ -3809,6 +4014,7 @@
   function drive3D(dt, now) {
     const S3 = window.Scene3D;
     if (!S3) return;
+    if (S.bow) { if (S3.isReady && S3.isReady()) S3.setVisible(false); return; }   // the river run is its own 2D scene
     if (!_3dInit) {
       _3dInit = true;
       try { S3.init(document.getElementById("c3d")); } catch (e) {}
@@ -4256,6 +4462,7 @@
 
   // ---- View dispatcher with surface <-> underwater crossfade
   function render(now) {
+    if (S.bow) { renderBowfish(now); return; }
     if (S.view === "under") {
       renderUnder(now);
       if (S.viewT < 1) { ctx.save(); ctx.globalAlpha = 1 - ease(S.viewT); renderSurface(now); ctx.restore(); }
@@ -5084,7 +5291,14 @@
       return { pin, box };
     });
     const isSel = id => G.positions[sp.id] === id;
-    const markers = pins.map(({ p, x, y }) => `<g class="mk ${isSel(p.id) ? "sel" : ""}" data-pos="${p.id}" transform="translate(${x.toFixed(1)},${y.toFixed(1)})">
+    // 🏹 the secret upriver hole shows itself only to the right angler
+    const eggPin = (typeof eggAvailable === "function" && sp.id === "deep" && eggAvailable())
+      ? `<g class="mk mk-egg" data-pos="gar_egg" transform="translate(88,10)">
+          <circle r="9" fill="transparent" stroke="none"/>
+          <circle r="5.2" class="mk-c"/>
+          <text y="1.8" font-size="5.4" text-anchor="middle">❓</text>
+        </g>` : "";
+    const markers = eggPin + pins.map(({ p, x, y }) => `<g class="mk ${isSel(p.id) ? "sel" : ""}" data-pos="${p.id}" transform="translate(${x.toFixed(1)},${y.toFixed(1)})">
         <circle r="9" fill="transparent" stroke="none"/>
         <circle r="5.2" class="mk-c"/>
         <text y="1.6" font-size="5" text-anchor="middle">${p.ico}</text>
@@ -5187,6 +5401,7 @@
   el.mapModal.addEventListener("click", (e) => {
     const v = e.target.closest(".venue");
     const p = e.target.closest(".pos-cell") || e.target.closest(".mk");   // grid cell or overhead-map pin
+    if (p && p.dataset.pos === "gar_egg") { openGarInvite(); return; }
     if (v) {
       if (S.arcade && !S.arcade.ended) { toast("Can't switch lakes mid-arcade 🕹️"); return; }
       if (v.dataset.owned === "true") {

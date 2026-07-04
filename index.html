@@ -8,8 +8,8 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>BassBuddy — Bass Fishing</title>
-<script>window.BB_V = "20260702aw";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
-<link rel="stylesheet" href="style.css?v=20260702aw" />
+<script>window.BB_V = "20260704a";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
+<link rel="stylesheet" href="style.css?v=20260704a" />
 </head>
 <body>
 <div id="game">
@@ -303,6 +303,20 @@
     </div>
   </div>
 
+  <!-- 🏹 secret river run: Roberto's invite + the haul (find it to know it) -->
+  <div id="garModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="guide-wrap">
+        <div id="garFace" class="guide-face"></div>
+        <div id="garBody" class="guide-body"></div>
+      </div>
+      <div class="prep-row">
+        <button class="big-btn ghost" id="garNo">MAYBE LATER</button>
+        <button class="big-btn" id="garYes">🏹 GRAB THE BOWS</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Ask the Guide: full conditions read + recommendations from the old-timer -->
   <div id="guideModal" class="modal hidden">
     <div class="modal-card shop-card">
@@ -499,7 +513,7 @@
 </div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=20260702aw"></script>
-<script src="game.js?v=20260702aw"></script>
+<script type="module" src="render3d.js?v=20260704a"></script>
+<script src="game.js?v=20260704a"></script>
 </body>
 </html>
