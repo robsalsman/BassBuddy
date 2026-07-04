@@ -2629,6 +2629,94 @@
   el.garNo.addEventListener("click", () => { el.garModal.classList.add("hidden"); sfx("ui"); });
 
   // ===========================================================================
+  // 🎮 GAMEPAD — a Bluetooth controller runs the whole game. The left stick or
+  // d-pad moves a pointer, Ⓐ presses whatever's under it (menus, casting, the
+  // lot), and the water gets fast paths: Ⓐ sets the hook on a strike, Ⓐ or the
+  // right trigger holds the reel, Ⓑ twitches the lure or backs out of a menu.
+  // ===========================================================================
+  const pollGamepad = (() => {
+    const cur = document.createElement("div");
+    cur.id = "gpCursor"; cur.classList.add("hidden");
+    document.body.appendChild(cur);
+    let cx = innerWidth / 2, cy = innerHeight / 2;
+    let prevB = [], lastAct = 0, greeted = false, holdMode = null, downEl = null;
+    const DEAD = 0.18;
+    const topModal = () => {
+      const vis = [...document.querySelectorAll(".modal:not(.hidden)")];
+      return vis.length ? vis[vis.length - 1] : null;
+    };
+    const synth = (type, tgt, Ctor) => {
+      try { tgt.dispatchEvent(new (Ctor || PointerEvent)(type, { bubbles: true, cancelable: true, clientX: cx, clientY: cy, pointerId: 7, pointerType: "mouse", isPrimary: true, view: window })); } catch (e) {}
+    };
+    const press = () => { downEl = document.elementFromPoint(cx, cy); if (downEl) synth("pointerdown", downEl); cur.classList.add("pressed"); };
+    const release = () => {
+      cur.classList.remove("pressed");
+      if (!downEl) return;
+      synth("pointerup", downEl);
+      synth("click", downEl, MouseEvent);
+      downEl = null;
+    };
+    const waterMode = () => !anyModalOpen() && ["retrieve", "fight", "splashdown", "casting", "landing"].includes(S.mode);
+    const bowFighting = () => !anyModalOpen() && S.mode === "bowfish" && S.bow && S.bow.fight;
+    return function pollGamepad(dt) {
+      let pad = null;
+      try { for (const p of (navigator.getGamepads ? navigator.getGamepads() : [])) if (p && p.connected) { pad = p; break; } } catch (e) {}
+      if (!pad) { cur.classList.add("hidden"); return; }
+      if (!greeted) { greeted = true; toast("🎮 Controller connected — stick moves the pointer, Ⓐ presses"); }
+      const now = performance.now();
+      const b = i => !!(pad.buttons[i] && pad.buttons[i].pressed);
+      const was = i => !!prevB[i];
+      const ax = i => { const v = pad.axes[i] || 0; return Math.abs(v) > DEAD ? v : 0; };
+      // pointer: left stick + d-pad, speed eases with deflection
+      let vx = ax(0) + (b(15) ? 0.75 : 0) - (b(14) ? 0.75 : 0);
+      let vy = ax(1) + (b(13) ? 0.75 : 0) - (b(12) ? 0.75 : 0);
+      if (vx || vy) {
+        const step = 0.8 * Math.min(50, dt || 16);   // px per ms — the same feel at any frame rate
+        cx = Math.max(4, Math.min(innerWidth - 4, cx + vx * step));
+        cy = Math.max(4, Math.min(innerHeight - 4, cy + vy * step));
+        lastAct = now;
+      }
+      if (pad.buttons.some((x, i) => x.pressed !== was(i) || x.pressed)) lastAct = now;
+      cur.style.transform = `translate(${cx.toFixed(0)}px, ${cy.toFixed(0)}px)`;
+      cur.classList.toggle("hidden", now - lastAct > 6000);
+      // Ⓐ / R1 / R2 — press: fast paths on the water, pointer press everywhere else
+      for (const bi of [0, 5, 7]) {
+        if (b(bi) && !was(bi)) {
+          if (!anyModalOpen() && S.mode === "strike") { holdMode = "hook"; sfx("ui"); hookSet(); }
+          else if (waterMode() || bowFighting() || (bi !== 0 && !anyModalOpen())) { holdMode = "reel"; onDown(W / 2, H * 0.6); }
+          else if (bi === 0) { holdMode = "point"; press(); }
+        }
+        if (!b(bi) && was(bi) && holdMode) {
+          if (holdMode === "reel") onUp();
+          else if (holdMode === "point") release();
+          holdMode = null;
+        }
+      }
+      // Ⓑ — back out of the top menu, or twitch the lure on the water
+      if (b(1) && !was(1)) {
+        const m = topModal();
+        if (m) {
+          const back = m.querySelector(".close-btn") || m.querySelector("#garNo") || m.querySelector(".big-btn.ghost");
+          if (back) back.click();
+        } else if (S.mode === "retrieve") twitch();
+      }
+      // Ⓧ guide · Ⓨ tackle · START home · SELECT sound
+      if (b(2) && !was(2) && el.guideBtn && !el.guideBtn.classList.contains("fishing-off") && !anyModalOpen()) el.guideBtn.click();
+      if (b(3) && !was(3) && !anyModalOpen()) el.shopBtn.click();
+      if (b(9) && !was(9)) el.homeBtn.click();
+      if (b(8) && !was(8) && !anyModalOpen()) el.muteBtn.click();
+      // right stick: scroll an open menu, or steer the trolling motor
+      const ry = ax(3), rx = ax(2);
+      const m2 = topModal();
+      if (m2 && ry) {
+        const sb = m2.querySelector(".shop-body") || m2.querySelector(".modal-card");
+        if (sb) sb.scrollTop += ry * 16;
+      } else if (!m2 && S.mode === "idle") S.steer = rx > 0 ? 1 : rx < 0 ? -1 : (S.steer === 1 || S.steer === -1 ? 0 : S.steer);
+      prevB = pad.buttons.map(x => x.pressed);
+    };
+  })();
+
+  // ===========================================================================
   // THE GUIDE — a warm old-timer built from a family photo: khaki cap, wire
   // glasses, blue plaid. One tap and he reads the water like a real guide.
   // (This portrait style is the template for future angler avatars.)
@@ -4064,6 +4152,7 @@
     drive3D(dt, now);
     updateBoatHud(now);
     updateSegaHud();
+    try { pollGamepad(dt); } catch (e) {}
     // ambient soundscape: wildlife calls, day/night water tone, wind on rough days
     const night = !!(dayColors(spot()).night);
     // occasional ambient wildlife call (birdsong by day, a loon at night)

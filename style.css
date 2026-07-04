@@ -1147,3 +1147,16 @@ select, input, textarea { font-size: 16px; }
 /* the mystery pin glints gold so a sharp eye catches it */
 .lake-map .mk-egg .mk-c { fill: rgba(255, 211, 92, .3); stroke: #ffd35c; animation: eggGlint 1.8s ease-in-out infinite; }
 @keyframes eggGlint { 0%, 100% { stroke-opacity: .5; } 50% { stroke-opacity: 1; } }
+
+/* 🎮 the controller pointer */
+#gpCursor {
+  position: fixed; left: 0; top: 0; width: 30px; height: 30px; margin: -15px 0 0 -15px;
+  z-index: 400; pointer-events: none; border-radius: 50%;
+  border: 2.5px solid #ffd35c;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, .45), inset 0 0 6px rgba(255, 211, 92, .55);
+}
+#gpCursor::after {
+  content: ""; position: absolute; left: 50%; top: 50%; width: 5px; height: 5px;
+  margin: -2.5px; border-radius: 50%; background: #ffd35c;
+}
+#gpCursor.pressed { border-color: #8fe3a0; box-shadow: 0 0 0 2px rgba(0, 0, 0, .45), inset 0 0 10px rgba(143, 227, 160, .8); }
