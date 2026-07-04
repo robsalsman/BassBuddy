@@ -2589,17 +2589,19 @@
     // the bow itself sits in the lead hand, at the same scale as its owner
     const ba2 = bowAnchor(), bx = ba2.x + lean * 30, by = ba2.y;
     ctx.save(); ctx.translate(bx, by); ctx.rotate(-0.62 + lean * 0.6); ctx.scale(SC, SC);
+    // limbs bow TOWARD the water; the string faces the shooter
     ctx.strokeStyle = "#6b4a2a"; ctx.lineWidth = 5; ctx.lineCap = "round";
-    ctx.beginPath(); ctx.arc(0, 0, 30, -1.12, 1.12); ctx.stroke();
-    // the bow reel: a little drum under the grip with line on it
-    ctx.fillStyle = "#2e3338"; ctx.beginPath(); ctx.arc(-6, 8, 6, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = "#c9c9c2"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(-6, 8, 3.4, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, 30, Math.PI - 1.12, Math.PI + 1.12); ctx.stroke();
+    // the bow reel: a little drum on the front of the grip with line on it
+    ctx.fillStyle = "#2e3338"; ctx.beginPath(); ctx.arc(-8, 9, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = "#c9c9c2"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(-8, 9, 3.4, 0, Math.PI * 2); ctx.stroke();
+    const tX = Math.cos(Math.PI - 1.12) * 30, tY = Math.sin(Math.PI - 1.12) * 30;
     ctx.strokeStyle = "rgba(235,235,225,0.85)"; ctx.lineWidth = 1.5;
-    const tX = Math.cos(1.12) * 30, tY = Math.sin(1.12) * 30;
-    ctx.beginPath(); ctx.moveTo(Math.cos(-1.12) * 30, Math.sin(-1.12) * 30);
-    if (flying || fighting) ctx.lineTo(tX, tY); else { ctx.lineTo(-11, 0); ctx.lineTo(tX, tY); }
+    ctx.beginPath(); ctx.moveTo(tX, tY);
+    if (flying || fighting) ctx.lineTo(tX, -tY); else { ctx.lineTo(11, 0); ctx.lineTo(tX, -tY); }
     ctx.stroke();
-    if (!flying && !fighting) { ctx.strokeStyle = "#e8d9b0"; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(-11, 0); ctx.lineTo(27, 0); ctx.stroke(); }
+    if (!flying && !fighting) { ctx.strokeStyle = "#e8d9b0"; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(11, 0); ctx.lineTo(-28, 0); ctx.stroke();
+      ctx.fillStyle = "#d8dee2"; ctx.beginPath(); ctx.moveTo(-32, 0); ctx.lineTo(-24, -3.4); ctx.lineTo(-24, 3.4); ctx.closePath(); ctx.fill(); }
     ctx.restore();
     // canvas HUD: the clock and the stringer
     const sec = Math.max(0, Math.ceil(B.t / 1000));
