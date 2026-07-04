@@ -94,6 +94,24 @@
   const d = document.createElement("div");
   d.className = "t"; d.innerHTML = `<div class="n">done — online: ${navigator.onLine}</div>`;
   out.appendChild(d);
+
+  // ---- 12. live gamepad monitor: press buttons on the controller and watch ----
+  const gp = document.createElement("div");
+  gp.className = "t";
+  gp.innerHTML = `<div class="n">12. gamepad monitor (pair the controller, then PRESS ANY BUTTON)</div><div id="gpout" class="bad">no gamepad exposed yet — press a button on it</div><div id="gpev"></div>`;
+  out.appendChild(gp);
+  const ev = msg => { const e = document.createElement("div"); e.className = "ok"; e.textContent = msg; document.getElementById("gpev").appendChild(e); };
+  addEventListener("gamepadconnected", e => ev(`connected: "${e.gamepad.id}" mapping=${e.gamepad.mapping || "none"} buttons=${e.gamepad.buttons.length} axes=${e.gamepad.axes.length}`));
+  addEventListener("gamepaddisconnected", e => ev(`disconnected: "${e.gamepad.id}"`));
+  setInterval(() => {
+    const o = document.getElementById("gpout");
+    try {
+      const pads = [...(navigator.getGamepads ? navigator.getGamepads() : [])].filter(Boolean);
+      if (!pads.length) { o.className = "bad"; o.textContent = "no gamepad exposed yet — press a button on it"; return; }
+      o.className = "ok";
+      o.textContent = pads.map(p => `"${p.id}" mapping=${p.mapping || "none"} | axes: ${[...p.axes].map(a => a.toFixed(2)).join(",")} | pressed: [${p.buttons.map((b, i) => b.pressed ? i : null).filter(x => x !== null).join(",")}]`).join(" || ");
+    } catch (e) { o.className = "bad"; o.textContent = "getGamepads threw: " + e.message; }
+  }, 250);
 })();
 </script>
 </body>

@@ -2635,6 +2635,7 @@
   // right trigger holds the reel, Ⓑ twitches the lure or backs out of a menu.
   // ===========================================================================
   const pollGamepad = (() => {
+    try { addEventListener("gamepadconnected", e => toast(`🎮 ${(e.gamepad.id || "Controller").split("(")[0].trim()} connected`)); } catch (e) {}
     const cur = document.createElement("div");
     cur.id = "gpCursor"; cur.classList.add("hidden");
     document.body.appendChild(cur);
