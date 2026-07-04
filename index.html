@@ -8,8 +8,8 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>BassBuddy — Bass Fishing</title>
-<script>window.BB_V = "20260704c";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
-<link rel="stylesheet" href="style.css?v=20260704c" />
+<script>window.BB_V = "20260704d";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
+<link rel="stylesheet" href="style.css?v=20260704d" />
 </head>
 <body>
 <div id="game">
@@ -317,6 +317,19 @@
     </div>
   </div>
 
+  <!-- sound panel: the speaker button opens per-channel switches -->
+  <div id="soundModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="shop-head">
+        <h2>🔊 Sound</h2>
+        <button class="close-btn" id="soundClose">✕</button>
+      </div>
+      <button class="big-btn" id="sndMusic" style="width:100%;margin-bottom:10px">🎵 Music — ON</button>
+      <button class="big-btn" id="sndFx" style="width:100%">🔊 Effects — ON</button>
+      <p class="muted" style="text-align:center;margin-top:10px;font-size:11px">Volume sliders live on the main menu.</p>
+    </div>
+  </div>
+
   <!-- Ask the Guide: full conditions read + recommendations from the old-timer -->
   <div id="guideModal" class="modal hidden">
     <div class="modal-card shop-card">
@@ -513,7 +526,7 @@
 </div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=20260704c"></script>
-<script src="game.js?v=20260704c"></script>
+<script type="module" src="render3d.js?v=20260704d"></script>
+<script src="game.js?v=20260704d"></script>
 </body>
 </html>

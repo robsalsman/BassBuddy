@@ -442,6 +442,7 @@
     anglerModal: $("anglerModal"), anglerTitle: $("anglerTitle"), anglerList: $("anglerList"),
     anglerBack: $("anglerBack"), anglerNext: $("anglerNext"), anglerClose: $("anglerClose"),
     garModal: $("garModal"), garFace: $("garFace"), garBody: $("garBody"), garYes: $("garYes"), garNo: $("garNo"),
+    soundModal: $("soundModal"), sndMusic: $("sndMusic"), sndFx: $("sndFx"), soundClose: $("soundClose"),
     fx: $("fx"),
   };
 
@@ -1111,7 +1112,7 @@
   const sfx = n => Sound.play(n);
   function anyModalOpen() {
     return [el.catchModal, el.failModal, el.lureModal, el.mapModal,
-            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal, el.titleScreen, el.lbModal, el.lbProfileModal, el.guideModal, el.anglerModal, el.garModal].some(m => !m.classList.contains("hidden"));
+            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal, el.titleScreen, el.lbModal, el.lbProfileModal, el.guideModal, el.anglerModal, el.garModal, el.soundModal].some(m => !m.classList.contains("hidden"));
   }
 
   function floatText(txt, color) {
@@ -2229,7 +2230,7 @@
     sfx("ui");
   }
   function startBowfish() {
-    S.bow = { t: GAR_MS, gars: [], arrows: [], hits: [], haul: [], spawnT: 500, shots: 0, over: false, penalty: 0, fight: null, holding: false };
+    S.bow = { t: GAR_MS, gars: [], arrows: [], hits: [], haul: [], spawnT: 500, shots: 0, over: false, penalty: 0, fight: null, holding: false, quiver: 3, quiverOut: false };
     S.mode = "bowfish";
     S.view = "surface"; S.viewT = 1;
     el.garModal.classList.add("hidden");
@@ -2248,28 +2249,33 @@
       const F = B.fight;
       F.stT -= dt;
       if (F.stT <= 0) {
-        F.state = F.state === "run" ? "jump" : "run";
-        F.stT = F.state === "jump" ? 680 : rnd(900, 1700);
-        if (F.state === "jump") { sfx("jump"); splash(F.x, F.y); if (Math.random() < 0.5) F.dir *= -1; }
+        // little gar mostly just run; the giants go airborne again and again
+        if (F.state === "run" && Math.random() < 0.3 + F.k * 0.6) {
+          F.state = "jump"; F.stT = 650;
+          sfx("jump"); splash(F.x, F.y); if (Math.random() < 0.5) F.dir *= -1;
+        } else { F.state = "run"; F.stT = rnd(1000, 1800); }
       }
-      F.jp = F.state === "jump" ? 1 - F.stT / 680 : 0;
-      F.x = clamp(F.x + F.dir * dt * 0.028, W * 0.12, W * 0.88);
+      F.jp = F.state === "jump" ? 1 - F.stT / 650 : 0;
+      F.x = clamp(F.x + F.dir * dt * (0.02 + F.k * 0.02), W * 0.12, W * 0.88);
       if (B.holding) {
-        F.dist = clamp(F.dist - dt * 0.00009 * (F.state === "jump" ? 0.25 : 1), 0, 1);
-        F.strain = clamp(F.strain + dt * (F.state === "jump" ? 0.00075 : 0.00016), 0, 1);
+        F.dist = clamp(F.dist - dt * (0.00024 - F.k * 0.00014) * (F.state === "jump" ? 0.3 : 1), 0, 1);
+        F.strain = clamp(F.strain + dt * (F.state === "jump" ? 0.0004 + F.k * 0.0005 : 0.00005 + F.k * 0.00013), 0, 1);
       } else {
-        F.strain = clamp(F.strain - dt * 0.0006, 0, 1);
+        F.strain = clamp(F.strain - dt * 0.0007, 0, 1);
         F.dist = clamp(F.dist + dt * 0.00002, 0, 1);
       }
-      if (F.strain >= 1) {          // it threw the arrow
-        toast("💢 It threw the arrow!"); sfx("snap"); vibrate([60, 40, 60]);
+      if (F.strain >= 1) {          // it threw the arrow — that's one gone
+        B.quiver--;
+        toast(`💢 It threw the arrow!${B.quiver > 0 ? ` ${B.quiver} left` : ""}`); sfx("snap"); vibrate([60, 40, 60]);
         splash(F.x, F.y); B.fight = null; B.holding = false; showBtn(false);
-      } else if (F.dist <= 0.06) {  // boated!
+        if (B.quiver <= 0) { B.quiverOut = true; endBowfish(); return; }
+      } else if (F.dist <= 0.06) {  // boated — and the arrow comes back with it
         B.haul.push(F.w);
         B.hits.push({ x: W * 0.5, y: wl + 60, t: 0, w: F.w });
-        B.t = Math.min(GAR_MS, B.t + 6000);   // a giant buys you time
-        toast(`🐊 GIANT GAR boated — <b>${F.w} lb</b> (+6s)`);
-        sfx("lunker"); vibrate([30, 40, 30, 40]);
+        const bonus = Math.round(2 + F.k * 5);
+        B.t = Math.min(GAR_MS, B.t + bonus * 1000);
+        toast(`${F.w >= 15 ? "🐊 GIANT GAR" : "🏹 Gar"} boated — <b>${F.w} lb</b> (+${bonus}s)`);
+        sfx(F.w >= 15 ? "lunker" : "land"); vibrate([30, 40, 30, 40]);
         B.fight = null; B.holding = false; showBtn(false);
       }
     } else {
@@ -2301,40 +2307,43 @@
         a.done = true;
         const g = B.gars.find(g2 => !g2.hit && g2.t < g2.dur && Math.hypot(g2.x - a.tx, g2.y - a.ty) < g2.r);
         splash(a.tx, a.ty);
-        if (!g) { sfx("splash"); continue; }
+        if (!g) {
+          B.quiver--; sfx("splash");
+          if (B.quiver > 0) toast(`💦 Miss — ${B.quiver} arrow${B.quiver > 1 ? "s" : ""} left`);
+          continue;
+        }
         g.hit = true;
         if (g.type === "beaver") {
-          B.penalty += 300;
+          B.penalty += 300; B.quiver--;
           B.hits.push({ x: g.x, y: g.y, t: 0, bad: "NOT THE BEAVER! −300" });
           sfx("weak"); vibrate([70, 50, 70]);
         } else if (g.type === "gator") {
-          B.penalty += 500;
+          B.penalty += 500; B.quiver--;
           B.hits.push({ x: g.x, y: g.y, t: 0, bad: "THAT'S A GATOR!! −500" });
           // the thrash spooks everything in the pool
           for (const o of B.gars) if (o.type === "gar") o.hit = true;
           B.spawnT = Math.max(B.spawnT, 2600);
           splash(g.x, g.y); splash(g.x + 14, g.y); splash(g.x - 14, g.y);
           sfx("snap"); vibrate([90, 60, 90]);
-        } else if (g.w >= 15) {     // a giant doesn't come easy — reel it in
-          B.fight = { x: g.x, y: g.y, w: g.w, r: g.r, dist: 1, strain: 0, state: "run", stT: 900, dir: g.dir, jp: 0 };
-          toast("🏹 STUCK A GIANT — hold the reel, let go when it jumps!");
+        } else {                    // every gar goes on the reel — size sets the fight
+          const k = clamp((g.w - 3) / 45, 0, 1);
+          B.fight = { x: g.x, y: g.y, w: g.w, r: g.r, k, dist: 1, strain: 0, state: "run", stT: rnd(700, 1200), dir: g.dir, jp: 0 };
+          toast(g.w >= 15 ? "🏹 STUCK A GIANT — hold the reel, let go when it jumps!" : "🏹 Stuck one — reel it to the boat!");
           setBtn("HOLD TO REEL", "reel"); showBtn(true);
           sfx("strike"); vibrate([30, 50, 30]);
-        } else {
-          B.haul.push(g.w);
-          B.hits.push({ x: g.x, y: g.y, t: 0, w: g.w });
-          sfx("good"); vibrate([20, 30, 20]);
         }
       }
     }
     B.arrows = B.arrows.filter(a => a.t < a.dur + 350);
     for (const h of B.hits) h.t += dt;
     B.hits = B.hits.filter(h => h.t < 1100);
+    if (B.quiver <= 0 && !B.over) { B.quiverOut = true; endBowfish(); return; }
     if (B.t <= 0) endBowfish();
   }
   function bowShoot(x, y) {
     const B = S.bow; if (!B || B.over) return;
     if (B.fight) { B.holding = true; return; }           // mid-fight the tap IS the reel
+    if (B.quiver <= 0) return;
     if (y < waterLine() + 6) return;                     // arrows go in the water
     B.shots++;
     B.arrows.push({ sx: W * 0.56, sy: H - 96, tx: x, ty: y, t: 0, dur: 170, done: false });
@@ -2354,7 +2363,7 @@
     save(); updateHUD();
     sfx(B.haul.length ? "weighwin" : "weighin");
     el.garFace.innerHTML = anglerSVG(ANGLERS.find(a => a.id === "roberto"), false);
-    el.garBody.innerHTML = `<p><b>Roberto:</b> “${B.haul.length ? "Now THAT'S bowfishing!" : "They rolled right past us — quicker on the draw next time!"}”</p>
+    el.garBody.innerHTML = `<p><b>Roberto:</b> “${B.quiverOut ? "That's the last arrow, partner — we're done for tonight!" : B.haul.length ? "Now THAT'S bowfishing!" : "They rolled right past us — quicker on the draw next time!"}”</p>
       <p>🏹 <b>${B.haul.length}</b> gar arrowed · <b>${total.toFixed(1)} lb</b>${big ? ` · biggest <b>${big.toFixed(1)} lb</b>` : ""}<br>
       🎯 <b>+${pts.toLocaleString()}</b> points${B.penalty ? ` <span style="color:#ff9d8a">(−${B.penalty} for the wildlife…)</span>` : ""}${G.garBestHaul === total && B.haul.length ? " · best haul yet!" : ""}</p>`;
     el.garYes.textContent = "🎣 BACK TO THE BASS";
@@ -2563,7 +2572,7 @@
     const sec = Math.max(0, Math.ceil(B.t / 1000));
     const total = B.haul.reduce((a2, w) => a2 + w, 0);
     ctx.save(); ctx.font = "700 15px system-ui"; ctx.textAlign = "center";
-    const msg = `🏹 ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}  ·  ${B.haul.length} gar · ${total.toFixed(1)} lb`;
+    const msg = `${"➳".repeat(Math.max(0, B.quiver))}${"·".repeat(3 - Math.max(0, B.quiver))}  ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}  ·  ${B.haul.length} gar · ${total.toFixed(1)} lb`;
     const tw = ctx.measureText(msg).width + 26;
     ctx.fillStyle = "rgba(6,26,36,0.72)";
     ctx.beginPath(); ctx.roundRect((W - tw) / 2, 14, tw, 30, 15); ctx.fill();
@@ -5585,15 +5594,19 @@
   // Shop
   // ===========================================================================
   el.rodChip.addEventListener("click", openRods);
-  // the gameplay speaker button is the master switch: it mutes/unmutes BOTH
-  // channels, and stays linked to the per-channel toggles on the menu sliders
-  el.muteBtn.addEventListener("click", () => {
-    const anyOn = !G.muted || G.musicOn !== false;
-    setSfxMuted(anyOn);
-    Music.setOn(!anyOn);
-    updateVolLabels(); updateHUD();
-    if (!anyOn) sfx("ui");
-  });
+  // the gameplay speaker button opens the sound panel: music and effects
+  // each get their own switch, linked to the toggles on the menu sliders
+  function renderSoundPanel() {
+    const mOn = G.musicOn !== false, fOn = !G.muted;
+    el.sndMusic.textContent = `${mOn ? "🎵" : "🔇"} Music — ${mOn ? "ON" : "OFF"}`;
+    el.sndMusic.classList.toggle("ghost", !mOn);
+    el.sndFx.textContent = `${fOn ? "🔊" : "🔇"} Effects — ${fOn ? "ON" : "OFF"}`;
+    el.sndFx.classList.toggle("ghost", !fOn);
+  }
+  el.muteBtn.addEventListener("click", () => { renderSoundPanel(); el.soundModal.classList.remove("hidden"); sfx("ui"); });
+  el.sndMusic.addEventListener("click", () => { Music.setOn(G.musicOn === false); updateVolLabels(); updateHUD(); renderSoundPanel(); sfx("ui"); });
+  el.sndFx.addEventListener("click", () => { setSfxMuted(!G.muted); renderSoundPanel(); if (!G.muted) sfx("ui"); });
+  el.soundClose.addEventListener("click", () => { el.soundModal.classList.add("hidden"); sfx("ui"); });
   // ---- Record book (tap the 🏆 winnings pill) ----
   function openRecords() {
     const h = document.getElementById("recTitle");
