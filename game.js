@@ -431,6 +431,8 @@
     titleScreen: $("titleScreen"), anglerName: $("anglerName"), titleStats: $("titleStats"),
     tsFree: $("tsFree"), tsArcade: $("tsArcade"), tsTour: $("tsTour"), tsTutorial: $("tsTutorial"),
     tsResume: $("tsResume"), tsBoard: $("tsBoard"), homeBtn: $("homeBtn"),
+    tsDaily: $("tsDaily"), dailyModal: $("dailyModal"), dailyClose: $("dailyClose"), dailyBody: $("dailyBody"),
+    dailyTicker: $("dailyTicker"), dailyTickerText: $("dailyTickerText"),
     lbModal: $("lbModal"), lbClose: $("lbClose"), lbBody: $("lbBody"), lbSorts: $("lbSorts"),
     lbProfileModal: $("lbProfileModal"), lbpName: $("lbpName"), lbpClose: $("lbpClose"),
     lbpStats: $("lbpStats"), lbpFav: $("lbpFav"), lbpSorts: $("lbpSorts"), lbpList: $("lbpList"),
@@ -1115,7 +1117,7 @@
   const sfx = n => Sound.play(n);
   function anyModalOpen() {
     return [el.catchModal, el.failModal, el.lureModal, el.mapModal,
-            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal, el.titleScreen, el.lbModal, el.lbProfileModal, el.guideModal, el.anglerModal, el.garModal, el.soundModal].some(m => !m.classList.contains("hidden"));
+            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal, el.titleScreen, el.lbModal, el.lbProfileModal, el.guideModal, el.anglerModal, el.garModal, el.soundModal, el.dailyModal].some(m => !m.classList.contains("hidden"));
   }
 
   function floatText(txt, color) {
@@ -1559,7 +1561,7 @@
       if (row && rows) { sfx("ui"); openProfile(rows.find(o => o.id === row.dataset.pid)); }
     });
     lbSubmitHook = submit;
-    return { open, submit };
+    return { open, submit, fb, pid };
   })();
 
   function updateHUD() {
@@ -2996,6 +2998,11 @@
     el.tsResume.classList.toggle("hidden", !pr);
     if (pr) el.tsResume.textContent = pr;
     el.tsFree.textContent = S.dayStarted ? "🎣 BACK TO THE WATER" : "🎣 GO FISHING";
+    if (el.tsDaily) {
+      const dToday = G.dailyDone === dayKey();
+      el.tsDaily.innerHTML = dToday ? "📅 DAILY — FISHED TODAY ✓" : "📅 DAILY TOURNAMENT";
+      el.tsDaily.classList.toggle("fresh", !dToday);
+    }
     el.titleScreen.classList.remove("hidden");
     Music.setScene("title");
   }
@@ -3010,8 +3017,9 @@
   }
   el.tsFree.addEventListener("click", () => {
     sfx("ui");
-    if (S.dayStarted) { closeTitle(); return; }   // mid-session: straight back to the water
-    closeTitle(true); startPrep();
+    const go = () => { if (S.dayStarted) { closeTitle(); return; } closeTitle(true); startPrep(); };
+    if (openDailySheet(true, go)) return;   // once a day: "wanna fish the daily?"
+    go();
   });
   el.tsArcade.addEventListener("click", () => { closeTitle(); sfx("ui"); startArcade(); });
   el.tsTour.addEventListener("click", () => { closeTitle(); sfx("ui"); openCircuit(); });
@@ -3045,6 +3053,7 @@
       G.pausedTour = { t: S.tournament, spot: G.spot, weather: S.cond.weather, hotLure: S.cond.hotLure, angler: G.angler };
       S.tournament = null;
       el.tourHud.classList.add("hidden");
+      el.dailyTicker.classList.add("hidden");
       toast("🏁 Tournament saved — resume from the menu ▶");
     } else if (S.arcade && !S.arcade.ended) {
       G.pausedArcade = { a: S.arcade, prev: S.arcadePrev, hotLure: S.cond.hotLure, angler: G.angler };
@@ -3065,6 +3074,7 @@
       S.tournament = p.t;
       recomputeCond(); renderConditions();
       el.tourHud.classList.remove("hidden"); renderWell(); renderTourBoard();
+      if (p.t.daily) { el.dailyTicker.classList.remove("hidden"); refreshDailyLive(p.t); }
       toast(`🏁 ${p.t.name} — back on the water!`);
     } else if (G.pausedArcade) {
       const p = G.pausedArcade; G.pausedArcade = null;
@@ -3214,7 +3224,16 @@
       (season.titles ? ` · 👑 <b>${season.titles}</b> title${season.titles > 1 ? "s" : ""}` : "");
     const list = document.getElementById("circuitList");
     const arcadeBest = G.arcadeBestScore ? ` · best <b style="color:var(--gold)">${G.arcadeBestScore.toLocaleString()}</b>` : "";
-    list.innerHTML = `<div class="item circuit arcade-item" data-arcade="1">
+    const dk0 = dayKey(), dr0 = dailyRules(dk0), dsp0 = SPOTS.find(s => s.id === dr0.spot) || SPOTS[0];
+    const dDone0 = G.dailyDone === dk0;
+    list.innerHTML = `<div class="item circuit" data-daily="1">
+        <div class="item-ico">📅</div>
+        <div class="item-info">
+          <div class="item-name">DAILY — ${dr0.mode.name}</div>
+          <div class="item-desc">${dsp0.ico} ${dsp0.name} · 3:00 · ${dr0.mode.rule} One entry a day, against the whole world.${dDone0 ? ` · <span style="color:#5be37a">✓ fished today</span>` : ""}</div>
+        </div>
+        <button class="item-btn owned" data-daily="1">${dDone0 ? "VIEW" : "ENTER"}</button>
+      </div><div class="item circuit arcade-item" data-arcade="1">
         <div class="item-ico">🕹️</div>
         <div class="item-info">
           <div class="item-name">ARCADE — Get Bass</div>
@@ -3255,7 +3274,8 @@
     const tm = document.getElementById("tourMap"), tl = document.getElementById("tourLore");
     if (tm) tm.innerHTML = lakeTopoSVG(sp);
     if (tl) tl.innerHTML = sp.lore ? `📍 ${sp.lore.where}<br>📏 ${sp.lore.size} · 🌊 ${sp.lore.depth} · 💧 ${sp.clarity} water · 🏆 record ${sp.lore.record}` : "";
-    el.tourRules.textContent = `${sp.name} • ${mins}:${String(secs).padStart(2, "0")} on the clock.`;
+    el.tourRules.textContent = `${sp.name} • ${mins}:${String(secs).padStart(2, "0")} on the clock.`
+      + (t.daily ? " 📅 DAILY: " + (DAILY_MODES.find(m => m.id === t.mode) || DAILY_MODES[0]).rule : "");
     el.tourField.textContent = t.field;
     const lu = lure();
     document.getElementById("tourTackle").innerHTML =
@@ -3263,7 +3283,7 @@
   }
   el.tourneyBtn.addEventListener("click", openCircuit);
   el.modeClose.addEventListener("click", () => el.modeModal.classList.add("hidden"));
-  el.modeModal.addEventListener("click", (e) => { const a = e.target.closest("[data-arcade]"); if (a) { startArcade(); return; } const b = e.target.closest("[data-tour]"); if (b) chooseTour(b.dataset.tour); });
+  el.modeModal.addEventListener("click", (e) => { const d0 = e.target.closest("[data-daily]"); if (d0) { el.modeModal.classList.add("hidden"); openDailySheet(false); return; } const a = e.target.closest("[data-arcade]"); if (a) { startArcade(); return; } const b = e.target.closest("[data-tour]"); if (b) chooseTour(b.dataset.tour); });
 
   // ===========================================================================
   // Conditions: time of day, weather, water temperature -> fish holding depth
@@ -4036,6 +4056,7 @@
   // full standings (you + rivals) at the current elapsed fraction
   function tourStandings() {
     const T = S.tournament; if (!T) return [];
+    if (T.daily) return dailyBoardRows(T);
     const e = clamp(1 - T.timeLeft / T.dur, 0, 1);
     const board = (T.rivals || []).map(rv => ({ name: rv.name, total: rivalTotal(rv, e), big: rivalBig(rv, e), me: false }));
     board.push({ name: G.name || "You", total: wellTotal(), big: T.big, me: true, fish: T.well.length });
@@ -4070,6 +4091,13 @@
     S.dayStarted = true;
     const sweepStart = t.spot === "deep" ? 21 * 60 : 6 * 60;
     S.tournament = { timeLeft: t.dur, dur: t.dur, well: [], big: 0, culls: 0, field: t.field, fee, spotId: t.spot, name: t.name, eventId: t.id, ended: false, tier, rivals: buildRivals(t.field, tier), lastLead: null, sweepStart, period: 0 };
+    if (t.daily) {
+      const T2 = S.tournament;
+      T2.daily = t.daily; T2.mode = t.mode; T2.rivals = []; T2.dayCount = 0; T2._real = [];
+      el.dailyTicker.classList.remove("hidden");
+      dailySubmit(T2);          // registers you on today's board right away
+      refreshDailyLive(T2);
+    }
     pendingTour = null;   // lines are in — the prep sheet is done
     S.cond.timeMin = sweepStart; recomputeCond(); renderConditions();
     el.tourHud.classList.remove("hidden");
@@ -4077,7 +4105,7 @@
     renderTourBoard();
     updateHUD();
     resetToIdle();
-    toast(`🏁 ${t.name} — lines in! ${t.field - 1} rivals on the water!`);
+    toast(t.daily ? `📅 ${t.name} — lines in! The whole world fishes this one.` : `🏁 ${t.name} — lines in! ${t.field - 1} rivals on the water!`);
     save();
   }
   function tourLand(f, isRecord, prev) {
@@ -4107,6 +4135,7 @@
       }
     }
     if (f.weight > T.big) T.big = f.weight;
+    if (T.daily) { T.dayCount = (T.dayCount || 0) + 1; dailySubmit(T); }
     checkCatchChallenges(f);
     vibrate([20, 40, 30]);
     renderWell();
@@ -4164,6 +4193,10 @@
       T.lastLead = lead;
       renderTourBoard();
     }
+    if (T.daily) {
+      T._dailyT = (T._dailyT || 0) + dt;
+      if (T._dailyT >= 20000) { T._dailyT = 0; refreshDailyLive(T); }
+    }
     if (T.timeLeft <= 0) endTournament();
   }
   function endTournament() {
@@ -4172,6 +4205,7 @@
     // bail out of any active fight
     S.mode = "idle"; S.hookedFish = null;
     el.fightPanel.classList.add("hidden"); el.retrievePanel.classList.add("hidden"); el.castMeter.classList.add("hidden"); showBtn(false);
+    if (T.daily) { endDaily(T); return; }
 
     const myTotal = wellTotal();
     // the weigh-in: the same rivals you watched all day bring in their FINAL bags
@@ -4233,6 +4267,7 @@
   }
   function closeTournament() {
     S.tournament = null;
+    el.dailyTicker.classList.add("hidden");
     pendingTour = null;
     if (lbSubmitHook) lbSubmitHook(true);   // tournament winnings hit the global board right away
     el.tourHud.classList.add("hidden");
@@ -4242,6 +4277,237 @@
     resetToIdle();
     updateHUD();
   }
+
+  // ===========================================================================
+  // DAILY TOURNAMENT — one entry per angler per real day. The day's rules
+  // (lake + format) are derived from the UTC date, so every phone worldwide
+  // fishes the same challenge; results live in Firebase under /daily/<day>.
+  // Real anglers show in GOLD ★ — a seeded crew of touring pros pads the
+  // field, their catches revealing across the real day like a day-long event.
+  // ===========================================================================
+  const DAILY_DUR = 180000;
+  const DAILY_MODES = [
+    { id: "bag",   ico: "🪣", name: "HEAVY BAG",         rule: "Heaviest 5-bass limit wins." },
+    { id: "big",   ico: "🐷", name: "BIG BASS SHOWDOWN", rule: "One fish decides it — biggest bass wins." },
+    { id: "count", ico: "🔢", name: "NUMBERS GAME",      rule: "Most bass boated wins — size doesn't matter." },
+  ];
+  function dayKey(off) { const d = new Date(Date.now() + (off || 0) * 86400000); return d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate(); }
+  // tiny seeded PRNG — same date, same rules, on every phone on the planet
+  function dayRng(seed) {
+    let a = 0; const s2 = "bass" + seed;
+    for (let i = 0; i < s2.length; i++) a = (a * 31 + s2.charCodeAt(i)) >>> 0;
+    return function () { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  function dailyRules(dk) {
+    const r = dayRng(dk);
+    const sp = SPOTS[Math.floor(r() * SPOTS.length)];
+    const mode = DAILY_MODES[Math.floor(r() * DAILY_MODES.length)];
+    return { day: dk, spot: sp.id, mode };
+  }
+  // how much of the UTC day has passed — the pros' catches reveal on this clock
+  function dayFrac(dk) {
+    if (dk !== dayKey()) return 1;
+    const now = new Date();
+    return clamp((now.getUTCHours() * 60 + now.getUTCMinutes()) / 1440, 0.05, 1);
+  }
+  function dailyCpu(dk) {
+    const rules = dailyRules(dk);
+    const sp = SPOTS.find(s => s.id === rules.spot) || SPOTS[0];
+    const tier = sp.id === "deep" || sp.id === "highland" ? 1.7 : sp.id === "river" || sp.id === "bayou" ? 1.25 : 1.0;
+    const r = dayRng(dk * 7 + 3);
+    const names = RIVAL_NAMES.slice().sort(() => r() - 0.5).slice(0, 9);
+    return names.map(name => {
+      const skill = 0.55 + r() * 0.7;
+      const n = 3 + Math.floor(r() * 10);
+      const catches = [];
+      for (let j = 0; j < n; j++) catches.push({ w: +((0.9 + r() * 4.4) * tier * skill).toFixed(2), at: r() });
+      return { name, catches };
+    });
+  }
+  function dailyCpuRows(dk, need) {
+    const f = dayFrac(dk);
+    return dailyCpu(dk).slice(0, Math.max(0, need)).map(cv => {
+      const rev = cv.catches.filter(c => c.at <= f).map(c => c.w).sort((a, b) => b - a);
+      return { name: cv.name, total: +rev.slice(0, 5).reduce((s2, w) => s2 + w, 0).toFixed(2), big: rev[0] || 0, fish: rev.length, real: false };
+    });
+  }
+  const dEsc = s => String(s == null ? "" : s).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+  function dailyLine(r, m) { return !r ? "" : m === "big" ? (r.big ? r.big.toFixed(2) + " lb big bass" : "—") : m === "count" ? r.fish + " bass" : (r.total ? r.total.toFixed(2) + " lb" : "—"); }
+  function dailySort(rows, m) {
+    const met = r => m === "big" ? [r.big, r.total] : m === "count" ? [r.fish, r.total] : [r.total, r.big];
+    rows.sort((a, b) => { const A = met(a), B = met(b); return B[0] - A[0] || B[1] - A[1]; });
+    return rows;
+  }
+  async function fetchDay(dk) {
+    const base2 = LB.fb(); if (!base2) return [];
+    const r = await fetch(base2 + "/daily/" + dk + ".json");
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const data = await r.json() || {};
+    return Object.entries(data).map(([k, v]) =>
+      (v && typeof v === "object" && v.n && /^p[a-z0-9]{4,20}$/.test(k))
+        ? { pid: k, name: String(v.n).slice(0, 14), total: +v.w || 0, big: +v.b || 0, fish: +v.f || 0, real: true }
+        : null).filter(Boolean);
+  }
+  function dailySubmit(T, done) {
+    const base2 = LB.fb(); if (!base2 || !T || !T.daily) return;
+    const body = JSON.stringify({ n: G.name || "ANGLER", w: +wellTotal().toFixed(2), b: +(T.big || 0).toFixed(2), f: T.dayCount || 0, d: done ? 1 : 0, t: Date.now() });
+    fetch(base2 + "/daily/" + T.daily + "/" + LB.pid() + ".json", { method: "PUT", body }).catch(() => {});
+  }
+  // the live board mid-run: you + every real entry so far today + the pros
+  function dailyBoardRows(T) {
+    const myPid = LB.pid();
+    const me = { name: G.name || "You", total: +wellTotal().toFixed(2), big: +(T.big || 0), fish: T.dayCount || 0, real: true, me: true };
+    const real = (T._real || []).filter(r => r.pid !== myPid).map(r => Object.assign({}, r));
+    const cpu = dailyCpuRows(T.daily, Math.max(3, 10 - real.length));
+    return dailySort([me].concat(real, cpu), T.mode);
+  }
+  function refreshDailyLive(T) {
+    fetchDay(T.daily).then(rows => { T._real = rows; }).catch(() => {}).then(() => {
+      if (S.tournament !== T || T.ended) return;
+      const rows = dailyBoardRows(T);
+      const myI = rows.findIndex(r => r.me);
+      const md = DAILY_MODES.find(x => x.id === T.mode) || DAILY_MODES[0];
+      const bigRow = rows.slice().sort((a, b) => b.big - a.big)[0];
+      const nick = r2 => r2.me ? "YOU" : dEsc(r2.name).toUpperCase() + (r2.real ? " ★" : "");
+      const rl = (T._real || []).length;
+      const entered = (T._real || []).some(r2 => r2.pid === LB.pid()) ? rl : rl + 1;
+      const bits = [
+        `📅 DAILY · ${md.ico} ${md.name}`,
+        bigRow && bigRow.big ? `🐷 BIG BASS OF THE DAY: ${bigRow.big.toFixed(2)} lb — ${nick(bigRow)}` : "🐷 no big bass on the board yet — go get it",
+        rows[0] ? `🥇 LEADER: ${nick(rows[0])} · ${dailyLine(rows[0], T.mode)}` : "",
+        myI >= 0 ? `🎣 YOU: P${myI + 1}/${rows.length} · ${dailyLine(rows[myI], T.mode)}` : "",
+        `👥 ${entered} real angler${entered === 1 ? "" : "s"} in today`,
+      ].filter(Boolean);
+      if (el.dailyTickerText) el.dailyTickerText.innerHTML = bits.join(" &nbsp;&nbsp;·&nbsp;&nbsp; ");
+      renderTourBoard();
+    });
+  }
+  function endDaily(T) {
+    el.dailyTicker.classList.add("hidden");
+    dailySubmit(T, true);
+    const myTotal = wellTotal();
+    const rows = dailyBoardRows(T);
+    const place = rows.findIndex(r => r.me) + 1;
+    const md = DAILY_MODES.find(x => x.id === T.mode) || DAILY_MODES[0];
+    const fee = T.fee || 90;
+    let payout = place === 1 ? fee * 5 : place === 2 ? fee * 3 : place === 3 ? fee * 2 : place <= Math.ceil(rows.length / 2) ? fee : Math.round(fee * 0.4);
+    payout = Math.round(payout);
+    G.coins += payout; addAnglerXP(payout);
+    if (myTotal > (G.bestBag || 0)) G.bestBag = +myTotal.toFixed(2);
+    G.dailyDone = T.daily;
+    if (!G.dailyHist) G.dailyHist = {};
+    G.dailyHist[T.daily] = { p: place, of: rows.length, w: +myTotal.toFixed(2), b: +(T.big || 0).toFixed(2), f: T.dayCount || 0, m: T.mode };
+    Object.keys(G.dailyHist).sort().slice(0, -14).forEach(k => delete G.dailyHist[k]);   // keep two weeks
+    save(); updateHUD();
+    const ord = ["", "1st", "2nd", "3rd"][place] || place + "th";
+    el.tourPlace.textContent = ord + " today (so far)";
+    el.tourResultMedal.textContent = place === 1 ? "🥇" : place === 2 ? "🥈" : place === 3 ? "🥉" : "📅";
+    el.tourBag.innerHTML = T.well.length
+      ? T.well.slice().sort((a, b) => b.weight - a.weight).map(f => `<div class="bag-fish">${fishSVG(f, 40)}<b>${f.weight}</b></div>`).join("")
+      : `<p class="muted">No keepers in the well today.</p>`;
+    el.tourResultStats.innerHTML =
+      `${md.ico} <b>Daily ${md.name}</b> — your ${dailyLine(rows[place - 1], T.mode)}<br>` +
+      `Points: <b>+${payout}</b> 🎯${place === 1 ? "  🏆" : ""}<br>` +
+      `<span class="muted" style="font-size:11px">The board keeps filling until midnight UTC — the final call is on tomorrow's DAILY screen. <b style="color:var(--gold)">Gold ★ = real anglers.</b></span>`;
+    el.tourStandings.innerHTML = rows.map((b, i) =>
+      `<div class="stand-row ${b.me ? "me" : ""} ${b.real ? "real" : ""}"><span>${i + 1}. ${dEsc(b.me ? (G.name || "You") : b.name)}${b.real && !b.me ? " ★" : ""}</span><span class="w">${dailyLine(b, T.mode)}</span></div>`).join("");
+    el.tourResultModal.classList.remove("hidden");
+    setTimeout(() => sfx(place === 1 ? "weighwin" : "weighin"), 300);
+    const meRow = el.tourStandings.querySelector(".me");
+    if (meRow) el.tourStandings.scrollTop = Math.max(0, meRow.offsetTop - el.tourStandings.clientHeight / 2);
+  }
+  let dailyThen = null;   // where to go if the once-a-day prompt is waved off
+  function openDailySheet(auto, then) {
+    const dk = dayKey();
+    if (auto) {
+      if (G.dailyAsk === dk || G.dailyDone === dk || !LB.fb() || (S.tournament && !S.tournament.ended) ||
+          (S.arcade && !S.arcade.ended) || G.pausedTour || G.pausedArcade) return false;
+      G.dailyAsk = dk; save();
+      dailyThen = then || null;
+    } else dailyThen = null;
+    renderDailySheet();
+    el.dailyModal.classList.remove("hidden");
+    return true;
+  }
+  function dRow(b, i, mode2) {
+    return `<div class="d-row ${b.me ? "me" : ""} ${b.real ? "real" : ""}"><span>${i + 1}. ${dEsc(b.name)}${b.real ? " ★" : ""}${b.me ? " <small>(you)</small>" : ""}</span><span class="w">${dailyLine(b, mode2)}</span></div>`;
+  }
+  function renderDailySheet() {
+    const dk = dayKey(), rules = dailyRules(dk), md = rules.mode;
+    const sp = SPOTS.find(s => s.id === rules.spot) || SPOTS[0];
+    const fbOn = !!LB.fb();
+    const done = G.dailyDone === dk;
+    const hist = (G.dailyHist || {})[dk];
+    el.dailyBody.innerHTML = `
+      <div class="daily-card">
+        <div class="d-title">${md.ico} ${md.name}</div>
+        <div class="d-sub"><b>${sp.ico} ${sp.name}</b> · ⏱️ 3:00 on the clock</div>
+        <div class="d-sub">${md.rule}</div>
+        <div class="d-sub muted" style="font-size:11px">The whole world gets this same challenge — one entry per angler. New challenge at midnight UTC.</div>
+        ${done
+          ? `<div class="d-done">✅ You fished today${hist ? ` — <b>${["", "1st", "2nd", "3rd"][hist.p] || hist.p + "th"}</b> at weigh-in` : ""}. Come back tomorrow!</div>`
+          : fbOn
+            ? `<button class="big-btn" id="dailyEnter" style="margin-top:8px">🎣 ENTER TODAY&#39;S DAILY</button>`
+            : `<div class="d-done" style="color:var(--muted,#9ab)">📡 Can&#39;t reach the live board — check your connection.</div>`}
+        ${dailyThen ? `<button class="text-btn" id="dailyLater">Maybe later</button>` : ""}
+      </div>
+      <h3 class="rec-h">📊 Today so far <span style="font-weight:400;color:var(--gold)">★ gold = real anglers</span></h3>
+      <div class="d-list" id="dailyToday"><p class="muted" style="text-align:center">Casting out to the board…</p></div>
+      <h3 class="rec-h">🌙 Yesterday&#39;s weigh-in</h3>
+      <div class="d-list" id="dailyYest"><p class="muted" style="text-align:center">…</p></div>`;
+    if (!fbOn) {
+      document.getElementById("dailyToday").innerHTML = document.getElementById("dailyYest").innerHTML =
+        `<p class="muted" style="text-align:center">— offline —</p>`;
+      return;
+    }
+    const fill = (dk2, boxId, mode2, empty) => {
+      fetchDay(dk2).then(rows => {
+        const myPid = LB.pid();
+        const list = rows.map(r => Object.assign({}, r, { me: r.pid === myPid }));
+        const cpu = dailyCpuRows(dk2, Math.max(3, 10 - list.length));
+        const board = dailySort(list.concat(cpu), mode2);
+        const box = document.getElementById(boxId); if (!box) return;
+        const mine = board.findIndex(bb => bb.me);
+        let html = board.slice(0, 10).map((bb, i) => dRow(bb, i, mode2)).join("");
+        if (mine >= 10) html += dRow(board[mine], mine, mode2);
+        box.innerHTML = html || `<p class="muted" style="text-align:center">${empty}</p>`;
+      }).catch(() => {
+        const box = document.getElementById(boxId);
+        if (box) box.innerHTML = `<p class="muted" style="text-align:center">Couldn&#39;t read the board 📡</p>`;
+      });
+    };
+    fill(dk, "dailyToday", md.id, "Nobody&#39;s in yet — be the first!");
+    const yk = dayKey(-1);
+    fill(yk, "dailyYest", dailyRules(yk).mode.id, "No entries yesterday.");
+  }
+  function chooseDaily() {
+    if (S.tournament && !S.tournament.ended) { toast("Tournament in progress ⏱️"); return; }
+    if (S.arcade && !S.arcade.ended) { toast("Arcade run in progress 🕹️"); return; }
+    const dk = dayKey();
+    if (G.dailyDone === dk) { toast("You&#39;ve fished today&#39;s daily — new one at midnight UTC 📅"); return; }
+    const rules = dailyRules(dk), md = rules.mode;
+    dailyThen = null;
+    el.dailyModal.classList.add("hidden");
+    if (!el.titleScreen.classList.contains("hidden")) closeTitle(true);
+    if (S.tut) { S.tut = null; el.tutBanner.classList.add("hidden"); }
+    pendingTour = { id: null, daily: dk, mode: md.id, spot: rules.spot, name: `Daily ${md.name}`, dur: DAILY_DUR, field: 10 };
+    if (G.spot !== rules.spot) { G.spot = rules.spot; seedFish(); rollConditions(); }
+    save(); updateHUD(); resetToIdle();
+    refreshTourStart();
+    el.tourStartModal.classList.remove("hidden");
+  }
+  el.tsDaily.addEventListener("click", () => { sfx("ui"); openDailySheet(false); });
+  el.dailyClose.addEventListener("click", () => {
+    sfx("ui"); el.dailyModal.classList.add("hidden");
+    const f0 = dailyThen; dailyThen = null; if (f0) f0();
+  });
+  el.dailyBody.addEventListener("click", (e) => {
+    if (e.target.closest("#dailyEnter")) { sfx("good"); chooseDaily(); return; }
+    if (e.target.closest("#dailyLater")) {
+      sfx("ui"); el.dailyModal.classList.add("hidden");
+      const f0 = dailyThen; dailyThen = null; if (f0) f0();
+    }
+  });
 
   // START walks the same angler → spot → rod → lure → size → color → line →
   // scent steps as free play; the clock only starts at 🏁 LINES IN!

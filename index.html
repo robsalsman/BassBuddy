@@ -8,8 +8,8 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>BassBuddy — Bass Fishing</title>
-<script>window.BB_V = "20260704q";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
-<link rel="stylesheet" href="style.css?v=20260704q" />
+<script>window.BB_V = "20260704r";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
+<link rel="stylesheet" href="style.css?v=20260704r" />
 </head>
 <body>
 <div id="game">
@@ -80,6 +80,9 @@
   </div>
 
   <!-- Sega-style status overlay: LINE OUT / W.TEMP / TOTAL WEIGHT / TENSION / lure -->
+  <!-- Daily tournament live ticker -->
+  <div id="dailyTicker" class="daily-ticker hidden"><div id="dailyTickerText">📅 DAILY TOURNAMENT</div></div>
+
   <div id="segaHud" class="sega-hud hidden">
     <div class="sega-block sega-left">
       <div class="sega-pill">LINE OUT</div>
@@ -398,6 +401,17 @@
     </div>
   </div>
 
+  <!-- Daily tournament sheet -->
+  <div id="dailyModal" class="modal hidden">
+    <div class="modal-card shop-card">
+      <div class="shop-head">
+        <h2>📅 Daily Tournament</h2>
+        <button class="close-btn" id="dailyClose">✕</button>
+      </div>
+      <div class="shop-body" id="dailyBody"></div>
+    </div>
+  </div>
+
   <!-- Record book -->
   <div id="recordsModal" class="modal hidden">
     <div class="modal-card shop-card">
@@ -496,6 +510,9 @@
       <button class="big-btn title-resume hidden" id="tsResume" style="margin:0 0 10px">▶ RESUME</button>
       <button class="big-btn title-go" id="tsFree">🎣 GO FISHING</button>
       <div class="title-row">
+        <button class="title-btn tb-daily" id="tsDaily">📅 DAILY TOURNAMENT</button>
+      </div>
+      <div class="title-row">
         <button class="title-btn" id="tsArcade">🕹️ ARCADE</button>
         <button class="title-btn" id="tsTour">🏆 CIRCUIT</button>
       </div>
@@ -526,7 +543,7 @@
 </div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=20260704q"></script>
-<script src="game.js?v=20260704q"></script>
+<script type="module" src="render3d.js?v=20260704r"></script>
+<script src="game.js?v=20260704r"></script>
 </body>
 </html>

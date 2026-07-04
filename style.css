@@ -991,7 +991,7 @@ select, input, textarea { font-size: 16px; }
 #lbModal { z-index: 70; }
 
 /* stats screens layer over the title menu; angler profile over the rankings */
-#recordsModal, #trophyModal, #catchLogModal, #catchDetailModal, #statsModal { z-index: 70; }
+#recordsModal, #trophyModal, #catchLogModal, #catchDetailModal, #statsModal, #dailyModal { z-index: 70; }
 #lbProfileModal { z-index: 72; }
 .title-stats span { cursor: pointer; }
 .title-stats span:active { transform: scale(.95); }
@@ -1160,3 +1160,24 @@ select, input, textarea { font-size: 16px; }
   margin: -2.5px; border-radius: 50%; background: #ffd35c;
 }
 #gpCursor.pressed { border-color: #8fe3a0; box-shadow: 0 0 0 2px rgba(0, 0, 0, .45), inset 0 0 10px rgba(143, 227, 160, .8); }
+
+/* ===== Daily tournament ===== */
+.tb-daily { flex: 1; color: var(--gold); border-color: rgba(255, 211, 92, .5); }
+.tb-daily.fresh { animation: dailyPulse 2.4s ease-in-out infinite; }
+@keyframes dailyPulse {
+  0%, 100% { box-shadow: 0 0 0 rgba(255, 211, 92, 0); }
+  50% { box-shadow: 0 0 16px rgba(255, 211, 92, .4); }
+}
+.daily-card { background: rgba(16, 48, 68, .55); border: 1px solid rgba(120, 220, 255, .25); border-radius: 14px; padding: 12px 10px; margin-bottom: 10px; text-align: center; }
+.daily-card .d-title { font-size: 19px; font-weight: 900; letter-spacing: .5px; color: var(--gold); }
+.daily-card .d-sub { font-size: 12.5px; margin: 4px 0; }
+.d-done { margin-top: 8px; font-weight: 800; color: #5be37a; }
+.d-list { background: rgba(0, 0, 0, .2); border-radius: 10px; padding: 4px 3px; margin-bottom: 10px; }
+.d-row { display: flex; justify-content: space-between; gap: 10px; padding: 4px 9px; font-size: 12.5px; }
+.d-row .w { font-weight: 800; white-space: nowrap; }
+.d-row.me { background: rgba(90, 200, 255, .16); border-radius: 7px; }
+.d-row.real > span:first-child { color: var(--gold); text-shadow: 0 0 8px rgba(255, 211, 92, .35); font-weight: 800; }
+.stand-row.real > span:first-child { color: var(--gold); text-shadow: 0 0 8px rgba(255, 211, 92, .35); }
+.daily-ticker { position: fixed; left: 0; right: 0; bottom: 0; z-index: 80; height: calc(21px + env(safe-area-inset-bottom, 0px)); overflow: hidden; background: rgba(3, 16, 26, .85); border-top: 1px solid rgba(120, 220, 255, .3); pointer-events: none; }
+#dailyTickerText { position: absolute; left: 0; top: 0; white-space: nowrap; font-size: 11px; font-weight: 700; line-height: 21px; color: #d6f2ff; animation: dtScroll 26s linear infinite; will-change: transform; }
+@keyframes dtScroll { from { transform: translateX(100vw); } to { transform: translateX(-100%); } }
