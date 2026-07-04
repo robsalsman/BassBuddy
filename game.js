@@ -2341,6 +2341,7 @@
     if (B.quiver <= 0 && !B.over) { B.quiverOut = true; endBowfish(); return; }
     if (B.t <= 0) endBowfish();
   }
+  function bowAnchor() { return { x: W * 0.74 - 68, y: H - 266 }; }
   function reelPoint() {
     let btnTop = H - 170;
     try { const br = el.actionBtn.getBoundingClientRect(); if (br && br.height) btnTop = br.top; } catch (e) {}
@@ -2352,7 +2353,8 @@
     if (B.quiver <= 0) return;
     if (y < waterLine() + 6) return;                     // arrows go in the water
     B.shots++;
-    B.arrows.push({ sx: W * 0.56, sy: H - 222, tx: x, ty: y, t: 0, dur: 170, done: false });
+    const ba = bowAnchor();
+    B.arrows.push({ sx: ba.x, sy: ba.y, tx: x, ty: y, t: 0, dur: 170, done: false });
     sfx("cast"); vibrate(10);
   }
   function endBowfish() {
@@ -2453,7 +2455,7 @@
     // ---- the hooked giant: thrashing, jumping, arrow buried in its back ----
     if (B.fight) {
       const F = B.fight;
-      const bowX = W * 0.56, bowY = H - 222;
+      const ba = bowAnchor(), bowX = ba.x, bowY = ba.y;
       // reeling drags it down to a landing spot just ABOVE the reel button,
       // so the fish never disappears under the player's thumb
       const rp = reelPoint();
@@ -2521,8 +2523,8 @@
       if (!a.done) {
         const ang = Math.atan2(a.ty - a.sy, a.tx - a.sx);
         ctx.translate(ax, ay); ctx.rotate(ang);
-        ctx.strokeStyle = "#e8d9b0"; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(-16, 0); ctx.lineTo(8, 0); ctx.stroke();
-        ctx.fillStyle = "#d8dee2"; ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(2, -3); ctx.lineTo(2, 3); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = "#e8d9b0"; ctx.lineWidth = 3.4; ctx.beginPath(); ctx.moveTo(-22, 0); ctx.lineTo(11, 0); ctx.stroke();
+        ctx.fillStyle = "#d8dee2"; ctx.beginPath(); ctx.moveTo(14, 0); ctx.lineTo(4, -4); ctx.lineTo(4, 4); ctx.closePath(); ctx.fill();
       }
       ctx.restore();
     }
@@ -2539,16 +2541,25 @@
       ctx.strokeText(msg2, hx2, ty); ctx.fillText(msg2, hx2, ty);
       ctx.restore();
     }
-    // the boat bow — and Dr. G standing on the deck with the bow, Roberto driving
-    ctx.fillStyle = "#7e2f3b";
-    ctx.beginPath(); ctx.moveTo(W * 0.02, H); ctx.quadraticCurveTo(W * 0.5, H - 345, W * 0.98, H); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = "#5f232d";
-    ctx.beginPath(); ctx.moveTo(W * 0.14, H); ctx.quadraticCurveTo(W * 0.5, H - 292, W * 0.86, H); ctx.closePath(); ctx.fill();
+    // the bow deck runs off the corner — you're shooting off the port bow,
+    // and the shooter is people-sized on it
+    const dkT = H - 158;                                     // deck line at the right edge
+    ctx.fillStyle = "#7e2f3b";                               // gunwale + foredeck
+    ctx.beginPath(); ctx.moveTo(W * 0.12, H);
+    ctx.quadraticCurveTo(W * 0.4, dkT + 4, W + 6, dkT - 14);
+    ctx.lineTo(W + 6, H); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = "#93424e"; ctx.lineWidth = 3;          // deck edge highlight
+    ctx.beginPath(); ctx.moveTo(W * 0.13, H - 2);
+    ctx.quadraticCurveTo(W * 0.4, dkT + 6, W + 6, dkT - 12); ctx.stroke();
+    ctx.fillStyle = "#5f232d";                               // hull side to the waterline
+    ctx.beginPath(); ctx.moveTo(W * 0.3, H);
+    ctx.quadraticCurveTo(W * 0.56, dkT + 78, W + 6, dkT + 66);
+    ctx.lineTo(W + 6, H); ctx.closePath(); ctx.fill();
     const flying = B.arrows.some(a => !a.done);
     const fighting = !!B.fight, straining = fighting && B.holding;
-    const px = W * 0.58, deckY = H - 158;
+    const px = W * 0.74, deckY = H - 138, SC = 1.85;
     const lean = straining ? 0.16 : fighting ? 0.06 : 0;
-    ctx.save(); ctx.translate(px, deckY); ctx.rotate(lean);
+    ctx.save(); ctx.translate(px, deckY); ctx.rotate(lean); ctx.scale(SC, SC);
     // legs planted on the deck
     ctx.strokeStyle = "#2c3238"; ctx.lineWidth = 9; ctx.lineCap = "round";
     ctx.beginPath(); ctx.moveTo(-7, 0); ctx.lineTo(-10, -30); ctx.moveTo(9, 0); ctx.lineTo(10, -30); ctx.stroke();
@@ -2575,9 +2586,9 @@
     if (flying || fighting) ctx.arc(-18, -64.5, 4, 0, Math.PI * 2); else ctx.arc(-7, -70.5, 4, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
-    // the bow itself sits in the lead hand (arrows launch from here: W*0.56, H-96)
-    const bx = px - 37 + lean * 20, by = deckY - 67;
-    ctx.save(); ctx.translate(bx, by); ctx.rotate(-0.62 + lean * 0.6);
+    // the bow itself sits in the lead hand, at the same scale as its owner
+    const ba2 = bowAnchor(), bx = ba2.x + lean * 30, by = ba2.y;
+    ctx.save(); ctx.translate(bx, by); ctx.rotate(-0.62 + lean * 0.6); ctx.scale(SC, SC);
     ctx.strokeStyle = "#6b4a2a"; ctx.lineWidth = 5; ctx.lineCap = "round";
     ctx.beginPath(); ctx.arc(0, 0, 30, -1.12, 1.12); ctx.stroke();
     // the bow reel: a little drum under the grip with line on it
