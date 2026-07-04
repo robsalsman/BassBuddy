@@ -2238,7 +2238,7 @@
     toast("🏹 Tap a gar when it rolls!");
     sfx("cast");
   }
-  function cancelBowfish() { S.bow = null; if (S.mode === "bowfish") S.mode = "idle"; }
+  function cancelBowfish() { S.bow = null; if (S.mode === "bowfish") { S.mode = "idle"; showBtn(false); } }
   function updateBowfish(dt) {
     const B = S.bow; if (!B || B.over) return;
     B.t -= dt;
@@ -2263,14 +2263,14 @@
       }
       if (F.strain >= 1) {          // it threw the arrow
         toast("💢 It threw the arrow!"); sfx("snap"); vibrate([60, 40, 60]);
-        splash(F.x, F.y); B.fight = null;
+        splash(F.x, F.y); B.fight = null; B.holding = false; showBtn(false);
       } else if (F.dist <= 0.06) {  // boated!
         B.haul.push(F.w);
         B.hits.push({ x: W * 0.5, y: wl + 60, t: 0, w: F.w });
         B.t = Math.min(GAR_MS, B.t + 6000);   // a giant buys you time
         toast(`🐊 GIANT GAR boated — <b>${F.w} lb</b> (+6s)`);
         sfx("lunker"); vibrate([30, 40, 30, 40]);
-        B.fight = null;
+        B.fight = null; B.holding = false; showBtn(false);
       }
     } else {
       // ---- the river rolls: gar, and things you'd better not shoot ----
@@ -2317,7 +2317,8 @@
           sfx("snap"); vibrate([90, 60, 90]);
         } else if (g.w >= 15) {     // a giant doesn't come easy — reel it in
           B.fight = { x: g.x, y: g.y, w: g.w, r: g.r, dist: 1, strain: 0, state: "run", stT: 900, dir: g.dir, jp: 0 };
-          toast("🏹 STUCK A GIANT — <b>hold</b> to reel, let go when it jumps!");
+          toast("🏹 STUCK A GIANT — hold the reel, let go when it jumps!");
+          setBtn("HOLD TO REEL", "reel"); showBtn(true);
           sfx("strike"); vibrate([30, 50, 30]);
         } else {
           B.haul.push(g.w);
@@ -2341,7 +2342,7 @@
   }
   function endBowfish() {
     const B = S.bow; if (!B || B.over) return;
-    B.over = true;
+    B.over = true; B.holding = false; showBtn(false);
     const total = +B.haul.reduce((a, w) => a + w, 0).toFixed(1);
     const big = B.haul.length ? Math.max(...B.haul) : 0;
     const pts = Math.max(0, Math.round(total * 60 + B.haul.length * 120) - B.penalty);
@@ -2471,11 +2472,11 @@
       ctx.fillStyle = F.strain > 0.72 ? "#ff5d5d" : F.strain > 0.45 ? "#ffd35c" : "#8fe3a0";
       ctx.beginPath(); ctx.roundRect(sx2, sy2, sw * F.strain, 10, 5); ctx.fill();
       ctx.restore();
-      if (!B.holding) {
-        ctx.save(); ctx.globalAlpha = 0.75 + Math.sin(now / 180) * 0.25;
-        ctx.font = "800 17px system-ui"; ctx.textAlign = "center";
+      if (!B.holding && F.state !== "jump") {
+        ctx.save(); ctx.globalAlpha = 0.6 + Math.sin(now / 180) * 0.25;
+        ctx.font = "800 14px system-ui"; ctx.textAlign = "center";
         ctx.fillStyle = "#ffd35c"; ctx.strokeStyle = "rgba(0,0,0,.6)"; ctx.lineWidth = 4; ctx.lineJoin = "round";
-        ctx.strokeText("HOLD TO REEL!", W / 2, sy2 + 40); ctx.fillText("HOLD TO REEL!", W / 2, sy2 + 40);
+        ctx.strokeText("REEL! ▼", W / 2, sy2 + 38); ctx.fillText("REEL! ▼", W / 2, sy2 + 38);
         ctx.restore();
       }
     }
@@ -3359,7 +3360,7 @@
   el.actionBtn.addEventListener("pointerdown", (e) => { e.preventDefault(); onDown(W / 2, H * 0.6); });
   el.actionBtn.addEventListener("pointerup", (e) => { e.preventDefault(); onUp(); });
   el.actionBtn.addEventListener("pointercancel", onUp);
-  el.actionBtn.addEventListener("pointerleave", () => { if (S.mode === "fight" || (S.mode === "retrieve" && holdCandidate)) onUp(); });
+  el.actionBtn.addEventListener("pointerleave", () => { if (S.mode === "fight" || S.mode === "bowfish" || (S.mode === "retrieve" && holdCandidate)) onUp(); });
   // the hookset is set ONLY by tapping the timing meter (its own target, away from
   // the reel button) so working the lure never fires it by accident
   el.hookMeter.addEventListener("pointerdown", (e) => { e.preventDefault(); e.stopPropagation(); if (S.mode === "strike") { sfx("ui"); hookSet(); } });
