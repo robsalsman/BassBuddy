@@ -2271,7 +2271,7 @@
         if (B.quiver <= 0) { B.quiverOut = true; endBowfish(); return; }
       } else if (F.dist <= 0.06) {  // boated — and the arrow comes back with it
         B.haul.push(F.w);
-        B.hits.push({ x: W * 0.5, y: wl + 60, t: 0, w: F.w });
+        B.hits.push({ x: W * 0.52, y: H - 220, t: 0, w: F.w });
         const bonus = Math.round(2 + F.k * 5);
         B.t = Math.min(GAR_MS, B.t + bonus * 1000);
         toast(`${F.w >= 15 ? "🐊 GIANT GAR" : "🏹 Gar"} boated — <b>${F.w} lb</b> (+${bonus}s)`);
@@ -2448,9 +2448,12 @@
     if (B.fight) {
       const F = B.fight;
       const bowX = W * 0.56, bowY = H - 96;
-      const gx = bowX + (F.x - bowX) * F.dist, gy = (waterLine() + 74) + (F.y - waterLine() - 74) * F.dist;
-      const lift = Math.sin((F.jp || 0) * Math.PI) * 52;
-      const len = 30 + F.w * 1.1;
+      // reeling drags it DOWN the screen to the boat — closer means lower and bigger
+      const boatX = W * 0.52, boatY = H - 150;
+      const gx = boatX + (F.x - boatX) * F.dist, gy = boatY + (F.y - boatY) * F.dist;
+      const near = 1 + (1 - F.dist) * 0.9;                 // perspective: it grows as it comes
+      const lift = Math.sin((F.jp || 0) * Math.PI) * 52 * near;
+      const len = (30 + F.w * 1.1) * near;
       const thrash = Math.sin(now / 55) * (F.state === "jump" ? 0.34 : 0.13);
       // taut line from the bow reel to the fish
       ctx.save(); ctx.strokeStyle = "rgba(240,240,235,0.7)"; ctx.lineWidth = 1.3;
@@ -2473,19 +2476,31 @@
       ctx.restore();
       if (F.state === "jump") { ctx.save(); ctx.globalAlpha = 0.5; ctx.strokeStyle = "#cfe4ef"; ctx.lineWidth = 1.6;
         ctx.beginPath(); ctx.ellipse(gx, gy + 4, len * 0.5, 7, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
-      // line-strain bar + coaching
-      const sw = 150, sx2 = (W - sw) / 2, sy2 = 54;
+      // fight gauges: line strain on top, distance-to-the-boat below
+      const sw = 150, sx2 = (W - sw) / 2, sy2 = 56;
       ctx.save();
-      ctx.fillStyle = "rgba(6,26,36,0.72)"; ctx.beginPath(); ctx.roundRect(sx2 - 8, sy2 - 7, sw + 16, 24, 12); ctx.fill();
+      ctx.fillStyle = "rgba(6,26,36,0.72)"; ctx.beginPath(); ctx.roundRect(sx2 - 40, sy2 - 9, sw + 66, 46, 14); ctx.fill();
+      ctx.font = "700 9px system-ui"; ctx.textAlign = "right"; ctx.fillStyle = "rgba(234,246,251,0.75)";
+      ctx.fillText("LINE", sx2 - 6, sy2 + 8);
+      ctx.fillText("BOAT", sx2 - 6, sy2 + 27);
       ctx.fillStyle = "rgba(255,255,255,0.18)"; ctx.beginPath(); ctx.roundRect(sx2, sy2, sw, 10, 5); ctx.fill();
       ctx.fillStyle = F.strain > 0.72 ? "#ff5d5d" : F.strain > 0.45 ? "#ffd35c" : "#8fe3a0";
       ctx.beginPath(); ctx.roundRect(sx2, sy2, sw * F.strain, 10, 5); ctx.fill();
+      // the marker crawls to the hull as line comes in
+      const prog = 1 - F.dist;
+      ctx.fillStyle = "rgba(255,255,255,0.18)"; ctx.beginPath(); ctx.roundRect(sx2, sy2 + 19, sw, 10, 5); ctx.fill();
+      ctx.fillStyle = "#7fd4e8"; ctx.beginPath(); ctx.roundRect(sx2, sy2 + 19, sw * Math.max(0.04, prog), 10, 5); ctx.fill();
+      ctx.font = "13px system-ui"; ctx.textAlign = "center";
+      ctx.fillText("🛶", sx2 + sw + 14, sy2 + 30);
+      const mx = sx2 + sw * Math.max(0.04, prog);
+      ctx.fillStyle = "#eaf6fb";
+      ctx.beginPath(); ctx.moveTo(mx, sy2 + 17.5); ctx.lineTo(mx - 4.5, sy2 + 12); ctx.lineTo(mx + 4.5, sy2 + 12); ctx.closePath(); ctx.fill();
       ctx.restore();
       if (!B.holding && F.state !== "jump") {
         ctx.save(); ctx.globalAlpha = 0.6 + Math.sin(now / 180) * 0.25;
         ctx.font = "800 14px system-ui"; ctx.textAlign = "center";
         ctx.fillStyle = "#ffd35c"; ctx.strokeStyle = "rgba(0,0,0,.6)"; ctx.lineWidth = 4; ctx.lineJoin = "round";
-        ctx.strokeText("REEL! ▼", W / 2, sy2 + 38); ctx.fillText("REEL! ▼", W / 2, sy2 + 38);
+        ctx.strokeText("REEL! ▼", W / 2, sy2 + 56); ctx.fillText("REEL! ▼", W / 2, sy2 + 56);
         ctx.restore();
       }
     }
