@@ -2341,7 +2341,7 @@
     if (B.quiver <= 0 && !B.over) { B.quiverOut = true; endBowfish(); return; }
     if (B.t <= 0) endBowfish();
   }
-  function bowAnchor() { return { x: W * 0.74 - 68, y: H - 266 }; }
+  function bowAnchor() { return { x: W * 0.74 - 70, y: H - 251 }; }
   function reelPoint() {
     let btnTop = H - 170;
     try { const br = el.actionBtn.getBoundingClientRect(); if (br && br.height) btnTop = br.top; } catch (e) {}
@@ -2558,50 +2558,58 @@
     const flying = B.arrows.some(a => !a.done);
     const fighting = !!B.fight, straining = fighting && B.holding;
     const px = W * 0.74, deckY = H - 138, SC = 1.85;
-    const lean = straining ? 0.16 : fighting ? 0.06 : 0;
+    const lean = straining ? 0.14 : fighting ? 0.05 : 0;
+    // ---- the archer, drawn as one figure in profile, shooting left ----
     ctx.save(); ctx.translate(px, deckY); ctx.rotate(lean); ctx.scale(SC, SC);
+    ctx.lineCap = "round";
     // legs planted on the deck
-    ctx.strokeStyle = "#2c3238"; ctx.lineWidth = 9; ctx.lineCap = "round";
-    ctx.beginPath(); ctx.moveTo(-7, 0); ctx.lineTo(-10, -30); ctx.moveTo(9, 0); ctx.lineTo(10, -30); ctx.stroke();
-    // torso: the blue polo, back-quarter view
+    ctx.strokeStyle = "#2c3238"; ctx.lineWidth = 9;
+    ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(-5, -30); ctx.moveTo(11, 0); ctx.lineTo(8, -30); ctx.stroke();
+    // torso: the blue polo, squared to the shot
     ctx.fillStyle = "#3a6ea8";
-    ctx.beginPath(); ctx.moveTo(-15, -30); ctx.quadraticCurveTo(-17, -62, -8, -66) ; ctx.lineTo(10, -66); ctx.quadraticCurveTo(18, -60, 15, -30); ctx.closePath(); ctx.fill();
-    // the long beard peeking past the shoulder
+    ctx.beginPath(); ctx.moveTo(-11, -28); ctx.quadraticCurveTo(-13, -56, -7, -60);
+    ctx.lineTo(9, -60); ctx.quadraticCurveTo(14, -54, 12, -28); ctx.closePath(); ctx.fill();
+    // head in profile, eyes down the arrow
+    ctx.fillStyle = "#dfae85"; ctx.beginPath(); ctx.arc(-4, -71, 9.5, 0, Math.PI * 2); ctx.fill();
+    // the long beard running down the chest
     ctx.fillStyle = "#463526";
-    ctx.beginPath(); ctx.moveTo(-4, -64); ctx.quadraticCurveTo(-9, -52, -3, -44); ctx.quadraticCurveTo(2, -52, 2, -63); ctx.closePath(); ctx.fill();
-    // head + the charcoal trucker cap
-    ctx.fillStyle = "#dfae85"; ctx.beginPath(); ctx.arc(0, -75, 9.5, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#4d545c"; ctx.beginPath(); ctx.arc(0, -78, 10, Math.PI * 0.95, Math.PI * 2.02); ctx.fill();
-    ctx.fillStyle = "#4d545c"; ctx.beginPath(); ctx.ellipse(7, -78.5, 8, 3, -0.12, 0, Math.PI * 2); ctx.fill();
-    // bow arm reaching out over the water
-    ctx.strokeStyle = "#3a6ea8"; ctx.lineWidth = 8; ctx.lineCap = "round";
-    ctx.beginPath(); ctx.moveTo(-8, -58); ctx.lineTo(-34, -66); ctx.stroke();
-    ctx.fillStyle = "#dfae85"; ctx.beginPath(); ctx.arc(-37, -67, 4.5, 0, Math.PI * 2); ctx.fill();
-    // draw arm: pulled to the cheek at rest, thrown forward on release
+    ctx.beginPath(); ctx.moveTo(-12, -67); ctx.quadraticCurveTo(-13, -52, -5, -42);
+    ctx.quadraticCurveTo(0, -52, -2, -65); ctx.closePath(); ctx.fill();
+    // charcoal cap, brim toward the target
+    ctx.fillStyle = "#4d545c";
+    ctx.beginPath(); ctx.arc(-4, -74, 10, Math.PI * 0.9, Math.PI * 2.02); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-12, -75.5, 8, 3, 0.12, 0, Math.PI * 2); ctx.fill();
+    // lead arm straight out to the grip
+    ctx.strokeStyle = "#3a6ea8"; ctx.lineWidth = 8;
+    ctx.beginPath(); ctx.moveTo(-6, -56); ctx.lineTo(-36, -61); ctx.stroke();
+    // draw arm: on the string until the shot; on the reel crank in a fight
     ctx.strokeStyle = "#35638f"; ctx.lineWidth = 8;
-    ctx.beginPath(); ctx.moveTo(9, -58);
-    if (flying || fighting) ctx.lineTo(-16, -64); else ctx.lineTo(-6, -70);
+    ctx.beginPath(); ctx.moveTo(6, -56);
+    let hx, hy;
+    if (fighting) { ctx.lineTo(-8, -42); hx = -44; hy = -52; }
+    else if (flying) { ctx.lineTo(16, -56); hx = 12, hy = -68; }
+    else { ctx.lineTo(15, -53); hx = -16; hy = -63; }
+    ctx.lineTo(hx, hy); ctx.stroke();
+    ctx.fillStyle = "#dfae85";
+    ctx.beginPath(); ctx.arc(hx, hy, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-38, -61, 4.5, 0, Math.PI * 2); ctx.fill();   // grip hand
+    // the bow in the lead hand: belly to the river, string to the man
+    ctx.save(); ctx.translate(-38, -61); ctx.rotate(-0.1);
+    ctx.strokeStyle = "#6b4a2a"; ctx.lineWidth = 4.5;
+    ctx.beginPath(); ctx.moveTo(2, -34); ctx.quadraticCurveTo(-18, 0, 2, 34); ctx.stroke();
+    ctx.fillStyle = "#2e3338"; ctx.beginPath(); ctx.arc(-8, 9, 5, 0, Math.PI * 2); ctx.fill();   // the bow reel
+    ctx.strokeStyle = "#c9c9c2"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(-8, 9, 2.8, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = "rgba(235,235,225,0.85)"; ctx.lineWidth = 1.4;
+    ctx.beginPath(); ctx.moveTo(2, -34);
+    if (flying || fighting) ctx.lineTo(2, 34); else { ctx.lineTo(21, -2); ctx.lineTo(2, 34); }
     ctx.stroke();
-    ctx.fillStyle = "#dfae85"; ctx.beginPath();
-    if (flying || fighting) ctx.arc(-18, -64.5, 4, 0, Math.PI * 2); else ctx.arc(-7, -70.5, 4, 0, Math.PI * 2);
-    ctx.fill();
+    if (!flying && !fighting) {   // nocked arrow lies across the riser, head at the water
+      ctx.strokeStyle = "#e8d9b0"; ctx.lineWidth = 2.4;
+      ctx.beginPath(); ctx.moveTo(21, -2); ctx.lineTo(-26, -3); ctx.stroke();
+      ctx.fillStyle = "#d8dee2"; ctx.beginPath(); ctx.moveTo(-31, -3.2); ctx.lineTo(-23, -6.6); ctx.lineTo(-23, 0.2); ctx.closePath(); ctx.fill();
+    }
     ctx.restore();
-    // the bow itself sits in the lead hand, at the same scale as its owner
-    const ba2 = bowAnchor(), bx = ba2.x + lean * 30, by = ba2.y;
-    ctx.save(); ctx.translate(bx, by); ctx.rotate(-0.62 + lean * 0.6); ctx.scale(SC, SC);
-    // limbs bow TOWARD the water; the string faces the shooter
-    ctx.strokeStyle = "#6b4a2a"; ctx.lineWidth = 5; ctx.lineCap = "round";
-    ctx.beginPath(); ctx.arc(0, 0, 30, Math.PI - 1.12, Math.PI + 1.12); ctx.stroke();
-    // the bow reel: a little drum on the front of the grip with line on it
-    ctx.fillStyle = "#2e3338"; ctx.beginPath(); ctx.arc(-8, 9, 6, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = "#c9c9c2"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(-8, 9, 3.4, 0, Math.PI * 2); ctx.stroke();
-    const tX = Math.cos(Math.PI - 1.12) * 30, tY = Math.sin(Math.PI - 1.12) * 30;
-    ctx.strokeStyle = "rgba(235,235,225,0.85)"; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.moveTo(tX, tY);
-    if (flying || fighting) ctx.lineTo(tX, -tY); else { ctx.lineTo(11, 0); ctx.lineTo(tX, -tY); }
-    ctx.stroke();
-    if (!flying && !fighting) { ctx.strokeStyle = "#e8d9b0"; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(11, 0); ctx.lineTo(-28, 0); ctx.stroke();
-      ctx.fillStyle = "#d8dee2"; ctx.beginPath(); ctx.moveTo(-32, 0); ctx.lineTo(-24, -3.4); ctx.lineTo(-24, 3.4); ctx.closePath(); ctx.fill(); }
+    ctx.restore();
     ctx.restore();
     // canvas HUD: the clock and the stringer
     const sec = Math.max(0, Math.ceil(B.t / 1000));
