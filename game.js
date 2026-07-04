@@ -5634,7 +5634,8 @@
     const prep = S.prep || 0;
     el.mapTitle.textContent = prep === 2 ? `🗺️ ${prepNum(2)} — Pick your lake` : prep === 3 ? `📍 ${prepNum(3)} — Pick your spot` : "🗺️ Where to Fish";
     const c = S.cond, w = WEATHER[c.weather], sea = SEASONS[c.season] || SEASONS.summer;
-    el.mapCond.innerHTML = `${sea.ico} ${sea.name} · ${w.ico} ${w.name} · ${c.temp}° · ${moonNow().ico} ${moonNow().name} · ${fmtClock(c.timeMin)} · bass holding ~<b>${Math.round(c.band * 24)} ft</b>`;
+    el.mapCond.innerHTML = `${sea.ico} ${sea.name} · ${w.ico} ${w.name} · ${c.temp}° · ${moonNow().ico} ${moonNow().name} · ${fmtClock(c.timeMin)} · bass holding ~<b>${Math.round(c.band * 24)} ft</b>`
+      + (S.tournament && !S.tournament.ended && !prep ? ` · <span style="color:var(--gold)">🚤 moving to a new spot costs <b>0:20</b></span>` : "");
     el.mapVenues.classList.toggle("hidden", prep === 3);
     const spotStep = prep !== 2;
     el.posHead.classList.toggle("hidden", !spotStep);
@@ -5839,7 +5840,22 @@
         save(); updateHUD(); renderMap();
       } else { const sp = SPOTS.find(s => s.id === v.dataset.venue); toast(sp && sp.unlock ? "🔒 " + sp.unlock.label : "Locked"); }
     } else if (p) {
-      G.positions[spot().id] = p.dataset.pos; recomputeCond(); save(); updateHUD(); renderPositions();
+      const posId = p.dataset.pos, cur = G.positions[spot().id];
+      if (S.arcade && !S.arcade.ended) { if (posId !== cur) toast("The stage picks the spot 🕹️"); return; }
+      const T = S.tournament && !S.tournament.ended ? S.tournament : null;
+      if (T && posId !== cur) {
+        // running the boat to new water costs tournament time
+        T.timeLeft -= 20000;
+        G.positions[spot().id] = posId;
+        recomputeCond(); seedFish(); save(); updateHUD();
+        el.mapModal.classList.add("hidden");
+        toast(`🚤 Ran to ${position().name} — <b>−0:20</b>`);
+        sfx("cast"); vibrate(15);
+        resetToIdle();
+        if (T.timeLeft <= 0) { T.timeLeft = 0; endTournament(); }
+        return;
+      }
+      G.positions[spot().id] = posId; recomputeCond(); save(); updateHUD(); renderPositions();
     }
   });
 
