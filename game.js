@@ -2344,7 +2344,7 @@
   function reelPoint() {
     let btnTop = H - 170;
     try { const br = el.actionBtn.getBoundingClientRect(); if (br && br.height) btnTop = br.top; } catch (e) {}
-    return { x: W * 0.5, y: Math.max(waterLine() + 110, btnTop - 90) };
+    return { x: W * 0.34, y: Math.max(waterLine() + 110, btnTop - 90) };
   }
   function bowShoot(x, y) {
     const B = S.bow; if (!B || B.over) return;
@@ -2541,12 +2541,12 @@
     }
     // the boat bow — and Dr. G standing on the deck with the bow, Roberto driving
     ctx.fillStyle = "#7e2f3b";
-    ctx.beginPath(); ctx.moveTo(W * 0.04, H); ctx.quadraticCurveTo(W * 0.5, H - 200, W * 0.96, H); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(W * 0.02, H); ctx.quadraticCurveTo(W * 0.5, H - 345, W * 0.98, H); ctx.closePath(); ctx.fill();
     ctx.fillStyle = "#5f232d";
-    ctx.beginPath(); ctx.moveTo(W * 0.16, H); ctx.quadraticCurveTo(W * 0.5, H - 168, W * 0.84, H); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(W * 0.14, H); ctx.quadraticCurveTo(W * 0.5, H - 292, W * 0.86, H); ctx.closePath(); ctx.fill();
     const flying = B.arrows.some(a => !a.done);
     const fighting = !!B.fight, straining = fighting && B.holding;
-    const px = W * 0.66, deckY = H - 160;
+    const px = W * 0.58, deckY = H - 158;
     const lean = straining ? 0.16 : fighting ? 0.06 : 0;
     ctx.save(); ctx.translate(px, deckY); ctx.rotate(lean);
     // legs planted on the deck
