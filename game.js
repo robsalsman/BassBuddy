@@ -2352,7 +2352,7 @@
     if (B.quiver <= 0) return;
     if (y < waterLine() + 6) return;                     // arrows go in the water
     B.shots++;
-    B.arrows.push({ sx: W * 0.56, sy: H - 96, tx: x, ty: y, t: 0, dur: 170, done: false });
+    B.arrows.push({ sx: W * 0.56, sy: H - 222, tx: x, ty: y, t: 0, dur: 170, done: false });
     sfx("cast"); vibrate(10);
   }
   function endBowfish() {
@@ -2453,7 +2453,7 @@
     // ---- the hooked giant: thrashing, jumping, arrow buried in its back ----
     if (B.fight) {
       const F = B.fight;
-      const bowX = W * 0.56, bowY = H - 96;
+      const bowX = W * 0.56, bowY = H - 222;
       // reeling drags it down to a landing spot just ABOVE the reel button,
       // so the fish never disappears under the player's thumb
       const rp = reelPoint();
@@ -2541,12 +2541,12 @@
     }
     // the boat bow — and Dr. G standing on the deck with the bow, Roberto driving
     ctx.fillStyle = "#7e2f3b";
-    ctx.beginPath(); ctx.moveTo(W * 0.08, H); ctx.quadraticCurveTo(W * 0.5, H - 72, W * 0.92, H); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(W * 0.04, H); ctx.quadraticCurveTo(W * 0.5, H - 200, W * 0.96, H); ctx.closePath(); ctx.fill();
     ctx.fillStyle = "#5f232d";
-    ctx.beginPath(); ctx.moveTo(W * 0.2, H); ctx.quadraticCurveTo(W * 0.5, H - 46, W * 0.8, H); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(W * 0.16, H); ctx.quadraticCurveTo(W * 0.5, H - 168, W * 0.84, H); ctx.closePath(); ctx.fill();
     const flying = B.arrows.some(a => !a.done);
     const fighting = !!B.fight, straining = fighting && B.holding;
-    const px = W * 0.66, deckY = H - 34;
+    const px = W * 0.66, deckY = H - 160;
     const lean = straining ? 0.16 : fighting ? 0.06 : 0;
     ctx.save(); ctx.translate(px, deckY); ctx.rotate(lean);
     // legs planted on the deck
