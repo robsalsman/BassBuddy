@@ -8,8 +8,8 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>BassBuddy — Bass Fishing</title>
-<script>window.BB_V = "20260704r";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
-<link rel="stylesheet" href="style.css?v=20260704r" />
+<script>window.BB_V = "20260704s";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
+<link rel="stylesheet" href="style.css?v=20260704s" />
 </head>
 <body>
 <div id="game">
@@ -526,6 +526,8 @@
       </div>
       <div class="title-cred">A tribute to SEGA Bass Fishing</div>
     </div>
+    <!-- home-screen marquee: daily tournament promo + Big Bass of the Day -->
+    <div id="titleTicker" class="title-ticker hidden"><div id="titleTickerText">📅 DAILY TOURNAMENT</div></div>
   </div>
 
   <!-- Boot splash: bubbles rise, the logo surfaces, the theme starts -->
@@ -543,7 +545,7 @@
 </div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=20260704r"></script>
-<script src="game.js?v=20260704r"></script>
+<script type="module" src="render3d.js?v=20260704s"></script>
+<script src="game.js?v=20260704s"></script>
 </body>
 </html>

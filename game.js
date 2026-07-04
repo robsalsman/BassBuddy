@@ -433,6 +433,7 @@
     tsResume: $("tsResume"), tsBoard: $("tsBoard"), homeBtn: $("homeBtn"),
     tsDaily: $("tsDaily"), dailyModal: $("dailyModal"), dailyClose: $("dailyClose"), dailyBody: $("dailyBody"),
     dailyTicker: $("dailyTicker"), dailyTickerText: $("dailyTickerText"),
+    titleTicker: $("titleTicker"), titleTickerText: $("titleTickerText"),
     lbModal: $("lbModal"), lbClose: $("lbClose"), lbBody: $("lbBody"), lbSorts: $("lbSorts"),
     lbProfileModal: $("lbProfileModal"), lbpName: $("lbpName"), lbpClose: $("lbpClose"),
     lbpStats: $("lbpStats"), lbpFav: $("lbpFav"), lbpSorts: $("lbpSorts"), lbpList: $("lbpList"),
@@ -3003,6 +3004,7 @@
       el.tsDaily.innerHTML = dToday ? "📅 DAILY — FISHED TODAY ✓" : "📅 DAILY TOURNAMENT";
       el.tsDaily.classList.toggle("fresh", !dToday);
     }
+    renderTitleTicker();
     el.titleScreen.classList.remove("hidden");
     Music.setScene("title");
   }
@@ -3835,6 +3837,7 @@
     S.dayBest = Math.max(S.dayBest || 0, f.weight);
     G.bestDayCatches = Math.max(G.bestDayCatches || 0, S.dayCatches);
     if (((S.ft && S.ft.jumps) || 0) >= 3) G.acro = (G.acro || 0) + 1;   // landed an acrobat
+    if (f.bass) bigBassSubmit(f.weight);   // 🐷 Big Bass of the Day — every mode counts
 
     const lunk = f.bass && f.weight >= LUNKER_LB;
     sfx(lunk ? "lunker" : "land"); setTimeout(() => sfx("coin"), 450);
@@ -4416,6 +4419,64 @@
     const meRow = el.tourStandings.querySelector(".me");
     if (meRow) el.tourStandings.scrollTop = Math.max(0, meRow.offsetTop - el.tourStandings.clientHeight / 2);
   }
+  // --- 🐷 Big Bass of the Day: your biggest black bass today, ANY mode ---
+  // (free play, tournament, arcade, daily — they all pass through finishLand)
+  function bigBassSubmit(w) {
+    const dk = dayKey();
+    if (!G.bigbassDay || G.bigbassDay.d !== dk) G.bigbassDay = { d: dk, w: 0 };
+    if (w <= G.bigbassDay.w) return;
+    G.bigbassDay.w = +w.toFixed(2); save();
+    const base2 = LB.fb(); if (!base2) return;
+    fetch(base2 + "/bigbass/" + dk + "/" + LB.pid() + ".json", { method: "PUT",
+      body: JSON.stringify({ n: G.name || "ANGLER", w: +w.toFixed(2), t: Date.now() }) }).catch(() => {});
+  }
+  async function fetchBigBass(dk) {
+    const base2 = LB.fb(); if (!base2) return [];
+    const r = await fetch(base2 + "/bigbass/" + dk + ".json");
+    if (!r.ok) return [];
+    const data = await r.json() || {};
+    return Object.entries(data).map(([k, v]) =>
+      (v && typeof v === "object" && v.n && +v.w > 0 && /^p[a-z0-9]{4,20}$/.test(k))
+        ? { pid: k, name: String(v.n).slice(0, 14), w: +v.w }
+        : null).filter(Boolean).sort((a, b) => b.w - a.w);
+  }
+  // the home-screen marquee: sell today's daily + the Big Bass of the Day ranks
+  function renderTitleTicker() {
+    if (!el.titleTicker) return;
+    const dk = dayKey(), rules = dailyRules(dk), md = rules.mode;
+    const sp = SPOTS.find(s => s.id === rules.spot) || SPOTS[0];
+    const done = G.dailyDone === dk;
+    const promo = done
+      ? `✅ DAILY FISHED — new challenge at midnight UTC · tap for today&#39;s standings ▸`
+      : `📅 ENTER THE DAILY TOURNAMENT — ${md.ico} ${md.name} at ${sp.name} · one entry a day · TAP HERE ▸`;
+    const setText = list => {
+      const myPid = LB.pid();
+      let bb = "🐷 BIG BASS OF THE DAY — all waters, all anglers: ";
+      bb += list.length
+        ? list.slice(0, 5).map((e, i) => `${i + 1}. ${e.pid === myPid ? "YOU" : dEsc(e.name).toUpperCase()} ${e.w.toFixed(2)} lb`).join(" &nbsp;·&nbsp; ")
+        : "no bass on the board yet — yours could be first!";
+      el.titleTickerText.innerHTML =
+        `<span style="color:var(--gold)">${promo}</span> &nbsp;&nbsp;•&nbsp;&nbsp; ${bb}`;
+    };
+    // show instantly with what we know; the ranks fill in when the board answers
+    let seed = [];
+    if (G.bigbassDay && G.bigbassDay.d === dk && G.bigbassDay.w > 0) seed = [{ pid: LB.pid(), name: G.name || "YOU", w: G.bigbassDay.w }];
+    setText(seed);
+    el.titleTicker.classList.remove("hidden");
+    const tryRanks = attempt => {
+      // at boot the lb-config fetch may not have landed yet — try again shortly
+      if (!LB.fb()) { if (attempt < 5) setTimeout(() => tryRanks(attempt + 1), 900); return; }
+      fetchBigBass(dk).then(list => {
+        const myPid = LB.pid();   // fold in our own — the PUT may still be in flight
+        if (G.bigbassDay && G.bigbassDay.d === dk && G.bigbassDay.w > 0 && !list.some(e => e.pid === myPid))
+          list = list.concat({ pid: myPid, name: G.name || "YOU", w: G.bigbassDay.w }).sort((a, b) => b.w - a.w);
+        if (!el.titleScreen.classList.contains("hidden")) setText(list);
+      }).catch(() => {});
+    };
+    tryRanks(0);
+  }
+  el.titleTicker.addEventListener("click", () => { sfx("ui"); openDailySheet(false); });
+
   let dailyThen = null;   // where to go if the once-a-day prompt is waved off
   function openDailySheet(auto, then) {
     const dk = dayKey();

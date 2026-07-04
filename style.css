@@ -1181,3 +1181,10 @@ select, input, textarea { font-size: 16px; }
 .daily-ticker { position: fixed; left: 0; right: 0; bottom: 0; z-index: 80; height: calc(21px + env(safe-area-inset-bottom, 0px)); overflow: hidden; background: rgba(3, 16, 26, .85); border-top: 1px solid rgba(120, 220, 255, .3); pointer-events: none; }
 #dailyTickerText { position: absolute; left: 0; top: 0; white-space: nowrap; font-size: 11px; font-weight: 700; line-height: 21px; color: #d6f2ff; animation: dtScroll 26s linear infinite; will-change: transform; }
 @keyframes dtScroll { from { transform: translateX(100vw); } to { transform: translateX(-100%); } }
+
+/* home-screen marquee */
+.title-ticker { position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; overflow: hidden; cursor: pointer;
+  height: calc(30px + env(safe-area-inset-bottom, 0px));
+  background: rgba(3, 16, 26, .8); border-top: 1px solid rgba(255, 211, 92, .45); }
+#titleTickerText { position: absolute; left: 0; top: 0; white-space: nowrap; font-size: 12.5px; font-weight: 800;
+  line-height: 30px; color: #d6f2ff; animation: dtScroll 24s linear infinite; will-change: transform; }
