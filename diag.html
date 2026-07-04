@@ -103,6 +103,36 @@
   const ev = msg => { const e = document.createElement("div"); e.className = "ok"; e.textContent = msg; document.getElementById("gpev").appendChild(e); };
   addEventListener("gamepadconnected", e => ev(`connected: "${e.gamepad.id}" mapping=${e.gamepad.mapping || "none"} buttons=${e.gamepad.buttons.length} axes=${e.gamepad.axes.length}`));
   addEventListener("gamepaddisconnected", e => ev(`disconnected: "${e.gamepad.id}"`));
+  // ---- 13. board cleanup: list every entry on the live database, delete stale ones ----
+  const FB = "https://bassbuddy-17d9c-default-rtdb.firebaseio.com";
+  const bc = document.createElement("div");
+  bc.className = "t";
+  bc.innerHTML = `<div class="n">13. board cleanup — every entry on the live database</div><div id="bcout">loading…</div>`;
+  out.appendChild(bc);
+  async function loadBoard() {
+    const o = document.getElementById("bcout");
+    try {
+      const r = await fetch(FB + "/board.json");
+      const data = await r.json() || {};
+      const rows = Object.entries(data).map(([pid, v]) => {
+        const age = v && v.t ? Math.round((Date.now() - v.t) / 3600000) : "?";
+        return `<div style="display:flex;align-items:center;gap:8px;margin:6px 0">
+          <button data-del="${pid}" style="background:#a33;color:#fff;border:none;border-radius:8px;padding:6px 10px;font-weight:700">🗑 DELETE</button>
+          <span class="ok"><b>${(v && v.n) || "?"}</b> · score ${(v && v.s) || 0} · big ${(v && v.b) || 0} lb · arcade ${(v && v.a) || 0} · updated ${age}h ago · <small>${pid}</small></span>
+        </div>`;
+      });
+      o.innerHTML = rows.join("") || "board is empty";
+    } catch (e) { o.innerHTML = `<span class="bad">${e.message}</span>`; }
+  }
+  document.addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-del]"); if (!b) return;
+    if (!confirm("Delete this entry from the global board for everyone?")) return;
+    b.disabled = true; b.textContent = "…";
+    try { await fetch(FB + "/board/" + b.dataset.del + ".json", { method: "DELETE" }); } catch (err) {}
+    loadBoard();
+  });
+  loadBoard();
+
   setInterval(() => {
     const o = document.getElementById("gpout");
     try {
