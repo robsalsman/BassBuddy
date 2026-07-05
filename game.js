@@ -4783,6 +4783,44 @@
   }
   el.titleTicker.addEventListener("click", () => { sfx("ui"); openDailySheet(false); });
 
+  // --- 🔒 ANGLER PIN: one 4-digit PIN per name, set on first daily entry ---
+  // The registry lives in Firebase under /pins/<name> as a SHA-256 hash, so
+  // the same PIN works from any phone — and it's the identity layer any
+  // future feature can lean on (pinCheck verifies name + pin anywhere).
+  const pinKey = () => "n_" + (LB.nameKey(G.name || "ANGLER").replace(/[^A-Z0-9]/g, "_") || "ANGLER");
+  const pinUrl = () => LB.fb() + "/pins/" + pinKey() + ".json";
+  async function pinHash(name, pin) {
+    const data = new TextEncoder().encode("bb1:" + LB.nameKey(name) + ":" + pin);
+    const buf = await crypto.subtle.digest("SHA-256", data);
+    return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+  }
+  async function pinFetch() {
+    const r = await fetch(pinUrl());
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const v = await r.json();
+    return v && v.h ? String(v.h) : null;
+  }
+  async function pinCheck(name, pin) {   // the universal verify — reusable anywhere
+    const existing = await pinFetch().catch(() => null);
+    const h = await pinHash(name, pin);
+    if (!existing) return { ok: true, isNew: true, h };
+    return { ok: h === existing, isNew: false, h };
+  }
+  let dailyPinHash = null;   // today's fetched hash while the sheet is open
+  function renderPinStep(existing) {
+    const card = el.dailyBody.querySelector(".daily-card");
+    if (!card) return;
+    card.innerHTML = `
+      <div class="d-title">🔒 ANGLER PIN</div>
+      <div class="d-sub" id="pinMsg">${existing
+        ? `Enter your 4-digit PIN, <b>${dEsc(G.name || "ANGLER")}</b>`
+        : `First time in, <b>${dEsc(G.name || "ANGLER")}</b> — pick a 4-digit PIN. Same PIN every day, on any phone.`}</div>
+      <input id="pinInput" class="pin-input" type="tel" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••">
+      <button class="big-btn" id="pinGo" style="margin-top:8px">${existing ? "🔓 UNLOCK & ENTER" : "✅ SET PIN & ENTER"}</button>
+      <button class="text-btn" id="pinBack">Back</button>`;
+    setTimeout(() => { const i = document.getElementById("pinInput"); if (i) i.focus(); }, 60);
+  }
+
   let dailyThen = null;   // where to go if the once-a-day prompt is waved off
   function openDailySheet(auto, then) {
     const dk = dayKey();
@@ -4869,7 +4907,36 @@
     const f0 = dailyThen; dailyThen = null; if (f0) f0();
   });
   el.dailyBody.addEventListener("click", (e) => {
-    if (e.target.closest("#dailyEnter")) { sfx("good"); chooseDaily(); return; }
+    if (e.target.closest("#dailyEnter")) {
+      sfx("ui");
+      const btn = document.getElementById("dailyEnter");
+      if (btn) { btn.textContent = "🔒 CHECKING…"; btn.disabled = true; }
+      pinFetch().then(h => { dailyPinHash = h; renderPinStep(!!h); })
+        .catch(() => { dailyPinHash = null; renderPinStep(false); });
+      return;
+    }
+    if (e.target.closest("#pinBack")) { sfx("ui"); renderDailySheet(); return; }
+    if (e.target.closest("#pinGo")) {
+      const inp = document.getElementById("pinInput");
+      const pin = ((inp && inp.value) || "").trim();
+      if (!/^\d{4}$/.test(pin)) { toast("PIN is 4 digits 🔢"); return; }
+      pinHash(G.name || "ANGLER", pin).then(h => {
+        const msg = document.getElementById("pinMsg");
+        if (dailyPinHash) {
+          if (h === dailyPinHash) { sfx("good"); chooseDaily(); }
+          else {
+            sfx("weak"); vibrate([40, 30, 40]);
+            if (msg) msg.innerHTML = `❌ Wrong PIN for <b>${dEsc(G.name || "ANGLER")}</b> — try again`;
+            if (inp) inp.value = "";
+          }
+        } else {
+          fetch(pinUrl(), { method: "PUT", body: JSON.stringify({ h, t: Date.now() }) }).catch(() => {});
+          toast("🔒 PIN set — same PIN every day, any phone");
+          sfx("good"); chooseDaily();
+        }
+      });
+      return;
+    }
     if (e.target.closest("#dailyLater")) {
       sfx("ui"); el.dailyModal.classList.add("hidden");
       const f0 = dailyThen; dailyThen = null; if (f0) f0();
