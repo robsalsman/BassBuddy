@@ -991,7 +991,7 @@ select, input, textarea { font-size: 16px; }
 #lbModal { z-index: 70; }
 
 /* stats screens layer over the title menu; angler profile over the rankings */
-#recordsModal, #trophyModal, #catchLogModal, #catchDetailModal, #statsModal, #dailyModal { z-index: 70; }
+#recordsModal, #trophyModal, #catchLogModal, #catchDetailModal, #statsModal, #dailyModal, #restoreModal { z-index: 70; }
 #lbProfileModal { z-index: 72; }
 .title-stats span { cursor: pointer; }
 .title-stats span:active { transform: scale(.95); }

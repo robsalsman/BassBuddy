@@ -368,9 +368,11 @@
     return defaultSave();
   }
   var lbSubmitHook = null;   // set by the leaderboard module once it's up
+  var cloudSaveHook = null;  // set by the daily module — backs the whole save up to the db
   function save() {
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(G)); } catch (e) {}
     if (lbSubmitHook) lbSubmitHook();   // throttled — pushes score changes to the global board
+    if (cloudSaveHook) cloudSaveHook(); // throttled — full-save backup for restore-by-PIN
   }
   const G = load();
 
@@ -434,6 +436,7 @@
     tsDaily: $("tsDaily"), dailyModal: $("dailyModal"), dailyClose: $("dailyClose"), dailyBody: $("dailyBody"),
     dailyTicker: $("dailyTicker"), dailyTickerText: $("dailyTickerText"),
     titleTicker: $("titleTicker"), titleTickerText: $("titleTickerText"),
+    tsRestore: $("tsRestore"), restoreModal: $("restoreModal"), restoreGo: $("restoreGo"), restoreCancel: $("restoreCancel"),
     lbModal: $("lbModal"), lbClose: $("lbClose"), lbBody: $("lbBody"), lbSorts: $("lbSorts"),
     lbProfileModal: $("lbProfileModal"), lbpName: $("lbpName"), lbpClose: $("lbpClose"),
     lbpStats: $("lbpStats"), lbpFav: $("lbpFav"), lbpSorts: $("lbpSorts"), lbpList: $("lbpList"),
@@ -1121,7 +1124,7 @@
   const sfx = n => Sound.play(n);
   function anyModalOpen() {
     return [el.catchModal, el.failModal, el.lureModal, el.mapModal,
-            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal, el.titleScreen, el.lbModal, el.lbProfileModal, el.guideModal, el.anglerModal, el.garModal, el.soundModal, el.dailyModal].some(m => !m.classList.contains("hidden"));
+            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal, el.titleScreen, el.lbModal, el.lbProfileModal, el.guideModal, el.anglerModal, el.garModal, el.soundModal, el.dailyModal, el.restoreModal].some(m => !m.classList.contains("hidden"));
   }
 
   function floatText(txt, color) {
@@ -4820,6 +4823,63 @@
       <button class="text-btn" id="pinBack">Back</button>`;
     setTimeout(() => { const i = document.getElementById("pinInput"); if (i) i.focus(); }, 60);
   }
+
+  // --- ☁️ CLOUD SAVE: the whole save backs up under /saves/<name>, so an
+  // angler can pull their progress onto a new phone (or the new domain)
+  // with just their name + daily-tournament PIN.
+  let lastCloudPush = 0;
+  function cloudBackup() {
+    const base2 = LB.fb(); if (!base2 || !G.name) return;
+    if (Date.now() - lastCloudPush < 120000) return;   // a couple times a session is plenty
+    lastCloudPush = Date.now();
+    try {
+      const body = JSON.stringify({ n: G.name, t: Date.now(), v: localStorage.getItem(SAVE_KEY) || JSON.stringify(G) });
+      fetch(LB.fb() + "/saves/" + pinKey() + ".json", { method: "PUT", body }).catch(() => {});
+    } catch (e) {}
+  }
+  cloudSaveHook = cloudBackup;
+  async function restoreAngler(name, pin) {
+    const base2 = LB.fb(); if (!base2) return { ok: false, why: "offline" };
+    const key = "n_" + (LB.nameKey(name).replace(/[^A-Z0-9]/g, "_") || "ANGLER");
+    // the PIN registry is the identity check; a name with no PIN yet is open
+    const pr = await fetch(base2 + "/pins/" + key + ".json").catch(() => null);
+    const pv = pr && pr.ok ? await pr.json() : null;
+    if (pv && pv.h) {
+      const h = await pinHash(name, pin);
+      if (h !== String(pv.h)) return { ok: false, why: "pin" };
+    }
+    const sr = await fetch(base2 + "/saves/" + key + ".json").catch(() => null);
+    if (!sr || !sr.ok) return { ok: false, why: "none" };
+    const sv = await sr.json();
+    if (!sv || !sv.v) return { ok: false, why: "none" };
+    try { JSON.parse(sv.v); } catch (e) { return { ok: false, why: "corrupt" }; }
+    try { localStorage.setItem(SAVE_KEY, sv.v); } catch (e) { return { ok: false, why: "corrupt" }; }
+    return { ok: true };
+  }
+  el.tsRestore.addEventListener("click", () => {
+    sfx("ui");
+    const rn = document.getElementById("restoreName");
+    if (rn) rn.value = (el.anglerName.value || G.name || "").trim();
+    const rm = document.getElementById("restoreMsg"); if (rm) rm.textContent = "";
+    el.restoreModal.classList.remove("hidden");
+  });
+  el.restoreCancel.addEventListener("click", () => { sfx("ui"); el.restoreModal.classList.add("hidden"); });
+  el.restoreGo.addEventListener("click", () => {
+    const name = (document.getElementById("restoreName").value || "").trim().toUpperCase().slice(0, 12);
+    const pin = (document.getElementById("restorePin").value || "").trim();
+    const msg = document.getElementById("restoreMsg");
+    if (!name) { if (msg) msg.textContent = "Enter your angler name"; return; }
+    if (msg) msg.textContent = "Casting out for your save…";
+    restoreAngler(name, pin).then(res => {
+      if (res.ok) {
+        if (msg) msg.textContent = "✅ Restored! Reloading…";
+        sfx("weighwin");
+        setTimeout(() => location.reload(), 900);
+      } else if (res.why === "pin") { sfx("weak"); if (msg) msg.textContent = "❌ Wrong PIN for " + name; }
+      else if (res.why === "offline") { if (msg) msg.textContent = "📡 Can't reach the database"; }
+      else { if (msg) msg.textContent = "No cloud save found for " + name + " yet — play once on the old phone first"; }
+    });
+  });
 
   let dailyThen = null;   // where to go if the once-a-day prompt is waved off
   function openDailySheet(auto, then) {

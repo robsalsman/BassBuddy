@@ -8,8 +8,8 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>BassBuddy — Bass Fishing</title>
-<script>window.BB_V = "20260705c";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
-<link rel="stylesheet" href="style.css?v=20260705c" />
+<script>window.BB_V = "20260705d";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
+<link rel="stylesheet" href="style.css?v=20260705d" />
 </head>
 <body>
 <div id="game">
@@ -401,6 +401,21 @@
     </div>
   </div>
 
+  <!-- Cloud-save restore -->
+  <div id="restoreModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="catch-emoji">📥</div>
+      <div class="catch-name">Restore My Angler</div>
+      <p class="muted">Pulls your angler — points, records, skills, trophies — onto this phone. It replaces whatever's on this phone now.</p>
+      <input id="restoreName" class="title-name" maxlength="12" placeholder="ANGLER NAME"
+             autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" />
+      <input id="restorePin" class="pin-input" type="tel" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" style="margin-bottom:8px">
+      <div id="restoreMsg" class="muted" style="min-height:18px;text-align:center"></div>
+      <button class="big-btn" id="restoreGo">📥 RESTORE</button>
+      <button class="text-btn" id="restoreCancel">Back</button>
+    </div>
+  </div>
+
   <!-- Daily tournament sheet -->
   <div id="dailyModal" class="modal hidden">
     <div class="modal-card shop-card">
@@ -524,6 +539,7 @@
         <div class="vol-row"><span id="musicMuteLbl" class="vol-lbl">🎵 Music</span><input type="range" id="musicVol" min="0" max="100" step="5" /><b id="musicVolPct">60</b></div>
         <div class="vol-row"><span id="sfxMuteLbl" class="vol-lbl">🔊 Effects</span><input type="range" id="sfxVol" min="0" max="100" step="5" /><b id="sfxVolPct">100</b></div>
       </div>
+      <button class="text-btn" id="tsRestore" style="margin-top:6px;opacity:.85">📥 Restore my angler (name + PIN)</button>
       <div class="title-cred">A tribute to SEGA Bass Fishing</div>
     </div>
     <!-- home-screen marquee: daily tournament promo + Big Bass of the Day -->
@@ -545,7 +561,7 @@
 </div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=20260705c"></script>
-<script src="game.js?v=20260705c"></script>
+<script type="module" src="render3d.js?v=20260705d"></script>
+<script src="game.js?v=20260705d"></script>
 </body>
 </html>
