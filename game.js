@@ -759,6 +759,8 @@
     { id: "garrun",  ico: "🏹", name: "River Secret",      desc: "Somebody saw big gar up the river…",  test: c => c.garTrips >= 1 },
     { id: "garslam", ico: "🐊", name: "Gar Wrangler",      desc: "Arrow 100 lb of gar in one river run", test: c => c.garBestHaul >= 100 },
     { id: "creekrun", ico: "🥄", name: "Creek Secret",     desc: "Word at the marina: something's running…", test: c => c.sandTrips >= 1 },
+    { id: "rcrun",   ico: "🚤", name: "Rapids Secret",     desc: "Somebody knows some sweet rapids up the river…", test: c => c.rcTrips >= 1 },
+    { id: "rcslam",  ico: "🛞", name: "Send It",           desc: "Score 2,500 stunt points in one rapids run", test: c => c.rcBest >= 2500 },
     { id: "sandslam", ico: "🐟", name: "Sandy Slam",       desc: "Boat 20 lb of sand bass in one creek run", test: c => c.sandBestHaul >= 20 },
     { id: "champ3",  ico: "💍", name: "Three-Peat",        desc: "Win 3 circuit seasons",               test: c => c.titles >= 3, prog: c => [c.titles, 3] },
     // ---- the arcade ----
@@ -793,6 +795,7 @@
       lifeScore: G.coins || 0, tutorial: !!G.tutorialDone,
       garTrips: G.garTrips || 0, garBestHaul: G.garBestHaul || 0,
       sandTrips: G.sandTrips || 0, sandBestHaul: G.sandBestHaul || 0,
+      rcTrips: G.rcTrips || 0, rcBest: G.rcBest || 0,
       lureCount: Math.max(new Set(log.map(e => e.lure)).size, cnt(t.lure)),
       rodCount: cnt(t.rod), lineCount: cnt(t.line), sizeCount: cnt(t.size),
       scentCount: Object.keys(t.scent || {}).filter(k => k && k !== "none").length,
@@ -2225,13 +2228,17 @@
   // ===========================================================================
   const GAR_MS = 75000;
   function eggAvailable() {
-    return G.spot === "deep" && (angler().id === "drg" || angler().id === "jpbasser")
-      && !(S.tournament && !S.tournament.ended) && !(S.arcade && !S.arcade.ended) && !S.tut;
+    const a = angler().id;
+    const here = (G.spot === "deep" && (a === "drg" || a === "jpbasser")) || (G.spot === "river" && a === "hotrod");
+    return here && !(S.tournament && !S.tournament.ended) && !(S.arcade && !S.arcade.ended) && !S.tut;
   }
-  const eggKind = () => (angler().id === "jpbasser" ? "sand" : "gar");
+  const eggKind = () => (angler().id === "jpbasser" ? "sand" : angler().id === "hotrod" ? "rc" : "gar");
   function openGarInvite() {
     el.garFace.innerHTML = anglerSVG(ANGLERS.find(a => a.id === "roberto"), false);
-    if (eggKind() === "sand") {
+    if (eggKind() === "rc") {
+      el.garBody.innerHTML = `<p><b>Roberto:</b> “Hey bro — there's some <b>sweet rapids</b> up the river. Wanna go drive the <b>RC boats</b> and do some stunts?”</p>`;
+      el.garYes.textContent = "🚤 GRAB THE RC BOATS";
+    } else if (eggKind() === "sand") {
       el.garBody.innerHTML = `<p><b>Roberto:</b> “Hey James! I heard at the marina the <b>sand bass</b> are running up the creek — wanna check it out?”</p>`;
       el.garYes.textContent = "🎣 RUN THE CREEK";
     } else {
@@ -2243,13 +2250,13 @@
     sfx("ui");
   }
   function startBowfish() {
-    S.bow = { kind: eggKind(), t: GAR_MS, gars: [], arrows: [], hits: [], haul: [], spawnT: 500, shots: 0, over: false, penalty: 0, fight: null, holding: false, quiver: 3, quiverOut: false };
+    S.bow = { kind: eggKind(), t: GAR_MS, gars: [], arrows: [], hits: [], haul: [], spawnT: 500, shots: 0, over: false, penalty: 0, fight: null, holding: false, quiver: 3, quiverOut: false, boat: { x: W * 0.3, y: H - 150 }, air: null };
     S.mode = "bowfish";
     S.view = "surface"; S.viewT = 1;
     el.garModal.classList.add("hidden");
     el.mapModal.classList.add("hidden");
     setStatus("");
-    toast(S.bow.kind === "sand" ? "🥄 Cast on a sand bass when it rolls!" : "🏹 Tap a gar when it rolls!");
+    toast(S.bow.kind === "rc" ? "🚤 Send it off a rock when the spray flies!" : S.bow.kind === "sand" ? "🥄 Cast on a sand bass when it rolls!" : "🏹 Tap a gar when it rolls!");
     sfx("cast");
   }
   function cancelBowfish() { S.bow = null; if (S.mode === "bowfish") { S.mode = "idle"; showBtn(false); } }
@@ -2311,6 +2318,17 @@
               w, r: 13 + w * 4, t: 0, dur: rnd(950, 1500) * (slab ? 0.85 : 1),
               dir: Math.random() < 0.5 ? -1 : 1, hit: false });
           }
+        } else if (B.kind === "rc") {
+          if (roll < 0.2) {           // waterlogged stump riding the current — do NOT hit it
+            B.gars.push({ type: "stump", x: rnd(W * 0.14, W * 0.8), y: wl + 24 + rnd(0, (H - wl) * 0.4),
+              w: 0, r: 22, t: 0, dur: rnd(2300, 3200), dir: Math.random() < 0.5 ? -1 : 1, hit: false });
+          } else {                    // the surge bares a ramp rock, spray flying
+            const big = Math.random() < 0.25;
+            const w = +(big ? rnd(3, 5) : rnd(1, 2.6)).toFixed(1);
+            B.gars.push({ type: "rock", x: rnd(W * 0.14, W * 0.8), y: wl + 24 + rnd(0, (H - wl) * 0.4),
+              w, r: 15 + w * 3.6, t: 0, dur: rnd(1500, 2400) * (big ? 0.85 : 1),
+              dir: Math.random() < 0.5 ? -1 : 1, hit: false });
+          }
         } else if (roll < 0.12) {          // beaver crossing, tail up
           B.gars.push({ type: "beaver", x: rnd(W * 0.16, W * 0.84), y: wl + 24 + rnd(0, (H - wl) * 0.45),
             w: 0, r: 24, t: 0, dur: rnd(2100, 2800), dir: Math.random() < 0.5 ? -1 : 1, hit: false });
@@ -2326,12 +2344,42 @@
         }
       }
     }
-    for (const g of B.gars) { g.t += dt; if (g.type !== "gar") g.x += g.dir * dt * 0.012; }
+    for (const g of B.gars) { g.t += dt; if (g.type !== "gar" && g.type !== "rock") g.x += g.dir * dt * 0.012; }
     B.gars = B.gars.filter(g => g.t < g.dur && !g.hit);
     for (const a of B.arrows) {
       a.t += dt;
       if (!a.done && a.t >= a.dur) {
         a.done = true;
+        if (B.kind === "rc") {
+          const g2r = B.gars.find(g2 => !g2.hit && g2.t < g2.dur && Math.hypot(g2.x - a.tx, g2.y - a.ty) < g2.r + 6);
+          splash(a.tx, a.ty);
+          B.boat = { x: a.tx, y: a.ty };
+          if (!g2r) {
+            B.quiver--; sfx("snap"); vibrate([60, 40, 60]);
+            if (B.quiver > 0) toast(`🌀 Flipped in the whitewater — busted a prop! ${B.quiver} left`);
+            continue;
+          }
+          g2r.hit = true;
+          if (g2r.type === "stump") {
+            B.quiver--; B.penalty += 250;
+            B.hits.push({ x: g2r.x, y: g2r.y, t: 0, bad: "SMASHED A STUMP! −250" });
+            sfx("snap"); vibrate([70, 50, 70]);
+            continue;
+          }
+          // a clean ramp is timing + line: peak surge, dead-center = huge air
+          const up2 = Math.sin(clamp(g2r.t / g2r.dur, 0, 1) * Math.PI);
+          const center = clamp(1 - Math.hypot(g2r.x - a.tx, g2r.y - a.ty) / (g2r.r + 6), 0, 1);
+          const q = clamp(up2 * 0.55 + center * 0.45, 0, 1);
+          const trick = q > 0.78 ? "SUPERMAN 720!!" : q > 0.52 ? "BACKFLIP 360!" : "KICKFLIP!";
+          const tpts = Math.round((q > 0.78 ? 500 : q > 0.52 ? 300 : 150) * (1 + g2r.w * 0.16));
+          B.haul.push(tpts);
+          B.t = Math.min(GAR_MS, B.t + 3000);
+          B.hits.push({ x: g2r.x, y: g2r.y, t: 0, trick: `${trick} +${tpts}`, big: q > 0.78 });
+          B.air = { x: g2r.x, y: g2r.y, t: 0, dur: 750 + q * 550, q, dir: a.tx >= a.sx ? 1 : -1 };
+          B.boat = { x: clamp(g2r.x + 34 * (a.tx >= a.sx ? 1 : -1), W * 0.1, W * 0.9), y: g2r.y + 8 };
+          sfx(q > 0.78 ? "lunker" : "jump"); vibrate([20, 30, 40]);
+          continue;
+        }
         const g = B.gars.find(g2 => !g2.hit && g2.t < g2.dur && Math.hypot(g2.x - a.tx, g2.y - a.ty) < g2.r);
         splash(a.tx, a.ty);
         if (!g) {
@@ -2379,6 +2427,7 @@
     B.arrows = B.arrows.filter(a => a.t < a.dur + 350);
     for (const h of B.hits) h.t += dt;
     B.hits = B.hits.filter(h => h.t < 1100);
+    if (B.air) { B.air.t += dt; if (B.air.t >= B.air.dur) { splash(B.boat.x, B.boat.y); sfx("splash"); B.air = null; } }
     if (B.quiver <= 0 && !B.over) { B.quiverOut = true; endBowfish(); return; }
     if (B.t <= 0) endBowfish();
   }
@@ -2396,6 +2445,14 @@
     if (B.fight) { B.holding = true; return; }           // mid-fight the tap IS the reel
     if (B.quiver <= 0) return;
     if (y < waterLine() + 6) return;                     // arrows go in the water
+    if (B.kind === "rc") {
+      if (B.air || B.arrows.some(a2 => !a2.done)) return;   // one boat, one run at a time
+      const d2 = Math.hypot(x - B.boat.x, y - B.boat.y);
+      B.shots++;
+      B.arrows.push({ sx: B.boat.x, sy: B.boat.y, tx: x, ty: y, t: 0, dur: Math.max(240, d2 / 0.34), done: false });
+      sfx("cast"); vibrate(10);
+      return;
+    }
     B.shots++;
     const ba = bowAnchor();
     B.arrows.push({ sx: ba.x, sy: ba.y, tx: x, ty: y, t: 0, dur: 170, done: false });
@@ -2404,6 +2461,7 @@
   function endBowfish() {
     const B = S.bow; if (!B || B.over) return;
     B.over = true; B.holding = false; showBtn(false);
+    if (B.kind === "rc") { endRapids(B); return; }
     const total = +B.haul.reduce((a, w) => a + w, 0).toFixed(1);
     const big = B.haul.length ? Math.max(...B.haul) : 0;
     const sand = B.kind === "sand";
@@ -2432,8 +2490,238 @@
     el.garNo.classList.add("hidden");
     el.garModal.classList.remove("hidden");
   }
+  function endRapids(B) {
+    const tricks = B.haul.length;
+    const total = Math.round(B.haul.reduce((a, b) => a + b, 0));
+    const pts = Math.max(0, total - B.penalty);
+    G.coins += pts; addAnglerXP(pts);
+    G.rcTrips = (G.rcTrips || 0) + 1;
+    G.rcTricks = (G.rcTricks || 0) + tricks;
+    G.rcBest = Math.max(G.rcBest || 0, pts);
+    evalAchievements(false);
+    save(); updateHUD();
+    sfx(tricks ? "weighwin" : "weighin");
+    el.garFace.innerHTML = anglerSVG(ANGLERS.find(a => a.id === "roberto"), false);
+    const say = B.quiverOut ? "Bro, that's all three props in the drink — pits are closed!"
+      : tricks ? "DUUUDE, that boat was FLYING! The marina's gonna hear about this."
+      : "All gas, no air, bro — we'll send it next time!";
+    el.garBody.innerHTML = `<p><b>Roberto:</b> “${say}”</p>
+      <p>🚤 <b>${tricks}</b> trick${tricks === 1 ? "" : "s"} landed<br>
+      🎯 <b>+${pts.toLocaleString()}</b> points${B.penalty ? ` <span style="color:#ff9d8a">(−${B.penalty} for the lumber…)</span>` : ""}${G.rcBest === pts && tricks ? " · best run yet!" : ""}</p>`;
+    el.garYes.textContent = "🎣 BACK TO THE BASS";
+    el.garNo.classList.add("hidden");
+    el.garModal.classList.remove("hidden");
+  }
+  // 🚤 RAPIDS RUN gets its own scene: high-noon canyon light, whitewater lanes
+  // sliding downstream, ramp rocks baring in the surge, Hot Rod on the gravel
+  // bar with the transmitter, and one very loud little boat
+  function renderRapids(now) {
+    const B = S.bow; if (!B) return;
+    const wl = waterLine();
+    let g = ctx.createLinearGradient(0, 0, 0, wl);
+    g.addColorStop(0, "#5db6e8"); g.addColorStop(0.7, "#a8d9f2"); g.addColorStop(1, "#d9eef8");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, wl);
+    ctx.fillStyle = "rgba(255,244,200,0.95)";
+    ctx.beginPath(); ctx.arc(W * 0.78, 54, 20, 0, Math.PI * 2); ctx.fill();
+    // canyon walls crowd the gorge, the river gap up the middle
+    const wallRow = (y, h, col, step, off) => {
+      ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(0, y);
+      for (let x = -10; x < W + 20; x += step) {
+        const ph = h * (0.55 + 0.45 * Math.abs(Math.sin((x + off) * 0.11)));
+        const mid = Math.abs(x - W * 0.5) / (W * 0.5);
+        const hh = ph * (0.2 + mid * 1.0);
+        ctx.lineTo(x, y - hh); ctx.lineTo(x + step * 0.55, y - hh * 0.55);
+      }
+      ctx.lineTo(W + 20, y); ctx.closePath(); ctx.fill();
+    };
+    wallRow(wl, 130, "#8a7663", 42, 8);
+    wallRow(wl + 2, 88, "#6e5c4c", 30, 52);
+    // pointed firs on the rim
+    ctx.fillStyle = "#3f5237";
+    for (let x = 8; x < W; x += 46) {
+      const mid = Math.abs(x - W * 0.5) / (W * 0.5);
+      if (mid < 0.28) continue;
+      const th = 20 + 14 * Math.abs(Math.sin(x * 0.7)), ty2 = wl - 60 * (0.2 + mid);
+      ctx.beginPath(); ctx.moveTo(x, ty2); ctx.lineTo(x - 8, ty2 + th); ctx.lineTo(x + 8, ty2 + th); ctx.closePath(); ctx.fill();
+    }
+    // the river: cold mountain water, whitewater lanes sliding downstream
+    g = ctx.createLinearGradient(0, wl, 0, H);
+    g.addColorStop(0, "#4a92a4"); g.addColorStop(0.5, "#2d6478"); g.addColorStop(1, "#1c4152");
+    ctx.fillStyle = g; ctx.fillRect(0, wl, W, H - wl);
+    // standing waves piling across the gorge — this is RAPIDS water
+    ctx.save(); ctx.globalAlpha = 0.3; ctx.strokeStyle = "#dff2fa"; ctx.lineWidth = 2.5;
+    for (let i = 0; i < 6; i++) {
+      const yy = wl + 26 + i * ((H - wl) / 6.4);
+      ctx.beginPath(); ctx.moveTo(0, yy);
+      for (let x = 0; x <= W; x += 26) ctx.lineTo(x + 13, yy + Math.sin(x * 0.11 + now / 260 + i * 2) * 5 - 4), ctx.lineTo(x + 26, yy);
+      ctx.stroke();
+    }
+    ctx.restore();
+    // whitewater streaks racing downstream
+    ctx.save(); ctx.strokeStyle = "#f2fbff"; ctx.lineCap = "round";
+    for (let i = 0; i < 22; i++) {
+      const lane = W * (0.08 + 0.84 * ((i * 61) % 100) / 100);
+      const yy = wl + ((now * (0.09 + (i % 3) * 0.03) + i * 67) % (H - wl));
+      const near = (yy - wl) / (H - wl);
+      ctx.globalAlpha = 0.18 + near * 0.3;
+      ctx.lineWidth = 1.6 + near * 2.4;
+      ctx.beginPath(); ctx.moveTo(lane - 6 - near * 8, yy); ctx.quadraticCurveTo(lane, yy + 9 + near * 6, lane + 7 + near * 9, yy + 3); ctx.stroke();
+    }
+    // drifting foam flecks
+    ctx.fillStyle = "#f2fbff";
+    for (let i = 0; i < 16; i++) {
+      const fx = W * (0.1 + 0.8 * ((i * 37) % 100) / 100);
+      const fy = wl + ((now * 0.07 + i * 113) % (H - wl));
+      ctx.globalAlpha = 0.14 + ((fy - wl) / (H - wl)) * 0.22;
+      ctx.beginPath(); ctx.ellipse(fx, fy, 3.2, 1.6, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+    // what the surge shows: ramp rocks bare, stumps ride the current
+    for (const gr of B.gars) {
+      const p = gr.t / gr.dur, up = Math.sin(p * Math.PI);
+      ctx.save(); ctx.translate(gr.x, gr.y);
+      if (gr.type === "stump") {
+        ctx.scale(gr.dir, 1);
+        ctx.globalAlpha = 0.6 + up * 0.4;
+        ctx.fillStyle = "#4a3620";
+        ctx.beginPath(); ctx.ellipse(0, 0, 16, 6, 0.05, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#5c452a";
+        ctx.beginPath(); ctx.ellipse(10, -4, 6, 4.4, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#3a2a18"; ctx.lineWidth = 2; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(12, -7); ctx.lineTo(17, -13); ctx.moveTo(7, -8); ctx.lineTo(8, -13); ctx.stroke();
+        ctx.strokeStyle = "rgba(207,228,239,0.4)"; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(-20, 3); ctx.lineTo(-29, 6); ctx.stroke();
+      } else {
+        const r2 = gr.r * (0.55 + up * 0.45);
+        ctx.globalAlpha = 0.5 + up * 0.5;
+        ctx.fillStyle = "#7d8790";
+        ctx.beginPath(); ctx.moveTo(-r2, 4); ctx.quadraticCurveTo(-r2 * 0.5, -r2 * 0.75, r2 * 0.15, -r2 * 0.6);
+        ctx.quadraticCurveTo(r2 * 0.7, -r2 * 0.4, r2, 4); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = "#99a4ad";
+        ctx.beginPath(); ctx.moveTo(-r2 * 0.6, 0); ctx.quadraticCurveTo(-r2 * 0.2, -r2 * 0.62, r2 * 0.12, -r2 * 0.5);
+        ctx.lineTo(r2 * 0.2, 0); ctx.closePath(); ctx.fill();
+        const churn = 0.7 + 0.3 * Math.sin(now / 90 + gr.x);
+        ctx.globalAlpha = (0.35 + up * 0.65) * churn;
+        ctx.fillStyle = "#f2fbff";
+        // whitewater piles on the upstream face and rags off downstream
+        ctx.beginPath(); ctx.ellipse(-r2 * 0.55, 3, r2 * 0.5, 4.5 + up * 3, -0.2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(-r2 * 0.2, 5.5, r2 * 0.4, 3 + up * 2, 0.1, 0, Math.PI * 2); ctx.fill();
+        ctx.globalAlpha *= 0.7;
+        ctx.beginPath(); ctx.ellipse(r2 * 0.55, 5, r2 * 0.35, 2.6, 0.25, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(-r2 * 0.45, -r2 * 0.35, 3.5 + up * 2.5, 2.4, -0.5, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    }
+    // ---- the boat: running a line, airborne mid-trick, or idling on station ----
+    const drawBoat = (bx, by, ang, airLift, spin) => {
+      ctx.save(); ctx.translate(bx, by - airLift); ctx.rotate(ang + spin);
+      ctx.fillStyle = "#d8dee2";
+      ctx.beginPath(); ctx.moveTo(-16, 3); ctx.quadraticCurveTo(0, 7, 17, 2); ctx.lineTo(14, -1); ctx.lineTo(-15, -1); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#d33a2c";
+      ctx.beginPath(); ctx.moveTo(-15, -1); ctx.lineTo(14, -1); ctx.quadraticCurveTo(18, -2.5, 15, -4.5); ctx.lineTo(-12, -4.5); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#20262c";
+      ctx.beginPath(); ctx.ellipse(-2, -5.5, 6, 3.4, 0, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = "#ffd35c"; ctx.font = "800 6px system-ui"; ctx.textAlign = "center";
+      ctx.fillText("7", 7, -1.2);
+      ctx.restore();
+    };
+    const run = B.arrows.find(a2 => !a2.done);
+    if (run) {
+      const p = Math.min(1, run.t / run.dur);
+      const bx = run.sx + (run.tx - run.sx) * p, by = run.sy + (run.ty - run.sy) * p;
+      ctx.save(); ctx.fillStyle = "#f2fbff";   // rooster tail chasing the hull
+      for (let i = 1; i <= 4; i++) {
+        const tp = Math.max(0, p - i * 0.05);
+        const wx = run.sx + (run.tx - run.sx) * tp, wy = run.sy + (run.ty - run.sy) * tp;
+        ctx.globalAlpha = 0.55 - i * 0.11;
+        ctx.beginPath(); ctx.ellipse(wx, wy + 2, 8 - i, 4 - i * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+      drawBoat(bx, by + Math.sin(now / 45) * 1.4, Math.atan2(run.ty - run.sy, run.tx - run.sx) * 0.22, 0, 0);
+    } else if (B.air) {
+      const p2 = B.air.t / B.air.dur;
+      const lift = Math.sin(p2 * Math.PI) * (46 + B.air.q * 52);
+      const spins = (1 + Math.round(B.air.q * 2)) * Math.PI * 2 * (B.air.dir || 1);
+      drawBoat(B.air.x + p2 * 30 * (B.air.dir || 1), B.air.y, 0, lift, p2 * spins);
+    } else {
+      drawBoat(B.boat.x, B.boat.y + Math.sin(now / 300) * 2, Math.sin(now / 500) * 0.06, 0, 0);
+      ctx.save(); ctx.globalAlpha = 0.3 + 0.15 * Math.sin(now / 200); ctx.fillStyle = "#f2fbff";
+      ctx.beginPath(); ctx.ellipse(B.boat.x - 18, B.boat.y + 3, 5, 2.6, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    }
+    // trick + crash callouts float up
+    for (const h of B.hits) {
+      const p = h.t / 1100;
+      ctx.save(); ctx.globalAlpha = 1 - p;
+      const msg2 = h.bad || h.trick || "";
+      ctx.font = "800 " + (h.bad ? 17 : h.big ? 24 : 18) + "px system-ui"; ctx.textAlign = "center";
+      ctx.fillStyle = h.bad ? "#ff5d5d" : h.big ? "#ffd35c" : "#8fe3a0";
+      ctx.strokeStyle = "rgba(0,0,0,.6)"; ctx.lineWidth = 4; ctx.lineJoin = "round";
+      const ty = h.y - 24 - p * 34;
+      const hx2 = clamp(h.x, 70, W - 70);
+      ctx.strokeText(msg2, hx2, ty); ctx.fillText(msg2, hx2, ty);
+      ctx.restore();
+    }
+    // the gravel bar off the right corner, and Hot Rod on it
+    const bkT = H - 150;
+    ctx.fillStyle = "#9a8668";
+    ctx.beginPath(); ctx.moveTo(W * 0.3, H);
+    ctx.quadraticCurveTo(W * 0.52, bkT + 14, W + 6, bkT - 10);
+    ctx.lineTo(W + 6, H); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#b09a78";
+    ctx.beginPath(); ctx.moveTo(W * 0.42, H);
+    ctx.quadraticCurveTo(W * 0.6, bkT + 30, W + 6, bkT + 12);
+    ctx.lineTo(W + 6, H); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#7d8790";
+    ctx.beginPath(); ctx.ellipse(W * 0.56, H - 56, 14, 6, 0.2, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(W * 0.9, H - 118, 10, 5, -0.15, 0, Math.PI * 2); ctx.fill();
+    const px = W * 0.74, bankY = H - 124, SC = 1.85;
+    ctx.save(); ctx.translate(px, bankY); ctx.scale(SC, SC);
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#2c3238"; ctx.lineWidth = 9;   // legs planted in the gravel
+    ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(-5, -30); ctx.moveTo(11, 0); ctx.lineTo(8, -30); ctx.stroke();
+    ctx.fillStyle = "#c8362b";                        // the red racing tee
+    ctx.beginPath(); ctx.moveTo(-11, -28); ctx.quadraticCurveTo(-13, -56, -7, -60);
+    ctx.lineTo(9, -60); ctx.quadraticCurveTo(14, -54, 12, -28); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#eaeef0"; ctx.fillRect(-11, -47, 23, 4);   // white racing stripe
+    ctx.fillStyle = "#dfae85"; ctx.beginPath(); ctx.arc(-4, -71, 9.5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#1c2025";                        // wraparound shades
+    ctx.beginPath(); ctx.ellipse(-8.5, -71.5, 4.8, 2.5, -0.05, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#c8362b";                        // red cap, brim at the water
+    ctx.beginPath(); ctx.arc(-4, -74, 10, Math.PI * 0.9, Math.PI * 2.02); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-12, -75.5, 8, 3, 0.12, 0, Math.PI * 2); ctx.fill();
+    // both arms forward onto the transmitter
+    ctx.strokeStyle = "#c8362b"; ctx.lineWidth = 8;
+    ctx.beginPath(); ctx.moveTo(-6, -56); ctx.lineTo(-19, -47); ctx.stroke();
+    ctx.strokeStyle = "#b02f25"; ctx.lineWidth = 8;
+    ctx.beginPath(); ctx.moveTo(6, -56); ctx.lineTo(-11, -45); ctx.stroke();
+    // the transmitter: box in both hands, antenna out over the water
+    ctx.save(); ctx.translate(-18, -44); ctx.rotate(-0.12);
+    ctx.fillStyle = "#23292f"; ctx.beginPath(); ctx.roundRect(-10, -7, 21, 14, 3); ctx.fill();
+    ctx.fillStyle = "#3a424a"; ctx.beginPath(); ctx.roundRect(-8, -5, 17, 5, 2); ctx.fill();
+    ctx.strokeStyle = "#8a949c"; ctx.lineWidth = 1.6;
+    ctx.beginPath(); ctx.moveTo(-7, -7); ctx.lineTo(-26, -31); ctx.stroke();
+    ctx.fillStyle = "#ff5d5d"; ctx.beginPath(); ctx.arc(-26, -31, 1.8, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#dfae85";
+    ctx.beginPath(); ctx.arc(-4.5, -0.5, 3.4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(6, -0.5, 3.4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#12161a";
+    ctx.beginPath(); ctx.arc(-4.5, -2.2, 1.4, 0, Math.PI * 2); ctx.arc(6, -2.2, 1.4, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    ctx.restore();
+    // canvas HUD: props, clock, tricks, points
+    const sec = Math.max(0, Math.ceil(B.t / 1000));
+    const total = Math.round(B.haul.reduce((a2, b2) => a2 + b2, 0));
+    ctx.save(); ctx.font = "700 15px system-ui"; ctx.textAlign = "center";
+    const msg = `${"🌀".repeat(Math.max(0, B.quiver))}${"·".repeat(3 - Math.max(0, B.quiver))}  ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}  ·  ${B.haul.length} trick${B.haul.length === 1 ? "" : "s"} · ${total.toLocaleString()} pts`;
+    const tw = ctx.measureText(msg).width + 26;
+    ctx.fillStyle = "rgba(6,26,36,0.72)";
+    ctx.beginPath(); ctx.roundRect((W - tw) / 2, 14, tw, 30, 15); ctx.fill();
+    ctx.fillStyle = sec <= 10 ? "#ff9d8a" : "#eaf6fb"; ctx.fillText(msg, W / 2, 34);
+    ctx.restore();
+  }
   function renderBowfish(now) {
     const B = S.bow; if (!B) return;
+    if (B.kind === "rc") { renderRapids(now); return; }
     const wl = waterLine();
     // dusk sky over the piney bottoms
     let g = ctx.createLinearGradient(0, 0, 0, wl);
@@ -6050,7 +6338,7 @@
     });
     const isSel = id => G.positions[sp.id] === id;
     // 🏹 the secret upriver hole shows itself only to the right angler
-    const eggPin = (typeof eggAvailable === "function" && sp.id === "deep" && eggAvailable())
+    const eggPin = (typeof eggAvailable === "function" && sp.id === G.spot && eggAvailable())
       ? `<g class="mk mk-egg" data-pos="gar_egg" transform="translate(88,10)">
           <circle r="9" fill="transparent" stroke="none"/>
           <circle r="5.2" class="mk-c"/>
