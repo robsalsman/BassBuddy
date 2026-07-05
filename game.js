@@ -1314,6 +1314,18 @@
     const fb = () => { const u = (G.lbFb && fbOk(G.lbFb) ? G.lbFb : bakedFb) || ""; return u.replace(/\/+$/, ""); };
     const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
     function pid() { if (!G.pid) { G.pid = "p" + Math.random().toString(36).slice(2, 10); save(); } return G.pid; }
+    const nameKey = s => String(s == null ? "" : s).trim().toUpperCase();
+    // one name = one angler: collapse duplicate names, keep the strongest entry
+    // (an old phone resubmitting can't put a second "ROB" on any board)
+    function dedupeNames(list, score) {
+      const best = new Map();
+      for (const e of list) {
+        const k = nameKey(e.n != null ? e.n : e.name); if (!k) { best.set(Symbol(), e); continue; }
+        const cur = best.get(k);
+        if (!cur || score(e) > score(cur)) best.set(k, e);
+      }
+      return [...best.values()];
+    }
     function biggest() { const v = Object.values(G.records || {}); return v.length ? Math.max(...v) : 0; }
     function topKey(o) { let k = null, m = 0; for (const key in (o || {})) { if (o[key] > m) { m = o[key]; k = key; } } return k; }
     // the full public profile — everyone on the board can browse everyone's stats
@@ -1389,7 +1401,7 @@
         const mine = myEntry(); mine.id = id;
         const i = out.findIndex(o => o.id === mine.id);
         if (i >= 0) out[i] = mine; else if (G.name) out.push(mine);
-        return out;
+        return dedupeNames(out, e => e.s || 0);
       }
       let roster = [], rosterErr = null;
       try { roster = await getRoster(); } catch (e) { rosterErr = e; }
@@ -1406,7 +1418,7 @@
       const mine = myEntry(); mine.id = id;
       const i = out.findIndex(o => o.id === mine.id);
       if (i >= 0) out[i] = mine; else if (G.name) out.push(mine);
-      return out;
+      return dedupeNames(out, e => e.s || 0);
     }
     function codeFoot() {
       const via = fb() ? `⚡ live database` : `Board code: <b>${esc(bucket())}</b>`;
@@ -1565,7 +1577,7 @@
       if (row && rows) { sfx("ui"); openProfile(rows.find(o => o.id === row.dataset.pid)); }
     });
     lbSubmitHook = submit;
-    return { open, submit, fb, pid };
+    return { open, submit, fb, pid, dedupeNames, nameKey };
   })();
 
   function updateHUD() {
@@ -4634,10 +4646,11 @@
     const r = await fetch(base2 + "/daily/" + dk + ".json");
     if (!r.ok) throw new Error("HTTP " + r.status);
     const data = await r.json() || {};
-    return Object.entries(data).map(([k, v]) =>
+    const rows = Object.entries(data).map(([k, v]) =>
       (v && typeof v === "object" && v.n && /^p[a-z0-9]{4,20}$/.test(k))
         ? { pid: k, name: String(v.n).slice(0, 14), total: +v.w || 0, big: +v.b || 0, fish: +v.f || 0, real: true }
         : null).filter(Boolean);
+    return LB.dedupeNames(rows, e => e.total * 10000 + e.big * 100 + e.fish);
   }
   function dailySubmit(T, done) {
     const base2 = LB.fb(); if (!base2 || !T || !T.daily) return;
@@ -4648,7 +4661,7 @@
   function dailyBoardRows(T) {
     const myPid = LB.pid();
     const me = { name: G.name || "You", total: +wellTotal().toFixed(2), big: +(T.big || 0), fish: T.dayCount || 0, real: true, me: true };
-    const real = (T._real || []).filter(r => r.pid !== myPid).map(r => Object.assign({}, r));
+    const real = (T._real || []).filter(r => r.pid !== myPid && LB.nameKey(r.name) !== LB.nameKey(G.name)).map(r => Object.assign({}, r));
     const cpu = dailyCpuRows(T.daily, Math.max(3, 10 - real.length));
     return dailySort([me].concat(real, cpu), T.mode);
   }
@@ -4723,10 +4736,11 @@
     const r = await fetch(base2 + "/bigbass/" + dk + ".json");
     if (!r.ok) return [];
     const data = await r.json() || {};
-    return Object.entries(data).map(([k, v]) =>
+    const rows = Object.entries(data).map(([k, v]) =>
       (v && typeof v === "object" && v.n && +v.w > 0 && /^p[a-z0-9]{4,20}$/.test(k))
         ? { pid: k, name: String(v.n).slice(0, 14), w: +v.w }
-        : null).filter(Boolean).sort((a, b) => b.w - a.w);
+        : null).filter(Boolean);
+    return LB.dedupeNames(rows, e => e.w).sort((a, b) => b.w - a.w);
   }
   // the home-screen marquee: sell today's daily + the Big Bass of the Day ranks
   function renderTitleTicker() {
@@ -4756,8 +4770,12 @@
       if (!LB.fb()) { if (attempt < 5) setTimeout(() => tryRanks(attempt + 1), 900); return; }
       fetchBigBass(dk).then(list => {
         const myPid = LB.pid();   // fold in our own — the PUT may still be in flight
-        if (G.bigbassDay && G.bigbassDay.d === dk && G.bigbassDay.w > 0 && !list.some(e => e.pid === myPid))
-          list = list.concat({ pid: myPid, name: G.name || "YOU", w: G.bigbassDay.w }).sort((a, b) => b.w - a.w);
+        if (G.bigbassDay && G.bigbassDay.d === dk && G.bigbassDay.w > 0) {
+          const i2 = list.findIndex(e => e.pid === myPid || LB.nameKey(e.name) === LB.nameKey(G.name));
+          const mine2 = { pid: myPid, name: G.name || "YOU", w: G.bigbassDay.w };
+          if (i2 < 0) list.push(mine2); else if (list[i2].w < mine2.w) list[i2] = mine2;
+          list.sort((a, b) => b.w - a.w);
+        }
         if (!el.titleScreen.classList.contains("hidden")) setText(list);
       }).catch(() => {});
     };
