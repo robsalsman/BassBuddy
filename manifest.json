@@ -1,0 +1,16 @@
+{
+  "name": "BassBuddy — Big Bass Fishin' Arcade",
+  "short_name": "BassBuddy",
+  "description": "A tribute to SEGA Bass Fishing: free fishing, tournaments, daily challenges, and a crew of anglers.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#06222c",
+  "theme_color": "#06222c",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

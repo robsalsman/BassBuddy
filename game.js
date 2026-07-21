@@ -765,6 +765,9 @@
     { id: "creekrun", ico: "🥄", name: "Creek Secret",     desc: "Word at the marina: something's running…", test: c => c.sandTrips >= 1 },
     { id: "rcrun",   ico: "🚤", name: "Rapids Secret",     desc: "Somebody knows some sweet rapids up the river…", test: c => c.rcTrips >= 1 },
     { id: "rcslam",  ico: "🛞", name: "Send It",           desc: "Score 2,500 stunt points in one rapids run", test: c => c.rcBest >= 2500 },
+    { id: "froggig", ico: "🔱", name: "Bayou Secret",      desc: "Something's singing in the bayou at night…", test: c => c.frogTrips >= 1 },
+    { id: "frogslam",ico: "🐸", name: "Frog Fry",          desc: "Gig 10 lb of bullfrogs in one bayou night", test: c => c.frogBestHaul >= 10 },
+    { id: "legend",  ico: "🌙", name: "The Legend of Lily Cove", desc: "Some stories turn out to be true…", test: c => c.ghostCaught >= 1 },
     { id: "sandslam", ico: "🐟", name: "Sandy Slam",       desc: "Boat 20 lb of sand bass in one creek run", test: c => c.sandBestHaul >= 20 },
     { id: "champ3",  ico: "💍", name: "Three-Peat",        desc: "Win 3 circuit seasons",               test: c => c.titles >= 3, prog: c => [c.titles, 3] },
     // ---- the arcade ----
@@ -800,6 +803,7 @@
       garTrips: G.garTrips || 0, garBestHaul: G.garBestHaul || 0,
       sandTrips: G.sandTrips || 0, sandBestHaul: G.sandBestHaul || 0,
       rcTrips: G.rcTrips || 0, rcBest: G.rcBest || 0,
+      frogTrips: G.frogTrips || 0, frogBestHaul: G.frogBestHaul || 0, ghostCaught: G.ghostCaught || 0,
       lureCount: Math.max(new Set(log.map(e => e.lure)).size, cnt(t.lure)),
       rodCount: cnt(t.rod), lineCount: cnt(t.line), sizeCount: cnt(t.size),
       scentCount: Object.keys(t.scent || {}).filter(k => k && k !== "none").length,
@@ -1454,7 +1458,7 @@
         const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : (i + 1) + ".";
         return `<div class="lb-row ${o.id === G.pid ? "me" : ""}" data-pid="${esc(o.id)}">
           <b class="lb-r">${medal}</b>
-          <div class="lb-n">${esc(o.n)}<small>🎯 ${(o.s || 0).toLocaleString()} · 🏅 ${(+o.b || 0).toFixed(1)} lb · 🕹️ ${(o.a || 0).toLocaleString()}</small></div>
+          <div class="lb-n">${(window.__isWeekChamp && window.__isWeekChamp(o.n)) ? "👑 " : ""}${esc(o.n)}<small>🎯 ${(o.s || 0).toLocaleString()} · 🏅 ${(+o.b || 0).toFixed(1)} lb · 🕹️ ${(o.a || 0).toLocaleString()}</small></div>
           <b class="lb-v">${fmtV(o[key])}</b></div>`;
       }).join("") + codeFoot();
     }
@@ -1554,7 +1558,7 @@
       }
       render();
     }
-    function open() { el.lbModal.classList.remove("hidden"); refresh(); }
+    function open() { el.lbModal.classList.remove("hidden"); try { if (typeof computeWeekChamp === "function") computeWeekChamp(); } catch (e) {} refresh(); }
     el.lbClose.addEventListener("click", () => el.lbModal.classList.add("hidden"));
     el.lbSorts.addEventListener("click", (e) => {
       const b = e.target.closest("[data-lbsort]"); if (!b) return;
@@ -2243,15 +2247,24 @@
   // gar to put an arrow on it before it sounds. Nothing anywhere hints at it.
   // ===========================================================================
   const GAR_MS = 75000;
+  const EGG_HOME = { drg: "deep", jpbasser: "deep", hotrod: "river", olddog: "bayou", roberto: "cove" };
   function eggAvailable() {
     const a = angler().id;
-    const here = (G.spot === "deep" && (a === "drg" || a === "jpbasser")) || (G.spot === "river" && a === "hotrod");
-    return here && !(S.tournament && !S.tournament.ended) && !(S.arcade && !S.arcade.ended) && !S.tut;
+    if (EGG_HOME[a] !== G.spot) return false;
+    // the finale only shows itself once every other secret has been found
+    if (a === "roberto" && !((G.garTrips || 0) && (G.sandTrips || 0) && (G.rcTrips || 0) && (G.frogTrips || 0))) return false;
+    return !(S.tournament && !S.tournament.ended) && !(S.arcade && !S.arcade.ended) && !S.tut;
   }
-  const eggKind = () => (angler().id === "jpbasser" ? "sand" : angler().id === "hotrod" ? "rc" : "gar");
+  const eggKind = () => ({ jpbasser: "sand", hotrod: "rc", olddog: "frog", roberto: "ghost" }[angler().id] || "gar");
   function openGarInvite() {
     el.garFace.innerHTML = anglerSVG(ANGLERS.find(a => a.id === "roberto"), false);
-    if (eggKind() === "rc") {
+    if (eggKind() === "frog") {
+      el.garBody.innerHTML = `<p><b>Roberto:</b> “Hey Old Dog — hear 'em singing? <b>Bullfrogs</b> all down the bayou tonight. Grab the gigs and the headlamp!”</p>`;
+      el.garYes.textContent = "🔱 GRAB THE GIGS";
+    } else if (eggKind() === "ghost") {
+      el.garBody.innerHTML = `<p><b>Roberto:</b> “You've found every secret we've got… except the one I never told. The old dock at <b>Lily Cove</b>. She only rolls after midnight. Bring your best lure.”</p>`;
+      el.garYes.textContent = "🌙 CHASE THE LEGEND";
+    } else if (eggKind() === "rc") {
       el.garBody.innerHTML = `<p><b>Roberto:</b> “Hey bro — there's some <b>sweet rapids</b> up the river. Wanna go drive the <b>RC boats</b> and do some stunts?”</p>`;
       el.garYes.textContent = "🚤 GRAB THE RC BOATS";
     } else if (eggKind() === "sand") {
@@ -2272,7 +2285,10 @@
     el.garModal.classList.add("hidden");
     el.mapModal.classList.add("hidden");
     setStatus("");
-    toast(S.bow.kind === "rc" ? "🚤 Send it off a rock when the spray flies!" : S.bow.kind === "sand" ? "🥄 Cast on a sand bass when it rolls!" : "🏹 Tap a gar when it rolls!");
+    toast(S.bow.kind === "frog" ? "🔱 Gig a frog when its eyes shine bright!"
+      : S.bow.kind === "ghost" ? "🌙 Dinks roll all night… wait for HER."
+      : S.bow.kind === "rc" ? "🚤 Send it off a rock when the spray flies!"
+      : S.bow.kind === "sand" ? "🥄 Cast on a sand bass when it rolls!" : "🏹 Tap a gar when it rolls!");
     sfx("cast");
   }
   function cancelBowfish() { S.bow = null; if (S.mode === "bowfish") { S.mode = "idle"; showBtn(false); } }
@@ -2302,7 +2318,8 @@
       }
       if (F.strain >= 1) {          // it threw the hook — that one's gone
         B.quiver--;
-        toast(B.kind === "sand" ? `💢 Broke off with the spoon!${B.quiver > 0 ? ` ${B.quiver} left` : ""}`
+        toast(F.ghost ? `💢 She threw the hook — the legend lives!${B.quiver > 0 ? ` ${B.quiver} lure${B.quiver > 1 ? "s" : ""} left` : ""}`
+          : B.kind === "sand" ? `💢 Broke off with the spoon!${B.quiver > 0 ? ` ${B.quiver} left` : ""}`
           : `💢 It threw the arrow!${B.quiver > 0 ? ` ${B.quiver} left` : ""}`); sfx("snap"); vibrate([60, 40, 60]);
         splash(F.x, F.y); B.fight = null; B.holding = false; showBtn(false);
         if (B.quiver <= 0) { B.quiverOut = true; endBowfish(); return; }
@@ -2312,6 +2329,15 @@
         B.hits.push({ x: rp.x, y: rp.y - 46, t: 0, w: F.w });
         const bonus = Math.round(2 + F.k * 5);
         B.t = Math.min(GAR_MS, B.t + bonus * 1000);
+        if (F.ghost) {
+          B.haul.pop();            // she's no dink — the generic push above doesn't count her
+          B.ghostW = F.w;
+          toast(`🌙 <b>THE GHOST OF LILY COVE — ${F.w} lb!!</b>`);
+          sfx("lunker"); vibrate([40, 60, 40, 60, 80]);
+          B.fight = null; B.holding = false; showBtn(false);
+          endBowfish();
+          return;
+        }
         const big2 = B.kind === "sand" ? F.w >= 2.5 : F.w >= 15;
         toast(`${B.kind === "sand" ? (big2 ? "🐟 SLAB sand bass" : "🎣 Sand bass") : (big2 ? "🐊 GIANT GAR" : "🏹 Gar")} boated — <b>${F.w} lb</b> (+${bonus}s)`);
         sfx(big2 ? "lunker" : "land"); vibrate([30, 40, 30, 40]);
@@ -2345,6 +2371,27 @@
               w, r: 15 + w * 3.6, t: 0, dur: rnd(1500, 2400) * (big ? 0.85 : 1),
               dir: Math.random() < 0.5 ? -1 : 1, hit: false });
           }
+        } else if (B.kind === "frog") {
+          if (roll < 0.18) {          // cottonmouth working the bank — leave it alone
+            B.gars.push({ type: "snake", x: rnd(W * 0.16, W * 0.8), y: wl + 24 + rnd(0, (H - wl) * 0.42),
+              w: 0, r: 24, t: 0, dur: rnd(2400, 3300), dir: Math.random() < 0.5 ? -1 : 1, hit: false });
+          } else {                    // eyeshine in the pads
+            const slab = Math.random() < 0.22;
+            const w = +(slab ? rnd(1.4, 2.4) : rnd(0.4, 1.2)).toFixed(1);
+            B.gars.push({ type: "frog", x: rnd(W * 0.14, W * 0.8), y: wl + 24 + rnd(0, (H - wl) * 0.4),
+              w, r: 13 + w * 5, t: 0, dur: rnd(1500, 2500) * (slab ? 0.85 : 1),
+              dir: Math.random() < 0.5 ? -1 : 1, hit: false });
+          }
+        } else if (B.kind === "ghost") {
+          if (roll < 0.12 && !B.fight) {   // HER — quick roll, glowing, once in a while
+            const w = +rnd(15, 21).toFixed(1);
+            B.gars.push({ type: "ghost", x: rnd(W * 0.2, W * 0.8), y: wl + 30 + rnd(0, (H - wl) * 0.38),
+              w, r: 30, t: 0, dur: rnd(1000, 1400), dir: Math.random() < 0.5 ? -1 : 1, hit: false });
+          } else {                    // dinks — they'll eat all night and waste your time
+            const w = +rnd(0.8, 2.2).toFixed(1);
+            B.gars.push({ type: "dink", x: rnd(W * 0.14, W * 0.8), y: wl + 24 + rnd(0, (H - wl) * 0.42),
+              w, r: 12 + w * 2.5, t: 0, dur: rnd(1100, 1700), dir: Math.random() < 0.5 ? -1 : 1, hit: false });
+          }
         } else if (roll < 0.12) {          // beaver crossing, tail up
           B.gars.push({ type: "beaver", x: rnd(W * 0.16, W * 0.84), y: wl + 24 + rnd(0, (H - wl) * 0.45),
             w: 0, r: 24, t: 0, dur: rnd(2100, 2800), dir: Math.random() < 0.5 ? -1 : 1, hit: false });
@@ -2360,12 +2407,61 @@
         }
       }
     }
-    for (const g of B.gars) { g.t += dt; if (g.type !== "gar" && g.type !== "rock") g.x += g.dir * dt * 0.012; }
+    for (const g of B.gars) { g.t += dt; if (g.type === "beaver" || g.type === "gator" || g.type === "stump" || g.type === "snake" || g.type === "sand") g.x += g.dir * dt * 0.012; }
     B.gars = B.gars.filter(g => g.t < g.dur && !g.hit);
     for (const a of B.arrows) {
       a.t += dt;
       if (!a.done && a.t >= a.dur) {
         a.done = true;
+        if (B.kind === "frog") {
+          const gf = B.gars.find(g2 => !g2.hit && g2.t < g2.dur && Math.hypot(g2.x - a.tx, g2.y - a.ty) < g2.r + 4);
+          splash(a.tx, a.ty);
+          if (!gf) {
+            B.quiver--; sfx("snap"); vibrate([60, 40, 60]);
+            if (B.quiver > 0) toast(`🔱 Stuck a cypress root — bent a gig! ${B.quiver} left`);
+            continue;
+          }
+          gf.hit = true;
+          if (gf.type === "snake") {
+            B.quiver--; B.penalty += 400;
+            B.hits.push({ x: gf.x, y: gf.y, t: 0, bad: "COTTONMOUTH!! −400" });
+            for (const o of B.gars) if (o.type === "frog") o.hit = true;   // the thrash clears the pads
+            B.spawnT = Math.max(B.spawnT, 2400);
+            sfx("snap"); vibrate([90, 60, 90]);
+            continue;
+          }
+          const upF = Math.sin(clamp(gf.t / gf.dur, 0, 1) * Math.PI);
+          const qF = clamp(upF * 0.6 + clamp(1 - Math.hypot(gf.x - a.tx, gf.y - a.ty) / (gf.r + 4), 0, 1) * 0.4, 0, 1);
+          B.haul.push(gf.w);
+          B.t = Math.min(GAR_MS, B.t + 2500);
+          B.hits.push({ x: gf.x, y: gf.y, t: 0, trick: `${gf.w >= 1.4 ? "SLAB BULL" : "GIGGED"}! ${gf.w} lb`, big: gf.w >= 1.4 && qF > 0.6 });
+          sfx(gf.w >= 1.4 ? "lunker" : "land"); vibrate([25, 35, 25]);
+          continue;
+        }
+        if (B.kind === "ghost") {
+          const gg = B.gars.find(g2 => !g2.hit && g2.t < g2.dur && Math.hypot(g2.x - a.tx, g2.y - a.ty) < g2.r + 6);
+          splash(a.tx, a.ty);
+          if (!gg) {
+            B.quiver--; sfx("snap");
+            if (B.quiver > 0) toast(`💥 Wrapped the dock pilings — snapped off! ${B.quiver} left`);
+            continue;
+          }
+          gg.hit = true;
+          if (gg.type === "dink") {     // a dink ate it — fun, but she's still out there
+            B.haul.push(gg.w);
+            B.t = Math.min(GAR_MS, B.t + 1500);
+            B.hits.push({ x: gg.x, y: gg.y, t: 0, trick: `dink ${gg.w} lb` });
+            sfx("land"); vibrate(15);
+            continue;
+          }
+          // THE GHOST — hold on
+          const kG = clamp(0.75 + (gg.w - 15) / 24, 0.75, 1);
+          B.fight = { x: gg.x, y: gg.y, w: gg.w, r: gg.r, k: kG, dist: 1, strain: 0, state: "run", stT: rnd(500, 900), dir: gg.dir, jp: 0, ghost: true };
+          toast("🌙 <b>IT'S HER!!</b> Hold to reel — let go when she jumps!");
+          setBtn("HOLD TO REEL", "reel"); showBtn(true);
+          sfx("strike"); vibrate([60, 60, 60, 60]);
+          continue;
+        }
         if (B.kind === "rc") {
           const g2r = B.gars.find(g2 => !g2.hit && g2.t < g2.dur && Math.hypot(g2.x - a.tx, g2.y - a.ty) < g2.r + 6);
           splash(a.tx, a.ty);
@@ -2449,6 +2545,8 @@
   }
   function bowAnchor() {
     if (S.bow && S.bow.kind === "sand") return { x: W * 0.74 - 118, y: H - 316 };   // the rod tip
+    if (S.bow && S.bow.kind === "frog") return { x: W * 0.74 - 96, y: H - 330 };    // the raised gig
+    if (S.bow && S.bow.kind === "ghost") return { x: W * 0.74 - 118, y: H - 316 };  // night rod tip
     return { x: W * 0.74 - 70, y: H - 251 };                                        // the bow grip
   }
   function reelPoint() {
@@ -2478,6 +2576,8 @@
     const B = S.bow; if (!B || B.over) return;
     B.over = true; B.holding = false; showBtn(false);
     if (B.kind === "rc") { endRapids(B); return; }
+    if (B.kind === "frog") { endFrog(B); return; }
+    if (B.kind === "ghost") { endGhost(B); return; }
     const total = +B.haul.reduce((a, w) => a + w, 0).toFixed(1);
     const big = B.haul.length ? Math.max(...B.haul) : 0;
     const sand = B.kind === "sand";
@@ -2735,9 +2835,399 @@
     ctx.fillStyle = sec <= 10 ? "#ff9d8a" : "#eaf6fb"; ctx.fillText(msg, W / 2, 34);
     ctx.restore();
   }
+  function endFrog(B) {
+    const total = +B.haul.reduce((a, w) => a + w, 0).toFixed(1);
+    const pts = Math.max(0, Math.round(total * 300 + B.haul.length * 100) - B.penalty);
+    G.coins += pts; addAnglerXP(pts);
+    G.frogTrips = (G.frogTrips || 0) + 1;
+    G.frogCount = (G.frogCount || 0) + B.haul.length;
+    G.frogBestHaul = Math.max(G.frogBestHaul || 0, total);
+    evalAchievements(false);
+    save(); updateHUD();
+    sfx(B.haul.length ? "weighwin" : "weighin");
+    el.garFace.innerHTML = anglerSVG(ANGLERS.find(a => a.id === "roberto"), false);
+    const say = B.quiverOut ? "That's the last gig, Old Dog — bayou keeps the rest tonight!"
+      : B.haul.length ? "Frog legs for the whole crew — fire up the fryer!"
+      : "All them eyes and not one frog… they were laughing at us.";
+    el.garBody.innerHTML = `<p><b>Roberto:</b> “${say}”</p>
+      <p>🔱 <b>${B.haul.length}</b> frog${B.haul.length === 1 ? "" : "s"} gigged · <b>${total.toFixed(1)} lb</b><br>
+      🎯 <b>+${pts.toLocaleString()}</b> points${B.penalty ? ` <span style="color:#ff9d8a">(−${B.penalty} for the snake…)</span>` : ""}${G.frogBestHaul === total && B.haul.length ? " · best haul yet!" : ""}</p>`;
+    el.garYes.textContent = "🎣 BACK TO THE BASS";
+    el.garNo.classList.add("hidden");
+    el.garModal.classList.remove("hidden");
+  }
+  function endGhost(B) {
+    const got = !!B.ghostW;
+    const dinks = B.haul.length;
+    const pts = Math.max(0, (got ? 5000 + Math.round(B.ghostW * 100) : 0) + dinks * 80 - B.penalty);
+    G.coins += pts; addAnglerXP(pts);
+    G.ghostTrips = (G.ghostTrips || 0) + 1;
+    if (got) { G.ghostCaught = (G.ghostCaught || 0) + 1; G.ghostBest = Math.max(G.ghostBest || 0, B.ghostW); }
+    evalAchievements(false);
+    save(); updateHUD();
+    sfx(got ? "weighwin" : "weighin");
+    el.garFace.innerHTML = anglerSVG(ANGLERS.find(a => a.id === "roberto"), false);
+    const say = got ? `${B.ghostW} pounds. …And THAT is why they tell stories about this place. The legend's real, and you're in it now.`
+      : B.quiverOut ? "Three lures in the pilings — she wins tonight. She always wins."
+      : "She's still down there. Some nights I swear I can hear her.";
+    el.garBody.innerHTML = `<p><b>Roberto:</b> “${say}”</p>
+      <p>${got ? `🌙 <b>THE GHOST OF LILY COVE — ${B.ghostW} lb</b><br>` : ""}🎣 ${dinks} dink${dinks === 1 ? "" : "s"} on the side<br>
+      🎯 <b>+${pts.toLocaleString()}</b> points</p>`;
+    el.garYes.textContent = "🎣 BACK TO THE BASS";
+    el.garNo.classList.add("hidden");
+    el.garModal.classList.remove("hidden");
+  }
+  // 🔱 FROG GIGGING — Old Dog's bayou night: moss, moonlight, a headlamp beam,
+  // and eyeshine in the pads
+  function renderFrog(now) {
+    const B = S.bow; if (!B) return;
+    const wl = waterLine();
+    let g = ctx.createLinearGradient(0, 0, 0, wl);
+    g.addColorStop(0, "#0a0e2a"); g.addColorStop(0.7, "#141c3a"); g.addColorStop(1, "#1d2a44");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, wl);
+    ctx.fillStyle = "rgba(255,255,255,0.8)";
+    for (let i = 0; i < 24; i++) { ctx.globalAlpha = 0.3 + 0.5 * Math.abs(Math.sin(i * 7 + now / 900)); ctx.fillRect((i * 73) % W, (i * 41) % (wl - 60), 1.6, 1.6); }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#f4ecd0"; ctx.beginPath(); ctx.arc(W * 0.2, 70, 26, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#0a0e2a"; ctx.beginPath(); ctx.arc(W * 0.2 - 10, 62, 24, 0, Math.PI * 2); ctx.fill();
+    // cypress silhouettes with hanging moss
+    const cyp = (x, h) => {
+      ctx.fillStyle = "#050a18";
+      ctx.fillRect(x - 5, wl - h, 10, h);
+      ctx.beginPath(); ctx.moveTo(x - 26, wl - h + 8); ctx.quadraticCurveTo(x, wl - h - 26, x + 26, wl - h + 8); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x - 16, wl - 2); ctx.lineTo(x - 5, wl - 26); ctx.lineTo(x + 5, wl - 26); ctx.lineTo(x + 16, wl - 2); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "#0d1526"; ctx.lineWidth = 2.4; ctx.lineCap = "round";
+      for (const mx of [-18, -8, 6, 16]) { ctx.beginPath(); ctx.moveTo(x + mx, wl - h + 6); ctx.lineTo(x + mx + 2, wl - h + 22 + Math.sin(now / 800 + mx) * 2); ctx.stroke(); }
+    };
+    cyp(30, 96); cyp(96, 128); cyp(W - 40, 110); cyp(W - 110, 88); cyp(W * 0.5 - 8, 70);
+    // black-tea water with the moon streak
+    g = ctx.createLinearGradient(0, wl, 0, H);
+    g.addColorStop(0, "#101a2e"); g.addColorStop(0.5, "#0a1220"); g.addColorStop(1, "#060c16");
+    ctx.fillStyle = g; ctx.fillRect(0, wl, W, H - wl);
+    ctx.save(); ctx.globalAlpha = 0.14; ctx.fillStyle = "#f4ecd0";
+    for (let i = 0; i < 8; i++) { const yy = wl + 10 + i * 15; ctx.fillRect(W * 0.2 - (30 - i * 3) / 2 + Math.sin(now / 800 + i) * 5, yy, 30 - i * 3, 2); }
+    ctx.restore();
+    // the headlamp beam sweeping from the boat toward the pads
+    const px = W * 0.74, deckY = H - 138;
+    ctx.save();
+    const hb = ctx.createRadialGradient(px - 20, deckY - 128, 10, px - 20, deckY - 128, H * 0.75);
+    hb.addColorStop(0, "rgba(255,244,190,0.28)"); hb.addColorStop(0.5, "rgba(255,244,190,0.1)"); hb.addColorStop(1, "rgba(255,244,190,0)");
+    ctx.fillStyle = hb;
+    ctx.beginPath(); ctx.moveTo(px - 20, deckY - 128);
+    ctx.lineTo(W * 0.02, wl + 30); ctx.lineTo(W * 0.62, wl + 10); ctx.closePath(); ctx.fill();
+    ctx.restore();
+    // lily pads
+    ctx.fillStyle = "#12251c";
+    for (let i = 0; i < 10; i++) {
+      const lx = W * (0.08 + 0.7 * ((i * 47) % 100) / 100), ly = wl + 20 + ((i * 89) % Math.max(40, (H - wl) * 0.5));
+      ctx.beginPath(); ctx.ellipse(lx, ly, 16, 6, 0.1, 0.25, Math.PI * 2.1); ctx.fill();
+    }
+    // what the light finds: frog eyeshine, and the wrong kind of ripple
+    for (const gr of B.gars) {
+      const p = gr.t / gr.dur, up = Math.sin(p * Math.PI);
+      ctx.save(); ctx.translate(gr.x, gr.y);
+      if (gr.type === "snake") {
+        ctx.scale(gr.dir, 1);
+        ctx.globalAlpha = 0.5 + up * 0.5;
+        ctx.strokeStyle = "#1c2a1e"; ctx.lineWidth = 5; ctx.lineCap = "round";
+        ctx.beginPath(); ctx.moveTo(-24, 2);
+        for (let sx2 = -24; sx2 <= 16; sx2 += 8) ctx.lineTo(sx2, 2 + Math.sin(sx2 * 0.4 + now / 120) * 4);
+        ctx.stroke();
+        ctx.fillStyle = "#26361f"; ctx.beginPath(); ctx.ellipse(20, 0, 6.5, 3.6, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#ffd35c"; ctx.beginPath(); ctx.arc(22, -1.6, 1.1, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "rgba(207,228,239,0.3)"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(26, -2); ctx.lineTo(34, -5); ctx.moveTo(26, 2); ctx.lineTo(34, 5); ctx.stroke();
+      } else {
+        // the eyes give it away first — two hot coals over a faint frog
+        const shine = 0.35 + up * 0.65;
+        ctx.globalAlpha = shine * 0.5;
+        ctx.fillStyle = "#2c3d24";
+        ctx.beginPath(); ctx.ellipse(0, 2, gr.r * 0.62, gr.r * 0.34, 0, Math.PI, 0); ctx.fill();   // squat body
+        ctx.globalAlpha = shine;
+        for (const ex of [-4.5, 4.5]) {
+          ctx.fillStyle = "rgba(255,220,120," + (0.35 + up * 0.5) + ")";
+          ctx.beginPath(); ctx.arc(ex, -gr.r * 0.3, 4.5, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = "#ffe9a0"; ctx.beginPath(); ctx.arc(ex, -gr.r * 0.3, 2, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.globalAlpha = 0.25 * up; ctx.strokeStyle = "#cfe4ef"; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.ellipse(0, 4, gr.r * 1.1, 5, 0, 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+    }
+    renderBowShared(now, "frog");
+  }
+  // 🌙 THE GHOST OF LILY COVE — Roberto's finale: moonlit dock, fireflies,
+  // dinks rolling… and sometimes something much, much bigger
+  function renderGhost(now) {
+    const B = S.bow; if (!B) return;
+    const wl = waterLine();
+    let g = ctx.createLinearGradient(0, 0, 0, wl);
+    g.addColorStop(0, "#0c1230"); g.addColorStop(0.65, "#1a2448"); g.addColorStop(1, "#2a3a5e");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, wl);
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    for (let i = 0; i < 20; i++) { ctx.globalAlpha = 0.3 + 0.5 * Math.abs(Math.sin(i * 5 + now / 1100)); ctx.fillRect((i * 91) % W, (i * 53) % (wl - 80), 1.6, 1.6); }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#f7f1da"; ctx.beginPath(); ctx.arc(W * 0.68, 78, 34, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "rgba(230,224,200,0.5)"; ctx.beginPath(); ctx.arc(W * 0.68 - 10, 70, 6, 0, Math.PI * 2); ctx.arc(W * 0.68 + 8, 86, 4, 0, Math.PI * 2); ctx.fill();
+    // treeline + THE old dock, left
+    ctx.fillStyle = "#0a1024";
+    ctx.beginPath(); ctx.moveTo(0, wl);
+    for (let x = 0; x <= W; x += 30) ctx.lineTo(x, wl - 26 - 20 * Math.abs(Math.sin(x * 0.05)));
+    ctx.lineTo(W, wl); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#0d1526";
+    ctx.fillRect(8, wl - 34, 118, 8);                                   // dock deck
+    for (const dx of [16, 52, 88, 118]) ctx.fillRect(dx, wl - 28, 6, 42); // pilings into the water
+    ctx.fillStyle = "#0a1020"; ctx.fillRect(30, wl - 58, 8, 26); ctx.fillRect(26, wl - 62, 46, 8);   // old lamp post arm
+    // still night water, moon river
+    g = ctx.createLinearGradient(0, wl, 0, H);
+    g.addColorStop(0, "#182448"); g.addColorStop(0.5, "#101a36"); g.addColorStop(1, "#0a1226");
+    ctx.fillStyle = g; ctx.fillRect(0, wl, W, H - wl);
+    ctx.save(); ctx.globalAlpha = 0.16; ctx.fillStyle = "#f7f1da";
+    for (let i = 0; i < 9; i++) { const yy = wl + 12 + i * 15; ctx.fillRect(W * 0.68 - (44 - i * 4) / 2 + Math.sin(now / 750 + i) * 5, yy, 44 - i * 4, 2.4); }
+    ctx.restore();
+    // fireflies drifting the bank
+    for (let i = 0; i < 7; i++) {
+      const fx = (i * 67 + now * 0.008 * (i % 2 ? 1 : -1)) % W, fy = wl - 12 - (i * 23) % 60;
+      ctx.save(); ctx.globalAlpha = 0.4 + 0.5 * Math.abs(Math.sin(now / 500 + i * 3));
+      ctx.fillStyle = "#c8f57a"; ctx.beginPath(); ctx.arc((fx + W) % W, fy, 1.8, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    }
+    // pads near the dock
+    ctx.fillStyle = "#14263a";
+    for (let i = 0; i < 8; i++) {
+      const lx = W * (0.06 + 0.5 * ((i * 43) % 100) / 100), ly = wl + 24 + ((i * 71) % Math.max(40, (H - wl) * 0.42));
+      ctx.beginPath(); ctx.ellipse(lx, ly, 15, 5.5, 0.1, 0.25, Math.PI * 2.1); ctx.fill();
+    }
+    // rolls: dinks flash silver — SHE glows
+    for (const gr of B.gars) {
+      const p = gr.t / gr.dur, up = Math.sin(p * Math.PI);
+      ctx.save(); ctx.translate(gr.x, gr.y); ctx.scale(gr.dir, 1);
+      if (gr.type === "ghost") {
+        ctx.save(); ctx.globalAlpha = up * 0.5;
+        ctx.fillStyle = "rgba(190,225,255,0.7)";
+        ctx.beginPath(); ctx.ellipse(0, 0, gr.r * 1.5, gr.r * 0.7, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        const len = gr.r * 2.4, hgt = gr.r * 0.62 * up;
+        ctx.globalAlpha = 0.5 + up * 0.5;
+        ctx.fillStyle = "#bcd8e8";
+        ctx.beginPath(); ctx.ellipse(0, 2 - hgt * 0.5, len * 0.5, Math.max(3, hgt), 0, Math.PI, 0); ctx.fill();
+        ctx.fillStyle = "#93b6cc";
+        ctx.beginPath(); ctx.ellipse(0, 2 - hgt * 0.6, len * 0.42, Math.max(2, hgt * 0.55), 0, Math.PI, 0); ctx.fill();
+        if (up > 0.4) {
+          ctx.fillStyle = "#7fa4bc";
+          ctx.beginPath(); ctx.moveTo(-len * 0.2, -hgt); ctx.lineTo(-len * 0.08, -hgt - 10 * up); ctx.lineTo(len * 0.05, -hgt); ctx.closePath(); ctx.fill();
+        }
+        ctx.strokeStyle = "rgba(207,228,239,0.6)"; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.ellipse(0, 4, len * 0.6 + p * 16, 7 + p * 6, 0, 0, Math.PI * 2); ctx.stroke();
+      } else {
+        const len = gr.r * 2, hgt = gr.r * 0.5 * up;
+        ctx.globalAlpha = 0.3 + up * 0.5;
+        ctx.fillStyle = "#3e5a4a";
+        ctx.beginPath(); ctx.ellipse(0, 2 - hgt * 0.5, len * 0.5, Math.max(2, hgt), 0, Math.PI, 0); ctx.fill();
+        if (up > 0.45) { ctx.fillStyle = "#cfe0d2"; ctx.beginPath(); ctx.ellipse(len * 0.12, 1 - hgt * 0.3, len * 0.2, Math.max(1, hgt * 0.3), 0.1, 0, Math.PI * 2); ctx.fill(); }
+      }
+      ctx.restore();
+    }
+    renderBowShared(now, "ghost");
+  }
+  // the shared night-scene tail: fight overlay, projectiles, callouts, the
+  // boat + angler, and the HUD pill — frog & ghost both close with this
+  function renderBowShared(now, kind) {
+    const B = S.bow; if (!B) return;
+    const wl = waterLine();
+    // ---- the hooked ghost on the rod ----
+    if (B.fight) {
+      const F = B.fight;
+      const ba = bowAnchor();
+      const rp = reelPoint();
+      const gx = rp.x + (F.x - rp.x) * F.dist, gy = rp.y + (F.y - rp.y) * F.dist;
+      const near = 1 + (1 - F.dist) * 0.9;
+      const lift = Math.sin((F.jp || 0) * Math.PI) * 56 * near;
+      const len = (40 + F.w * 1.4) * near;
+      const thrash = Math.sin(now / 55) * (F.state === "jump" ? 0.34 : 0.13);
+      ctx.save(); ctx.strokeStyle = "rgba(240,240,235,0.7)"; ctx.lineWidth = 1.3;
+      ctx.beginPath(); ctx.moveTo(ba.x, ba.y); ctx.quadraticCurveTo((ba.x + gx) / 2, Math.min(ba.y, gy - lift) - 8, gx, gy - lift); ctx.stroke(); ctx.restore();
+      ctx.save(); ctx.translate(gx, gy - lift); ctx.rotate(thrash * (F.dir || 1)); ctx.scale(F.dir || 1, 1);
+      ctx.globalAlpha = 0.45; ctx.fillStyle = "rgba(190,225,255,0.8)";
+      ctx.beginPath(); ctx.ellipse(0, 0, len * 0.62, len * 0.3, 0, 0, Math.PI * 2); ctx.fill();   // her glow
+      ctx.globalAlpha = F.state === "jump" ? 1 : 0.9;
+      ctx.fillStyle = "#bcd8e8";
+      ctx.beginPath(); ctx.ellipse(0, 0, len * 0.5, len * 0.2, 0, 0, Math.PI * 2); ctx.fill();     // pale body
+      ctx.fillStyle = "#93b6cc";
+      ctx.beginPath(); ctx.ellipse(0, -len * 0.08, len * 0.46, len * 0.1, 0, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = "#a7c4d6";
+      ctx.beginPath(); ctx.moveTo(-len * 0.48, 0); ctx.lineTo(-len * 0.68, -len * 0.14); ctx.lineTo(-len * 0.64, len * 0.14); ctx.closePath(); ctx.fill();  // tail
+      ctx.fillStyle = "#7fa4bc";
+      ctx.beginPath(); ctx.moveTo(-len * 0.2, -len * 0.18); ctx.lineTo(-len * 0.05, -len * 0.34); ctx.lineTo(len * 0.1, -len * 0.18); ctx.closePath(); ctx.fill();  // dorsal
+      ctx.fillStyle = "#0c1230"; ctx.beginPath(); ctx.arc(len * 0.34, -len * 0.04, 2.6, 0, Math.PI * 2); ctx.fill();   // eye
+      ctx.strokeStyle = "#0c1230"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(len * 0.46, 2); ctx.lineTo(len * 0.3, 7); ctx.stroke();          // the big jaw
+      ctx.restore();
+      if (F.state === "jump") { ctx.save(); ctx.globalAlpha = 0.5; ctx.strokeStyle = "#cfe4ef"; ctx.lineWidth = 1.6;
+        ctx.beginPath(); ctx.ellipse(gx, gy + 4, len * 0.5, 7, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
+      const sw = 150, sx2 = (W - sw) / 2, sy2 = 56;
+      ctx.save();
+      ctx.fillStyle = "rgba(6,26,36,0.72)"; ctx.beginPath(); ctx.roundRect(sx2 - 40, sy2 - 9, sw + 66, 46, 14); ctx.fill();
+      ctx.font = "700 9px system-ui"; ctx.textAlign = "right"; ctx.fillStyle = "rgba(234,246,251,0.75)";
+      ctx.fillText("LINE", sx2 - 6, sy2 + 8);
+      ctx.fillText("BOAT", sx2 - 6, sy2 + 27);
+      ctx.fillStyle = "rgba(255,255,255,0.18)"; ctx.beginPath(); ctx.roundRect(sx2, sy2, sw, 10, 5); ctx.fill();
+      ctx.fillStyle = F.strain > 0.72 ? "#ff5d5d" : F.strain > 0.45 ? "#ffd35c" : "#8fe3a0";
+      ctx.beginPath(); ctx.roundRect(sx2, sy2, sw * F.strain, 10, 5); ctx.fill();
+      const prog = 1 - F.dist;
+      ctx.fillStyle = "rgba(255,255,255,0.18)"; ctx.beginPath(); ctx.roundRect(sx2, sy2 + 19, sw, 10, 5); ctx.fill();
+      ctx.fillStyle = "#7fd4e8"; ctx.beginPath(); ctx.roundRect(sx2, sy2 + 19, sw * Math.max(0.04, prog), 10, 5); ctx.fill();
+      ctx.font = "13px system-ui"; ctx.textAlign = "center";
+      ctx.fillText("🛶", sx2 + sw + 14, sy2 + 30);
+      const mx = sx2 + sw * Math.max(0.04, prog);
+      ctx.fillStyle = "#eaf6fb";
+      ctx.beginPath(); ctx.moveTo(mx, sy2 + 17.5); ctx.lineTo(mx - 4.5, sy2 + 12); ctx.lineTo(mx + 4.5, sy2 + 12); ctx.closePath(); ctx.fill();
+      ctx.restore();
+      if (!B.holding && F.state !== "jump") {
+        ctx.save(); ctx.globalAlpha = 0.6 + Math.sin(now / 180) * 0.25;
+        ctx.font = "800 14px system-ui"; ctx.textAlign = "center";
+        ctx.fillStyle = "#ffd35c"; ctx.strokeStyle = "rgba(0,0,0,.6)"; ctx.lineWidth = 4; ctx.lineJoin = "round";
+        ctx.strokeText("REEL! ▼", W / 2, sy2 + 56); ctx.fillText("REEL! ▼", W / 2, sy2 + 56);
+        ctx.restore();
+      }
+    }
+    // ---- projectiles: the gig thrust, or the lure sailing out ----
+    for (const a of B.arrows) {
+      const p = Math.min(1, a.t / a.dur);
+      const ax = a.sx + (a.tx - a.sx) * p, ay = a.sy + (a.ty - a.sy) * p - Math.sin(p * Math.PI) * (kind === "frog" ? 26 : 46);
+      ctx.save(); ctx.globalAlpha = a.done ? Math.max(0, 1 - (a.t - a.dur) / 350) : 1;
+      if (kind === "ghost") {
+        ctx.strokeStyle = "rgba(240,240,235,0.55)"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(a.sx, a.sy); ctx.quadraticCurveTo((a.sx + ax) / 2, Math.min(a.sy, ay) - 14, ax, ay); ctx.stroke();
+      }
+      if (!a.done) {
+        const ang = Math.atan2(a.ty - a.sy, a.tx - a.sx);
+        ctx.translate(ax, ay); ctx.rotate(ang);
+        if (kind === "frog") {   // the gig: shaft + three tines
+          ctx.strokeStyle = "#8a6b42"; ctx.lineWidth = 3.4; ctx.lineCap = "round";
+          ctx.beginPath(); ctx.moveTo(-26, 0); ctx.lineTo(8, 0); ctx.stroke();
+          ctx.strokeStyle = "#c9ced4"; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(16, -4); ctx.moveTo(8, 0); ctx.lineTo(17, 0); ctx.moveTo(8, 0); ctx.lineTo(16, 4); ctx.stroke();
+        } else {                 // her lure — the good one, flashing in the moon
+          ctx.rotate(a.t / 70);
+          ctx.fillStyle = "#e8ddb8"; ctx.beginPath(); ctx.ellipse(0, 0, 4, 8, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = "#fff8e2"; ctx.beginPath(); ctx.ellipse(-1, -2, 1.6, 3.6, 0, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      ctx.restore();
+    }
+    // ---- floating callouts ----
+    for (const h of B.hits) {
+      const p = h.t / 1100;
+      ctx.save(); ctx.globalAlpha = 1 - p;
+      const msg2 = h.bad || h.trick || (h.w != null ? `${h.w} lb!` : "");
+      ctx.font = "800 " + (h.bad ? 17 : h.big ? 23 : 17) + "px system-ui"; ctx.textAlign = "center";
+      ctx.fillStyle = h.bad ? "#ff5d5d" : h.big ? "#ffd35c" : "#8fe3a0";
+      ctx.strokeStyle = "rgba(0,0,0,.6)"; ctx.lineWidth = 4; ctx.lineJoin = "round";
+      const ty = h.y - 24 - p * 34;
+      const hx2 = clamp(h.x, 70, W - 70);
+      ctx.strokeText(msg2, hx2, ty); ctx.fillText(msg2, hx2, ty);
+      ctx.restore();
+    }
+    // ---- jon boat off the right corner + the angler ----
+    const dkT = H - 158;
+    ctx.fillStyle = kind === "frog" ? "#3c4a52" : "#5a4a3a";
+    ctx.beginPath(); ctx.moveTo(W * 0.12, H);
+    ctx.quadraticCurveTo(W * 0.4, dkT + 4, W + 6, dkT - 14);
+    ctx.lineTo(W + 6, H); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = kind === "frog" ? "#4c5c66" : "#6e5c48"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(W * 0.13, H - 2);
+    ctx.quadraticCurveTo(W * 0.4, dkT + 6, W + 6, dkT - 12); ctx.stroke();
+    ctx.fillStyle = kind === "frog" ? "#2c3840" : "#453a2c";
+    ctx.beginPath(); ctx.moveTo(W * 0.3, H);
+    ctx.quadraticCurveTo(W * 0.56, dkT + 78, W + 6, dkT + 66);
+    ctx.lineTo(W + 6, H); ctx.closePath(); ctx.fill();
+    const flying = B.arrows.some(a => !a.done);
+    const fighting = !!B.fight, straining = fighting && B.holding;
+    const px = W * 0.74, deckY = H - 138, SC = 1.85;
+    const lean = straining ? 0.14 : fighting ? 0.05 : 0;
+    ctx.save(); ctx.translate(px, deckY); ctx.rotate(lean); ctx.scale(SC, SC);
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#2c3238"; ctx.lineWidth = 9;
+    ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(-5, -30); ctx.moveTo(11, 0); ctx.lineTo(8, -30); ctx.stroke();
+    if (kind === "frog") {
+      // Old Dog: olive jacket, gray beard, bucket hat, headlamp burning
+      ctx.fillStyle = "#5a6247";
+      ctx.beginPath(); ctx.moveTo(-11, -28); ctx.quadraticCurveTo(-13, -56, -7, -60);
+      ctx.lineTo(9, -60); ctx.quadraticCurveTo(14, -54, 12, -28); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#dfae85"; ctx.beginPath(); ctx.arc(-4, -71, 9.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#b9bec2";   // the gray beard
+      ctx.beginPath(); ctx.moveTo(-12, -67); ctx.quadraticCurveTo(-13, -50, -4, -44);
+      ctx.quadraticCurveTo(1, -52, -1, -65); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#4a5240";   // bucket hat
+      ctx.beginPath(); ctx.arc(-4, -75, 9.5, Math.PI, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(-4, -74.5, 13, 3.2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#fff4be";   // the headlamp
+      ctx.beginPath(); ctx.arc(-11, -77, 2.6, 0, Math.PI * 2); ctx.fill();
+      // lead arm holds the gig high, butt hand low
+      ctx.strokeStyle = "#5a6247"; ctx.lineWidth = 8;
+      ctx.beginPath(); ctx.moveTo(-6, -56); ctx.lineTo(-30, -66); ctx.stroke();
+      ctx.strokeStyle = "#4e553e"; ctx.lineWidth = 8;
+      ctx.beginPath(); ctx.moveTo(6, -56); ctx.lineTo(-4, -40); ctx.stroke();
+      ctx.fillStyle = "#dfae85";
+      ctx.beginPath(); ctx.arc(-32, -67, 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(-5, -39, 4, 0, Math.PI * 2); ctx.fill();
+      // the gig itself: long shaft, tines at the top, angled at the water
+      ctx.save(); ctx.strokeStyle = "#8a6b42"; ctx.lineWidth = 3.4;
+      ctx.beginPath(); ctx.moveTo(6, -30); ctx.lineTo(-52, -102); ctx.stroke();
+      ctx.strokeStyle = "#c9ced4"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(-52, -102); ctx.lineTo(-60, -110); ctx.moveTo(-52, -102); ctx.lineTo(-55, -113); ctx.moveTo(-52, -102); ctx.lineTo(-48, -112); ctx.stroke();
+      ctx.restore();
+    } else {
+      // Roberto: maroon flannel, dark hair, rod out over the moonlight
+      ctx.fillStyle = "#7e3040";
+      ctx.beginPath(); ctx.moveTo(-11, -28); ctx.quadraticCurveTo(-13, -56, -7, -60);
+      ctx.lineTo(9, -60); ctx.quadraticCurveTo(14, -54, 12, -28); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "#5e2430"; ctx.lineWidth = 1.4;   // flannel lines
+      ctx.beginPath(); ctx.moveTo(-10, -50); ctx.lineTo(12, -50); ctx.moveTo(-11, -40); ctx.lineTo(12, -40); ctx.moveTo(-2, -60); ctx.lineTo(-2, -28); ctx.stroke();
+      ctx.fillStyle = "#caa07a"; ctx.beginPath(); ctx.arc(-4, -71, 9.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#241a12";   // dark hair
+      ctx.beginPath(); ctx.arc(-4, -73.5, 10, Math.PI * 0.9, Math.PI * 2.05); ctx.fill();
+      ctx.strokeStyle = "#241a12"; ctx.lineWidth = 2.2;   // mustache
+      ctx.beginPath(); ctx.moveTo(-12, -66.5); ctx.quadraticCurveTo(-8, -64.5, -4, -66); ctx.stroke();
+      ctx.strokeStyle = "#7e3040"; ctx.lineWidth = 8;
+      ctx.beginPath(); ctx.moveTo(-6, -56); ctx.lineTo(-36, -61); ctx.stroke();
+      ctx.strokeStyle = "#6e2a38"; ctx.lineWidth = 8;
+      ctx.beginPath(); ctx.moveTo(6, -56); ctx.lineTo(fighting ? -8 : 15, fighting ? -42 : -53); ctx.stroke();
+      ctx.fillStyle = "#caa07a";
+      ctx.beginPath(); ctx.arc(-38, -61, 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.save(); ctx.translate(-38, -61);
+      const tipX = -26, tipY = -35;
+      ctx.strokeStyle = "#3a2c20"; ctx.lineWidth = 3.2; ctx.lineCap = "round";
+      if (fighting) { ctx.beginPath(); ctx.moveTo(6, 4); ctx.quadraticCurveTo(-14, -22, tipX - 5, tipY + 14); ctx.stroke(); }
+      else { ctx.beginPath(); ctx.moveTo(6, 4); ctx.lineTo(tipX, tipY); ctx.stroke(); }
+      ctx.fillStyle = "#2e3338"; ctx.beginPath(); ctx.arc(3, 8, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#c9c9c2"; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(3, 8, 2.8, 0, Math.PI * 2); ctx.stroke();
+      if (!flying && !fighting) {
+        ctx.strokeStyle = "rgba(235,235,225,0.7)"; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(tipX, tipY); ctx.lineTo(tipX, tipY + 14); ctx.stroke();
+        ctx.fillStyle = "#e8ddb8"; ctx.beginPath(); ctx.ellipse(tipX, tipY + 19, 2.6, 5.2, 0.15, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    }
+    ctx.restore();
+    // ---- HUD pill ----
+    const sec = Math.max(0, Math.ceil(B.t / 1000));
+    const total = B.haul.reduce((a2, w) => a2 + w, 0);
+    ctx.save(); ctx.font = "700 15px system-ui"; ctx.textAlign = "center";
+    const icon = kind === "frog" ? "🔱" : "🪝";
+    const tail = kind === "frog" ? `${B.haul.length} frog${B.haul.length === 1 ? "" : "s"} · ${total.toFixed(1)} lb`
+      : B.ghostW ? `SHE'S IN THE BOAT` : `${B.haul.length} dink${B.haul.length === 1 ? "" : "s"} · she's out there…`;
+    const msg = `${icon.repeat(Math.max(0, B.quiver))}${"·".repeat(3 - Math.max(0, B.quiver))}  ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}  ·  ${tail}`;
+    const tw = ctx.measureText(msg).width + 26;
+    ctx.fillStyle = "rgba(6,26,36,0.72)";
+    ctx.beginPath(); ctx.roundRect((W - tw) / 2, 14, tw, 30, 15); ctx.fill();
+    ctx.fillStyle = sec <= 10 ? "#ff9d8a" : "#eaf6fb"; ctx.fillText(msg, W / 2, 34);
+    ctx.restore();
+  }
   function renderBowfish(now) {
     const B = S.bow; if (!B) return;
     if (B.kind === "rc") { renderRapids(now); return; }
+    if (B.kind === "frog") { renderFrog(now); return; }
+    if (B.kind === "ghost") { renderGhost(now); return; }
     const wl = waterLine();
     // dusk sky over the piney bottoms
     let g = ctx.createLinearGradient(0, 0, 0, wl);
@@ -3540,6 +4030,13 @@
           <div class="item-desc">${dsp0.ico} ${dsp0.name} · 3:00 · ${dr0.mode.rule} One entry a day, against the whole world.${dDone0 ? ` · <span style="color:#5be37a">✓ fished today</span>` : ""}</div>
         </div>
         <button class="item-btn owned" data-daily="1">${dDone0 ? "VIEW" : "ENTER"}</button>
+      </div><div class="item circuit" data-duel="1">
+        <div class="item-ico">🥊</div>
+        <div class="item-info">
+          <div class="item-name">CALL SOMEBODY OUT</div>
+          <div class="item-desc">Name an angler, pick the water, text the callout. Head-to-head, one run each — the W-L record is forever.</div>
+        </div>
+        <button class="item-btn owned" data-duel="1">DUEL</button>
       </div><div class="item circuit" data-host="1">
         <div class="item-ico">🎪</div>
         <div class="item-info">
@@ -3598,7 +4095,7 @@
   }
   el.tourneyBtn.addEventListener("click", openCircuit);
   el.modeClose.addEventListener("click", () => el.modeModal.classList.add("hidden"));
-  el.modeModal.addEventListener("click", (e) => { const h0 = e.target.closest("[data-host]"); if (h0) { el.modeModal.classList.add("hidden"); sfx("ui"); openHostSheet(); return; } const d0 = e.target.closest("[data-daily]"); if (d0) { el.modeModal.classList.add("hidden"); openDailySheet(false); return; } const a = e.target.closest("[data-arcade]"); if (a) { startArcade(); return; } const b = e.target.closest("[data-tour]"); if (b) chooseTour(b.dataset.tour); });
+  el.modeModal.addEventListener("click", (e) => { const x0 = e.target.closest("[data-duel]"); if (x0) { el.modeModal.classList.add("hidden"); sfx("ui"); openDuelSheet(); return; } const h0 = e.target.closest("[data-host]"); if (h0) { el.modeModal.classList.add("hidden"); sfx("ui"); openHostSheet(); return; } const d0 = e.target.closest("[data-daily]"); if (d0) { el.modeModal.classList.add("hidden"); openDailySheet(false); return; } const a = e.target.closest("[data-arcade]"); if (a) { startArcade(); return; } const b = e.target.closest("[data-tour]"); if (b) chooseTour(b.dataset.tour); });
 
   // ===========================================================================
   // Conditions: time of day, weather, water temperature -> fish holding depth
@@ -4410,7 +4907,7 @@
     S.tournament = { timeLeft: t.dur, dur: t.dur, well: [], big: 0, culls: 0, field: t.field, fee, spotId: t.spot, name: t.name, eventId: t.id, ended: false, tier, rivals: buildRivals(t.field, tier), lastLead: null, sweepStart, period: 0 };
     if (t.daily || t.custom) {
       const T2 = S.tournament;
-      T2.daily = t.daily || null; T2.custom = t.custom || null; T2.mode = t.mode; T2.rivals = []; T2.dayCount = 0; T2._real = [];
+      T2.daily = t.daily || null; T2.custom = t.custom || null; T2.duel = !!t.duel; T2.mode = t.mode; T2.rivals = []; T2.dayCount = 0; T2._real = [];
       el.dailyTicker.classList.remove("hidden");
       dailySubmit(T2);          // registers you on today's board right away
       refreshDailyLive(T2);
@@ -4512,7 +5009,7 @@
     }
     if (T.daily || T.custom) {
       T._dailyT = (T._dailyT || 0) + dt;
-      if (T._dailyT >= 20000) { T._dailyT = 0; refreshDailyLive(T); }
+      if (T._dailyT >= (T.duel ? 8000 : 20000)) { T._dailyT = 0; refreshDailyLive(T); }
     }
     if (T.timeLeft <= 0) endTournament();
   }
@@ -4733,7 +5230,9 @@
       `${md.ico} <b>${T.custom ? "Crew " : "Daily "}${md.name}</b> — your ${dailyLine(rows[place - 1], T.mode)}<br>` +
       `Points: <b>+${payout}</b> 🎯${place === 1 ? "  🏆" : ""}<br>` +
       (T.custom
-        ? `<span class="muted" style="font-size:11px">The board keeps filling until the invite closes — open the invite link anytime for the latest. <b style="color:var(--gold)">Gold ★ = real anglers.</b></span>`
+        ? (T.duel
+          ? `<span class="muted" style="font-size:11px">Your side's in the book — open the callout link to see the verdict once they fish theirs. 🥊</span>`
+          : `<span class="muted" style="font-size:11px">The board keeps filling until the invite closes — open the invite link anytime for the latest. <b style="color:var(--gold)">Gold ★ = real anglers.</b></span>`)
         : `<span class="muted" style="font-size:11px">The board keeps filling until midnight UTC — the final call is on tomorrow's DAILY screen. <b style="color:var(--gold)">Gold ★ = real anglers.</b></span>`);
     el.tourStandings.innerHTML = rows.map((b, i) =>
       `<div class="stand-row ${b.me ? "me" : ""} ${b.real ? "real" : ""}"><span>${i + 1}. ${dEsc(b.me ? (G.name || "You") : b.name)}${b.real && !b.me ? " ★" : ""}</span><span class="w">${dailyLine(b, T.mode)}</span></div>`).join("");
@@ -4944,8 +5443,10 @@
   // --- 🎪 HOSTED EVENTS: anyone can spin up a tournament and text the link;
   // entries land under /events/<code>/res and everyone gets one shot ---
   let hostSel = { spot: "cove", mode: "bag" };
+  let hostSheetKind = "host";   // which sheet the lake/format buttons re-render
   const eventUrl = code => location.origin + location.pathname + "?join=" + code;
   function openHostSheet() {
+    hostSheetKind = "host";
     if (el.hostTitle) el.hostTitle.textContent = "🎪 Host a Tournament";
     const spots = SPOTS.map(s => `<button class="item-btn ${hostSel.spot === s.id ? "owned" : ""}" data-hspot="${s.id}">${s.ico} ${s.name}</button>`).join("");
     const modes = DAILY_MODES.map(m => `<button class="item-btn ${hostSel.mode === m.id ? "owned" : ""}" data-hmode="${m.id}">${m.ico} ${m.name}</button>`).join("");
@@ -4983,7 +5484,7 @@
     const data = await r.json() || {};
     const rows = Object.entries(data).map(([k, v]) =>
       (v && typeof v === "object" && v.n && /^p[a-z0-9]{4,20}$/.test(k))
-        ? { pid: k, name: String(v.n).slice(0, 14), total: +v.w || 0, big: +v.b || 0, fish: +v.f || 0, real: true }
+        ? { pid: k, name: String(v.n).slice(0, 14), total: +v.w || 0, big: +v.b || 0, fish: +v.f || 0, done: !!v.d, real: true }
         : null).filter(Boolean);
     return LB.dedupeNames(rows, e2 => e2.total * 10000 + e2.big * 100 + e2.fish);
   }
@@ -5002,13 +5503,44 @@
       el.hostBody.innerHTML = `<p class="muted" style="text-align:center">Couldn't read the invite 📡</p>`;
     }
   }
-  function openEventSheet(code, cfg, res) {
+  async function openEventSheet(code, cfg, res) {
     const md = DAILY_MODES.find(m => m.id === cfg.mode) || DAILY_MODES[0];
     const sp = SPOTS.find(s => s.id === cfg.spot) || SPOTS[0];
     const closed = Date.now() > (+cfg.until || 0);
     const done = (G.evDone || {})[code];
     const myPid = LB.pid();
     const rows = dailySort(res.map(x => Object.assign({}, x, { me: x.pid === myPid })), md.id);
+    const duel = cfg.duel && cfg.duel.a && cfg.duel.b ? cfg.duel : null;
+    if (duel) {
+      const myKey = LB.nameKey(G.name);
+      const inDuel = myKey === LB.nameKey(duel.a) || myKey === LB.nameKey(duel.b);
+      const winner = duelDecide(code, cfg, rows);
+      let rec = null;
+      try { rec = await fetchDuelRecord(duel.a, duel.b); } catch (e2) {}
+      const ka = LB.nameKey(duel.a), kb = LB.nameKey(duel.b);
+      const recLine = rec ? `Lifetime: <b style="color:var(--gold)">${dEsc(duel.a)}</b> ${rec[ka] || 0} — ${rec[kb] || 0} <b style="color:var(--gold)">${dEsc(duel.b)}</b>` : "";
+      if (el.hostTitle) el.hostTitle.textContent = "🥊 Duel";
+      el.hostBody.innerHTML = `
+        <div class="daily-card">
+          <div class="d-title">🥊 ${dEsc(duel.a)} vs ${dEsc(duel.b)}</div>
+          <div class="d-sub"><b>${sp.ico} ${sp.name}</b> · ${md.ico} ${md.name} · ⏱️ 3:00 each</div>
+          <div class="d-sub">${md.rule}</div>
+          ${recLine ? `<div class="d-sub">${recLine}</div>` : ""}
+          ${winner
+            ? `<div class="d-done">🏆 <b>${dEsc(winner === ka ? duel.a : duel.b)}</b> WINS THE DUEL!</div>` +
+              (inDuel ? `<button class="big-btn" id="duelRematch" style="margin-top:8px">🔁 REMATCH</button>` : "")
+            : closed ? `<div class="d-sub muted">Duel window closed.</div>`
+            : !inDuel ? `<div class="d-sub muted">This one's between ${dEsc(duel.a)} and ${dEsc(duel.b)} — you're ringside 🍿</div>`
+            : done ? `<div class="d-done">✅ Your bag is in — waiting on ${dEsc(myKey === ka ? duel.b : duel.a)}…</div>`
+            : `<button class="big-btn" id="evEnter" style="margin-top:8px">🥊 FISH YOUR SIDE NOW</button>`}
+          <button class="text-btn" id="evShare">🔗 Share the callout</button>
+        </div>
+        <h3 class="rec-h">📊 The tale of the tape</h3>
+        <div class="d-list">${rows.length ? rows.map((b2, i) => dRow(b2, i, md.id)).join("") : `<p class="muted" style="text-align:center">Nobody's weighed in yet.</p>`}</div>`;
+      el.hostBody.dataset.ev = JSON.stringify({ code, cfg });
+      el.hostModal.classList.remove("hidden");
+      return;
+    }
     if (el.hostTitle) el.hostTitle.textContent = "🎪 Crew Tournament";
     let when = "";
     try { when = new Date(+cfg.until).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" }); } catch (e2) {}
@@ -5028,17 +5560,89 @@
     el.hostBody.dataset.ev = JSON.stringify({ code, cfg });
     el.hostModal.classList.remove("hidden");
   }
+  // --- 🥊 DUELS: an event between exactly two named anglers. Rides the same
+  // /events/<code> rails; the pair's lifetime record lives at /events/_duelrec.
+  const duelPairKey = (a, b2) => {
+    const ka = LB.nameKey(a).replace(/[^A-Z0-9]/g, "_"), kb = LB.nameKey(b2).replace(/[^A-Z0-9]/g, "_");
+    return [ka, kb].sort().join("__");
+  };
+  function openDuelSheet() {
+    hostSheetKind = "duel";
+    if (el.hostTitle) el.hostTitle.textContent = "🥊 Call Somebody Out";
+    const spots = SPOTS.map(s => `<button class="item-btn ${hostSel.spot === s.id ? "owned" : ""}" data-hspot="${s.id}">${s.ico} ${s.name}</button>`).join("");
+    const modes = DAILY_MODES.map(m => `<button class="item-btn ${hostSel.mode === m.id ? "owned" : ""}" data-hmode="${m.id}">${m.ico} ${m.name}</button>`).join("");
+    el.hostBody.innerHTML = `
+      <p class="muted">Name your opponent, set the water and the format — then text them the callout. Just you two, one 3:00 run each, winner takes the record.</p>
+      <input id="duelTarget" class="title-name" maxlength="12" placeholder="WHO ARE YOU CALLING OUT?"
+             autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" value="${dEsc(hostSel.target || "")}">
+      <h3 class="rec-h">🗺️ The water</h3><div class="host-grid">${spots}</div>
+      <h3 class="rec-h">🏅 Format</h3><div class="host-grid">${modes}</div>
+      <button class="big-btn" id="duelCreate" style="margin-top:10px">🥊 SEND THE CALLOUT</button>`;
+    el.hostModal.classList.remove("hidden");
+  }
+  function createDuel() {
+    const base2 = LB.fb(); if (!base2) { toast("📡 Can't reach the database"); return; }
+    const target = ((document.getElementById("duelTarget") || {}).value || "").trim().toUpperCase().slice(0, 12);
+    if (!target) { toast("Who are you calling out? 🥊"); return; }
+    if (LB.nameKey(target) === LB.nameKey(G.name)) { toast("You can't call yourself out 😅"); return; }
+    hostSel.target = target;
+    const md = DAILY_MODES.find(m => m.id === hostSel.mode) || DAILY_MODES[0];
+    const sp = SPOTS.find(s => s.id === hostSel.spot) || SPOTS[0];
+    const code = Array.from({ length: 5 }, () => "ABCDEFGHJKMNPQRSTUVWXYZ23456789"[Math.floor(Math.random() * 31)]).join("");
+    const cfg = { name: `${G.name || "ANGLER"} vs ${target}`, host: G.name || "ANGLER", spot: sp.id, mode: md.id,
+      dur: 180000, t: Date.now(), until: Date.now() + 48 * 3600000, duel: { a: G.name || "ANGLER", b: target } };
+    el.hostBody.innerHTML = `<p class="muted" style="text-align:center">Posting the callout…</p>`;
+    fetch(base2 + "/events/" + code + "/cfg.json", { method: "PUT", body: JSON.stringify(cfg) })
+      .then(r => { if (!r.ok) throw 0; openEventSheet(code, cfg, []); shareDuel(code, cfg); })
+      .catch(() => { toast("Couldn't post the callout 📡"); openDuelSheet(); });
+  }
+  function shareDuel(code, cfg) {
+    const sp = SPOTS.find(s => s.id === cfg.spot) || SPOTS[0];
+    const text = `🥊 ${cfg.duel.a} is calling YOU out, ${cfg.duel.b}! ${DAILY_MODES.find(m => m.id === cfg.mode).name} at ${sp.name} on BassBuddy — settle it on the water:`;
+    const url = eventUrl(code);
+    if (navigator.share) { navigator.share({ title: "BassBuddy Duel", text, url }).catch(() => {}); return; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text + " " + url).then(() => toast("🔗 Callout copied — text it to them!")).catch(() => {});
+    }
+  }
+  async function fetchDuelRecord(a, b2) {
+    const base2 = LB.fb(); if (!base2) return null;
+    try {
+      const r = await fetch(base2 + "/events/_duelrec/" + duelPairKey(a, b2) + ".json");
+      if (!r.ok) return null;
+      const data = await r.json() || {};
+      const rec = {};
+      for (const k in data) { const w = data[k] && data[k].w; if (w) rec[w] = (rec[w] || 0) + 1; }
+      return rec;   // { NAMEKEY: wins }
+    } catch (e2) { return null; }
+  }
+  // both bags are in — call it, and write the result once (idempotent value)
+  function duelDecide(code, cfg, rows) {
+    const ka = LB.nameKey(cfg.duel.a), kb = LB.nameKey(cfg.duel.b);
+    const ra = rows.find(r => LB.nameKey(r.name) === ka), rb = rows.find(r => LB.nameKey(r.name) === kb);
+    if (!ra || !rb || !ra.done || !rb.done) return null;
+    const ordered = dailySort([ra, rb].map(x => Object.assign({}, x)), cfg.mode);
+    const winner = LB.nameKey(ordered[0].name);
+    const base2 = LB.fb();
+    if (base2) fetch(base2 + "/events/_duelrec/" + duelPairKey(cfg.duel.a, cfg.duel.b) + "/" + code + ".json",
+      { method: "PUT", body: JSON.stringify({ w: winner, t: cfg.t || 0 }) }).catch(() => {});
+    return winner;
+  }
   function chooseEvent(code, cfg) {
     if (S.tournament && !S.tournament.ended) { toast("Tournament in progress ⏱️"); return; }
     if (S.arcade && !S.arcade.ended) { toast("Arcade run in progress 🕹️"); return; }
     if ((G.evDone || {})[code]) { toast("One entry each — you've fished this one 🎪"); return; }
     if (Date.now() > (+cfg.until || 0)) { toast("That event has closed 🌙"); return; }
+    if (cfg.duel && cfg.duel.a && cfg.duel.b) {
+      const myKey = LB.nameKey(G.name);
+      if (myKey !== LB.nameKey(cfg.duel.a) && myKey !== LB.nameKey(cfg.duel.b)) { toast(`This duel is ${cfg.duel.a} vs ${cfg.duel.b} — spectators only 🍿`); return; }
+    }
     const md = DAILY_MODES.find(m => m.id === cfg.mode) || DAILY_MODES[0];
     el.hostModal.classList.add("hidden");
     el.dailyModal.classList.add("hidden");
     if (!el.titleScreen.classList.contains("hidden")) closeTitle(true);
     if (S.tut) { S.tut = null; el.tutBanner.classList.add("hidden"); }
-    pendingTour = { id: null, custom: code, mode: md.id, spot: cfg.spot, name: String(cfg.name || "Crew " + md.name).slice(0, 40), dur: +cfg.dur || 180000, field: 0 };
+    pendingTour = { id: null, custom: code, mode: md.id, spot: cfg.spot, name: String(cfg.name || "Crew " + md.name).slice(0, 40), dur: +cfg.dur || 180000, field: 0, duel: !!cfg.duel };
     if (G.spot !== cfg.spot && SPOTS.some(s => s.id === cfg.spot)) { G.spot = cfg.spot; seedFish(); rollConditions(); }
     save(); updateHUD(); resetToIdle();
     refreshTourStart();
@@ -5046,12 +5650,27 @@
   }
   el.hostClose.addEventListener("click", () => { sfx("ui"); el.hostModal.classList.add("hidden"); });
   el.hostBody.addEventListener("click", (e) => {
-    const hs = e.target.closest("[data-hspot]"); if (hs) { hostSel.spot = hs.dataset.hspot; sfx("ui"); openHostSheet(); return; }
-    const hm = e.target.closest("[data-hmode]"); if (hm) { hostSel.mode = hm.dataset.hmode; sfx("ui"); openHostSheet(); return; }
+    const rerender = () => {
+      const ti = document.getElementById("duelTarget");   // keep the typed-in opponent across re-renders
+      if (ti) hostSel.target = (ti.value || "").trim().toUpperCase().slice(0, 12);
+      (hostSheetKind === "duel" ? openDuelSheet : openHostSheet)();
+    };
+    const hs = e.target.closest("[data-hspot]"); if (hs) { hostSel.spot = hs.dataset.hspot; sfx("ui"); rerender(); return; }
+    const hm = e.target.closest("[data-hmode]"); if (hm) { hostSel.mode = hm.dataset.hmode; sfx("ui"); rerender(); return; }
     if (e.target.closest("#hostCreate")) { sfx("good"); createEvent(); return; }
     const d = (() => { try { return JSON.parse(el.hostBody.dataset.ev || "{}"); } catch (e2) { return {}; } })();
     if (e.target.closest("#evShare")) { sfx("ui"); if (d.cfg) shareEvent(d.code, d.cfg); return; }
     if (e.target.closest("#evEnter")) { sfx("good"); if (d.cfg) chooseEvent(d.code, d.cfg); return; }
+    if (e.target.closest("#duelCreate")) { sfx("good"); createDuel(); return; }
+    if (e.target.closest("#duelRematch")) {
+      sfx("good");
+      if (d.cfg && d.cfg.duel) {
+        const opp = LB.nameKey(G.name) === LB.nameKey(d.cfg.duel.a) ? d.cfg.duel.b : d.cfg.duel.a;
+        hostSel.target = opp; hostSel.spot = d.cfg.spot; hostSel.mode = d.cfg.mode;
+        openDuelSheet();
+      }
+      return;
+    }
   });
 
   // --- shared links open once the player reaches the menu ---
@@ -5074,6 +5693,45 @@
     if (pendingShare) { const p = pendingShare; pendingShare = null; setTimeout(() => showSharedCatch(p), 400); }
     else if (pendingJoin) { const c = pendingJoin; pendingJoin = null; setTimeout(() => openJoinEvent(c), 400); }
   }
+
+  // --- 👑 WEEKLY CREW CHAMPIONSHIP: F1-style points from each real day board
+  // (10/7/5/3/2, then 1 for entering), best 5 of 7 days, Mon–Sun UTC. Nothing
+  // new is written — it's all derived from /daily, so CPU pros never score.
+  const WEEK_PTS = [10, 7, 5, 3, 2];
+  function weekOffsets(prev) {
+    const dow = new Date().getUTCDay();                 // 0 Sun .. 6 Sat
+    const mon = -((dow + 6) % 7) - (prev ? 7 : 0);      // offset of that week's Monday
+    return Array.from({ length: 7 }, (x, i) => mon + i);
+  }
+  async function weeklyStandings(prev) {
+    const offs = weekOffsets(prev);
+    const days = await Promise.all(offs.map(o => fetchDay(dayKey(o)).catch(() => [])));
+    const tally = new Map();   // nameKey -> { name, pts: [day pts...] }
+    days.forEach((rows, i) => {
+      const mode = dailyRules(dayKey(offs[i])).mode.id;
+      dailySort(rows.slice(), mode).forEach((r, place) => {
+        const k = LB.nameKey(r.name); if (!k) return;
+        const p = WEEK_PTS[place] != null ? WEEK_PTS[place] : 1;
+        if (!tally.has(k)) tally.set(k, { name: r.name, pts: [] });
+        tally.get(k).pts.push(p);
+      });
+    });
+    return [...tally.values()]
+      .map(t => ({ name: t.name, days: t.pts.length, pts: t.pts.sort((a, b) => b - a).slice(0, 5).reduce((s2, p) => s2 + p, 0) }))
+      .sort((a, b) => b.pts - a.pts || b.days - a.days);
+  }
+  // last week's winner gets the crown everywhere until next Monday
+  function computeWeekChamp() {
+    const wk = dayKey(weekOffsets(true)[0]);
+    if (G.weekChamp && G.weekChamp.wk === wk && Date.now() - (G.weekChamp.t || 0) < 6 * 3600000) return;
+    if (!LB.fb()) return;
+    weeklyStandings(true).then(rows => {
+      G.weekChamp = { wk, t: Date.now(), n: rows.length ? LB.nameKey(rows[0].name) : "", disp: rows.length ? rows[0].name : "" };
+      save();
+    }).catch(() => {});
+  }
+  const isWeekChamp = name => !!(G.weekChamp && G.weekChamp.n && LB.nameKey(name) === G.weekChamp.n);
+  window.__isWeekChamp = isWeekChamp;   // the LB module renders the crown
 
   let dailyThen = null;   // where to go if the once-a-day prompt is waved off
   function openDailySheet(auto, then) {
@@ -5113,9 +5771,12 @@
       <h3 class="rec-h">📊 Today so far <span style="font-weight:400;color:var(--gold)">★ gold = real anglers</span></h3>
       <div class="d-list" id="dailyToday"><p class="muted" style="text-align:center">Casting out to the board…</p></div>
       <h3 class="rec-h">🌙 Yesterday&#39;s weigh-in</h3>
-      <div class="d-list" id="dailyYest"><p class="muted" style="text-align:center">…</p></div>`;
+      <div class="d-list" id="dailyYest"><p class="muted" style="text-align:center">…</p></div>
+      <h3 class="rec-h">👑 Weekly Crew Championship <span class="muted" style="font-weight:400;font-size:10px">best 5 of 7 dailies · Mon–Sun</span></h3>
+      <div class="d-list" id="dailyWeek"><p class="muted" style="text-align:center">…</p></div>`;
     if (!fbOn) {
       document.getElementById("dailyToday").innerHTML = document.getElementById("dailyYest").innerHTML =
+        document.getElementById("dailyWeek").innerHTML =
         `<p class="muted" style="text-align:center">— offline —</p>`;
       return;
     }
@@ -5138,6 +5799,18 @@
     fill(dk, "dailyToday", md.id, "Nobody&#39;s in yet — be the first!");
     const yk = dayKey(-1);
     fill(yk, "dailyYest", dailyRules(yk).mode.id, "No entries yesterday.");
+    computeWeekChamp();
+    weeklyStandings(false).then(rows => {
+      const box = document.getElementById("dailyWeek"); if (!box) return;
+      const myKey = LB.nameKey(G.name);
+      const champ = G.weekChamp && G.weekChamp.disp ? `<div class="d-row" style="color:var(--gold)"><span>👑 Reigning champ: <b>${dEsc(G.weekChamp.disp)}</b></span><span class="w">last week</span></div>` : "";
+      box.innerHTML = champ + (rows.length
+        ? rows.slice(0, 5).map((r, i) => `<div class="d-row real ${LB.nameKey(r.name) === myKey ? "me" : ""}"><span>${i + 1}. ${dEsc(r.name)} ★</span><span class="w">${r.pts} pts · ${r.days} day${r.days === 1 ? "" : "s"}</span></div>`).join("")
+        : `<p class="muted" style="text-align:center">No dailies fished this week yet — points start with today&#39;s!</p>`);
+    }).catch(() => {
+      const box = document.getElementById("dailyWeek");
+      if (box) box.innerHTML = `<p class="muted" style="text-align:center">Couldn&#39;t read the week 📡</p>`;
+    });
   }
   function chooseDaily() {
     if (S.tournament && !S.tournament.ended) { toast("Tournament in progress ⏱️"); return; }
