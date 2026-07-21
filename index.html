@@ -11,9 +11,9 @@
 <link rel="manifest" href="manifest.json" />
 <link rel="apple-touch-icon" href="icon-180.png" />
 <meta name="apple-mobile-web-app-title" content="BassBuddy" />
-<script>window.BB_V = "20260721g";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
+<script>window.BB_V = "20260721h";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
 <script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));</script>
-<link rel="stylesheet" href="style.css?v=20260721g" />
+<link rel="stylesheet" href="style.css?v=20260721h" />
 </head>
 <body>
 <div id="game">
@@ -421,11 +421,11 @@
     </div>
   </div>
 
-  <!-- The Garage -->
+  <!-- The Pro Shop -->
   <div id="garageModal" class="modal hidden">
     <div class="modal-card shop-card">
       <div class="shop-head">
-        <h2>🚤 The Garage</h2>
+        <h2>🏪 The Pro Shop</h2>
         <button class="close-btn" id="garageClose">✕</button>
       </div>
       <div class="shop-body" id="garageBody"></div>
@@ -462,6 +462,31 @@
         <button class="close-btn" id="proClose">✕</button>
       </div>
       <div class="shop-body" id="proBody"></div>
+    </div>
+  </div>
+
+  <!-- The Paint Booth -->
+  <div id="boothModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="shop-head">
+        <h2>🎨 Paint Booth</h2>
+        <button class="close-btn" id="boothClose">✕</button>
+      </div>
+      <select id="boothSel" class="clog-sel" style="width:100%;margin-bottom:8px"></select>
+      <canvas id="boothCanvas" width="340" height="220" class="booth-cv"></canvas>
+      <div class="booth-tools">
+        <button class="item-btn owned" data-btool="air">💨 Airbrush</button>
+        <button class="item-btn" data-btool="brush">🖌️ Brush</button>
+        <label class="pb-lab">Color<input type="color" id="boothColor" value="#c6e23a"></label>
+        <label class="pb-lab" style="flex:1">Size<input type="range" id="boothSizeIn" min="4" max="30" value="14" style="width:100%"></label>
+      </div>
+      <div class="booth-tools">
+        <button class="item-btn" id="boothUndo">↩️ Undo</button>
+        <button class="item-btn" id="boothClear">🧽 Fresh blank</button>
+      </div>
+      <input id="boothName" class="clog-sel" style="width:100%;margin-top:8px" maxlength="16" placeholder="NAME THE PAINT JOB"
+        autocomplete="off" autocapitalize="characters">
+      <button class="big-btn" id="boothSave" style="margin-top:8px">🎨 HANG IT IN THE BOX</button>
     </div>
   </div>
 
@@ -604,7 +629,7 @@
       </div>
       <div class="title-row">
         <button class="title-btn" id="tsTutorial">🎓 TUTORIAL</button>
-        <button class="title-btn" id="tsGarage">🚤 GARAGE</button>
+        <button class="title-btn" id="tsGarage">🏪 PRO SHOP</button>
         <button class="title-btn" id="tsBoard">🌎 RANKINGS</button>
       </div>
       <div class="vol-box">
@@ -635,7 +660,7 @@
 </div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=20260721g"></script>
-<script src="game.js?v=20260721g"></script>
+<script type="module" src="render3d.js?v=20260721h"></script>
+<script src="game.js?v=20260721h"></script>
 </body>
 </html>

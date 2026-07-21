@@ -465,6 +465,24 @@
   applyCustomPaint();
   // legacy saves kept ownedLures as an array — purchases need a keyed object
   if (Array.isArray(G.ownedLures)) { const _o = {}; G.ownedLures.forEach(k => { _o[k] = 1; }); G.ownedLures = _o; }
+  // 💰 wallet vs lifetime: G.coins is spendable, G.spent is everything ever
+  // spent — lifetime (what the boards rank) = coins + spent, and never drops.
+  const lifetime = () => (G.coins || 0) + (G.spent || 0);
+  function spend(n) { G.coins -= n; G.spent = (G.spent || 0) + n; }
+  if (!G.spentMig) {   // rebuild historical spending from what the save owns
+    let s0 = 0;
+    const g0 = G.garage || {};
+    s0 += [0, 36000, 126000][g0.motor || 0] || 0;
+    if (g0.sonar) s0 += 45000;
+    if (g0.net) s0 += 60000;
+    if (g0.bobber) s0 += 25000;
+    s0 += Object.keys(g0.paidWraps || {}).length * 8000;
+    if (G.customPaint) s0 += 15000;
+    const SHOP_P = { popper: 8000, lizard: 9000, craw: 12000, urchin: 15000, swimbait: 25000, duck: 35000 };
+    for (const k in (G.ownedLures || {})) s0 += SHOP_P[k] || 0;
+    G.spent = (G.spent || 0) + s0;
+    G.spentMig = 1;
+  }
 
   const rod  = () => RODS.find(r => r.id === G.rod) || RODS[0];
   const lure = () => LURES.find(l => l.id === G.lure.id) || LURES[0];
@@ -487,7 +505,7 @@
   // DOM refs
   // ===========================================================================
   const $ = id => document.getElementById(id);
-  const canvas = $("c"), ctx = canvas.getContext("2d");
+  const canvas = $("c"); let ctx = canvas.getContext("2d");   // let: the Paint Booth borrows the lure artist
   const el = {
     coins: $("coins"), rodName: $("rodName"), spotName: $("spotName"), posName: $("posName"),
     lureIco: $("lureIco"), lureName: $("lureName"), lureSwatch: $("lureSwatch"),
@@ -529,6 +547,7 @@
     tsRestore: $("tsRestore"), restoreModal: $("restoreModal"), restoreGo: $("restoreGo"), restoreCancel: $("restoreCancel"),
     catchShare: $("catchShare"), hostModal: $("hostModal"), hostClose: $("hostClose"), hostBody: $("hostBody"), hostTitle: $("hostTitle"),
     garageModal: $("garageModal"), garageClose: $("garageClose"), garageBody: $("garageBody"), tsGarage: $("tsGarage"),
+    boothModal: $("boothModal"), boothCanvas: $("boothCanvas"), boothSel: $("boothSel"), boothColor: $("boothColor"), boothSizeIn: $("boothSizeIn"), boothName: $("boothName"),
     tsBell: $("tsBell"), notifModal: $("notifModal"), notifClose: $("notifClose"), notifBody: $("notifBody"),
     proModal: $("proModal"), proClose: $("proClose"), proBody: $("proBody"),
     replayModal: $("replayModal"), replayName: $("replayName"), replayBar: $("replayBar"), replayClock: $("replayClock"), replayFeed: $("replayFeed"), replayClose: $("replayClose"),
@@ -1234,7 +1253,7 @@
   const sfx = n => Sound.play(n);
   function anyModalOpen() {
     return [el.catchModal, el.failModal, el.lureModal, el.mapModal,
-            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal, el.titleScreen, el.lbModal, el.lbProfileModal, el.guideModal, el.anglerModal, el.garModal, el.soundModal, el.dailyModal, el.restoreModal, el.hostModal, el.garageModal, el.notifModal, el.proModal, el.replayModal, el.newsModal].some(m => !m.classList.contains("hidden"));
+            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal, el.titleScreen, el.lbModal, el.lbProfileModal, el.guideModal, el.anglerModal, el.garModal, el.soundModal, el.dailyModal, el.restoreModal, el.hostModal, el.garageModal, el.notifModal, el.proModal, el.replayModal, el.newsModal, el.boothModal].some(m => !m.classList.contains("hidden"));
   }
 
   function floatText(txt, color) {
@@ -1447,7 +1466,7 @@
       const top = (G.catchLog || []).slice().sort((x, y) => y.w - x.w).slice(0, 12)
         .map(e => ({ w: e.w, l: e.lure, sp: e.spot, se: e.season, wx: e.weather, h: Math.floor((e.timeMin || 0) / 60), sc: e.score || 0 }));
       return {
-        n: G.name || "ANGLER", s: G.coins || 0, b: +biggest().toFixed(2), a: G.arcadeBestScore || 0, w: G.tourWins || 0, t: Date.now(),
+        n: G.name || "ANGLER", s: (G.coins || 0) + (G.spent || 0), b: +biggest().toFixed(2), a: G.arcadeBestScore || 0, w: G.tourWins || 0, t: Date.now(),
         bw: (G.garage && G.garage.wrap) || "", bn: ((G.garage && G.garage.name) || "").slice(0, 14),
         st: {
           c: Object.values(G.caught || {}).reduce((s2, n2) => s2 + n2, 0),
@@ -1695,7 +1714,8 @@
   })();
 
   function updateHUD() {
-    el.coins.textContent = G.coins;
+    try { syncPaintColor(); } catch (e) {}
+    el.coins.textContent = (G.coins || 0).toLocaleString();
     if (el.muteBtn) el.muteBtn.textContent = (G.muted && G.musicOn === false) ? "🔇" : "🔊";
     el.rodName.textContent = rod().name;
     el.spotName.textContent = spot().name;
@@ -4344,7 +4364,7 @@
     el.anglerName.value = G.name || "";
     const biggest = Object.values(G.records || {}).reduce((m, w) => Math.max(m, w), 0);
     const bits = [];   // each chip deep-links to the screen that tells its story
-    if (G.coins) bits.push([`🏆 ${G.coins.toLocaleString()} pts`, "records"]);
+    if (G.coins || G.spent) bits.push([`🏆 ${((G.coins || 0) + (G.spent || 0)).toLocaleString()} lifetime`, "records"]);
     if (biggest) bits.push([`🐟 best ${biggest.toFixed(1)} lb`, "trophy"]);
     if (G.arcadeBestScore) bits.push([`🕹️ ${G.arcadeBestScore.toLocaleString()}`, "circuit"]);
     if ((G.season || {}).titles) bits.push([`👑 ${G.season.titles}`, "circuit"]);
@@ -6366,6 +6386,20 @@
   ];
   function openGarage() {
     const g2 = gar();
+    const boothOwned = !!(g2.booth || G.customPaint);
+    // 🧰 the lure wall: every shop bait, owned or priced, rated for right now
+    const lureWall = Object.keys(SHOP_LURES).map(id => {
+      const l = LURES.find(x => x.id === id);
+      const own = ownedLure(id);
+      const r = lureScore(l);
+      return `<div class="item">
+        <div class="item-ico">${l.ico}</div>
+        <div class="item-info"><div class="item-name">${l.name}${own ? " ✓" : ""}</div>
+        <div class="item-desc">${l.desc} <b style="color:${ratingColor(r.pct)}">bite ${r.pct} right now</b></div></div>
+        ${own ? `<button class="item-btn owned" disabled>IN THE BOX</button>`
+          : `<button class="item-btn ${G.coins >= l.price ? "" : "cant"}" data-lbuy="${id}">${l.price.toLocaleString()} 🎯</button>`}
+      </div>`;
+    }).join("");
     const items = GARAGE_ITEMS.map(it => {
       const lvl = g2[it.id] || 0, next = it.tiers[lvl];
       return `<div class="item">
@@ -6379,20 +6413,18 @@
     }).join("");
     const wraps = WRAPS.map(([hex, nm]) => `<button class="wrap-dot ${g2.wrap === hex ? "sel" : ""}" data-gwrap="${hex}" title="${nm}" style="background:${hex}"></button>`).join("");
     el.garageBody.innerHTML = `
-      <p class="muted">Your winnings, your rig. Upgrades work everywhere; the wrap and boat name ride with you on the boards.</p>
-      ${items}
-      <h3 class="rec-h">🖌️ Paint Bench <small class="muted" style="font-weight:400">${G.customPaint ? "repaint free" : "15,000 🎯 once"} · your color on every lure</small></h3>
-      <div class="paint-bench">
-        <label class="pb-lab">Base<input type="color" id="paintHex" value="${(G.customPaint && G.customPaint.hex) || "#7a2ce8"}"></label>
-        <input id="paintName" class="clog-sel" style="flex:1" maxlength="16" placeholder="NAME IT (BUBBA'S BLAZE…)"
-          autocomplete="off" autocapitalize="characters" value="${dEsc((G.customPaint && G.customPaint.name) || "")}">
+      <p class="muted">💰 Wallet: <b style="color:var(--gold)">${(G.coins || 0).toLocaleString()} 🎯</b> · lifetime earned <b>${((G.coins || 0) + (G.spent || 0)).toLocaleString()}</b> — spending never moves you down the rankings.</p>
+      <h3 class="rec-h">🧰 The Lure Wall</h3>${lureWall}
+      <h3 class="rec-h">🎨 The Paint Booth</h3>
+      <div class="item">
+        <div class="item-ico">🖌️</div>
+        <div class="item-info"><div class="item-name">Custom Paint Booth${boothOwned ? " ✓" : ""}</div>
+        <div class="item-desc">Blank lure bodies, an airbrush, a brush, and the whole color wheel. Paint your own — it becomes a color option on that lure.</div></div>
+        ${boothOwned ? `<button class="item-btn owned" data-booth="1">PAINT</button>`
+          : `<button class="item-btn ${G.coins >= 15000 ? "" : "cant"}" data-boothbuy="1">15,000 🎯</button>`}
       </div>
-      <div class="paint-bench" style="margin-top:6px">
-        <button class="item-btn ${(!G.customPaint || G.customPaint.fam !== "bright") ? "owned" : ""}" data-pfam="natural" style="flex:1">🍃 Shows natural</button>
-        <button class="item-btn ${(G.customPaint && G.customPaint.fam === "bright") ? "owned" : ""}" data-pfam="bright" style="flex:1">🔆 Runs loud</button>
-      </div>
-      <button class="big-btn" id="paintSave" style="margin-top:8px">🖌️ ${G.customPaint ? "REPAINT" : "MIX THE PAINT — 15,000 🎯"}</button>
-      <h3 class="rec-h">🎨 Hull wrap <small class="muted" style="font-weight:400">8,000 🎯 each · boat name included</small></h3>
+      <h3 class="rec-h">🚤 Boat & Rig</h3>${items}
+      <h3 class="rec-h">🎏 Hull wrap <small class="muted" style="font-weight:400">8,000 🎯 each · boat name included</small></h3>
       <div class="wrap-row">${wraps}</div>
       <input id="boatName" class="clog-sel" style="width:100%;margin-top:8px" maxlength="14" placeholder="NAME YOUR BOAT (shows on the board)"
         autocomplete="off" autocapitalize="characters" value="${dEsc(g2.name || "")}" ${g2.wrap ? "" : "disabled"}>
@@ -6407,7 +6439,7 @@
       const lvl = g2[it.id] || 0, cost = it.tiers[lvl];
       if (cost == null) return;
       if (G.coins < cost) { toast("Not enough points yet — go fish! 🎣"); sfx("weak"); return; }
-      G.coins -= cost; g2[it.id] = lvl + 1;
+      spend(cost); g2[it.id] = lvl + 1;
       save(); updateHUD(); sfx("good"); vibrate([20, 30, 20]);
       toast(`🚤 ${it.name} ${it.tiers.length > 1 ? "Lv " + g2[it.id] : ""} installed!`);
       openGarage();
@@ -6420,33 +6452,35 @@
       if (!g2.paidWraps) g2.paidWraps = {};
       if (!g2.paidWraps[hex]) {
         if (G.coins < 8000) { toast("Wraps run 8,000 points 🎨"); sfx("weak"); return; }
-        G.coins -= 8000; g2.paidWraps[hex] = 1;
+        spend(8000); g2.paidWraps[hex] = 1;
       }
       g2.wrap = hex; save(); updateHUD(); sfx("good");
       openGarage();
       return;
     }
-    const pf = e.target.closest("[data-pfam]");
-    if (pf) { hostSel.pfam = pf.dataset.pfam; sfx("ui");
-      document.querySelectorAll("[data-pfam]").forEach(x => x.classList.toggle("owned", x.dataset.pfam === pf.dataset.pfam));
-      return; }
-    if (e.target.closest("#paintSave")) {
-      const hex = ((document.getElementById("paintHex") || {}).value || "").toLowerCase();
-      const nm = (((document.getElementById("paintName") || {}).value) || "").trim().toUpperCase().slice(0, 16);
-      if (!/^#[0-9a-f]{6}$/.test(hex)) { toast("Pick a color first 🎨"); return; }
-      if (!nm) { toast("Give the paint a name 🖌️"); return; }
-      if (!G.customPaint) {
-        if (G.coins < 15000) { toast("The bench runs 15,000 points 🖌️"); sfx("weak"); return; }
-        G.coins -= 15000;
-      }
-      const fam = hostSel.pfam || (G.customPaint && G.customPaint.fam) || "natural";
-      G.customPaint = { hex, name: nm, fam };
-      applyCustomPaint();
+    const lb2 = e.target.closest("[data-lbuy]");
+    if (lb2) {
+      const id = lb2.dataset.lbuy, l2 = LURES.find(x => x.id === id);
+      if (ownedLure(id)) return;
+      if (G.coins < l2.price) { toast(`${l2.ico} ${l2.name} runs <b>${l2.price.toLocaleString()}</b> 🎯 — go fish!`); sfx("weak"); return; }
+      spend(l2.price);
+      if (!G.ownedLures) G.ownedLures = {};
+      G.ownedLures[id] = 1;
       save(); updateHUD(); sfx("weighwin"); vibrate([20, 30, 20]);
-      toast(`🖌️ <b>${dEsc(nm)}</b> is on the bench — it's a color choice on every lure now!`);
+      toast(`${l2.ico} <b>${l2.name}</b> — welcome to the box! 🎉`);
+      evalAchievements(false);
       openGarage();
       return;
     }
+    if (e.target.closest("[data-boothbuy]")) {
+      if (G.coins < 15000) { toast("The booth runs 15,000 points 🖌️"); sfx("weak"); return; }
+      spend(15000); gar().booth = 1;
+      save(); updateHUD(); sfx("weighwin");
+      toast("🎨 The Paint Booth is yours — go make something ugly enough to work!");
+      openGarage();
+      return;
+    }
+    if (e.target.closest("[data-booth]")) { sfx("ui"); openBooth(); return; }
     if (e.target.closest("#boatNameSave")) {
       const inp = document.getElementById("boatName");
       g2.name = ((inp && inp.value) || "").trim().toUpperCase().slice(0, 14);
@@ -6733,6 +6767,123 @@
         fetch(`${base2}/inbox/${inboxKeyFor(G.name)}/${m.id}.json`, { method: "DELETE" }).catch(() => {});
     }).catch(() => {});
   }
+
+  // --- 🎨 THE PAINT BOOTH: a blank of the chosen lure on the easel, an
+  // airbrush and a brush, the whole color wheel. Strokes stay ON the lure
+  // (source-atop against the blank), and the finished job becomes that
+  // lure's own color option — texture in the box, dominant tint on the water.
+  let boothLure = "crank", boothTool = "air", boothSize = 14, boothUndo = [];
+  function drawLureTo(g2, x, y, id, hex, scale) {
+    const old = ctx; ctx = g2;
+    try { drawLure(x, y, id, hex, 0, scale, 1); } finally { ctx = old; }
+  }
+  function boothBlank() {
+    const cv = el.boothCanvas, g2 = cv.getContext("2d");
+    g2.setTransform(1, 0, 0, 1, 0, 0);
+    g2.globalCompositeOperation = "source-over";
+    g2.clearRect(0, 0, cv.width, cv.height);
+    drawLureTo(g2, cv.width / 2, cv.height / 2, boothLure, "#c9cabf", 5.2);
+    boothUndo = [];
+    boothSnap();
+  }
+  function boothSnap() {
+    const cv = el.boothCanvas;
+    try {
+      boothUndo.push(cv.getContext("2d").getImageData(0, 0, cv.width, cv.height));
+      if (boothUndo.length > 12) boothUndo.shift();
+    } catch (e2) {}
+  }
+  function openBooth() {
+    if (!ownedLure(boothLure)) boothLure = "crank";
+    el.boothSel.innerHTML = LURES.filter(l => ownedLure(l.id) && l.id !== "worm" && l.id !== "furry")
+      .map(l => `<option value="${l.id}" ${l.id === boothLure ? "selected" : ""}>${l.ico} ${l.name}</option>`).join("");
+    const job = (G.paintJobs || {})[boothLure];
+    el.boothName.value = (job && job.name) || "";
+    el.boothModal.classList.remove("hidden");
+    boothBlank();
+    if (job && job.img) {   // resume the last job on this blank
+      const im = new Image();
+      im.onload = () => { const g2 = el.boothCanvas.getContext("2d"); g2.drawImage(im, 0, 0, el.boothCanvas.width, el.boothCanvas.height); boothSnap(); };
+      im.src = job.img;
+    }
+  }
+  function boothStroke(x, y, px, py) {
+    const g2 = el.boothCanvas.getContext("2d");
+    const col = el.boothColor.value;
+    g2.globalCompositeOperation = "source-atop";   // paint sticks to the lure only
+    if (boothTool === "brush") {
+      g2.strokeStyle = col; g2.lineWidth = boothSize * 0.5; g2.lineCap = "round";
+      g2.beginPath(); g2.moveTo(px, py); g2.lineTo(x, y); g2.stroke();
+    } else {
+      const steps = Math.max(1, Math.round(Math.hypot(x - px, y - py) / 3));
+      for (let s2 = 0; s2 <= steps; s2++) {
+        const ix = px + (x - px) * (s2 / steps), iy = py + (y - py) * (s2 / steps);
+        for (let d2 = 0; d2 < 7; d2++) {
+          const a2 = Math.random() * Math.PI * 2, rr = Math.random() * boothSize;
+          g2.globalAlpha = 0.16 * (1 - rr / boothSize) + 0.03;
+          g2.fillStyle = col;
+          g2.beginPath(); g2.arc(ix + Math.cos(a2) * rr, iy + Math.sin(a2) * rr, 1.4, 0, Math.PI * 2); g2.fill();
+        }
+      }
+      g2.globalAlpha = 1;
+    }
+  }
+  let boothPt = null;
+  function boothPos(e) {
+    const r2 = el.boothCanvas.getBoundingClientRect();
+    return { x: (e.clientX - r2.left) * (el.boothCanvas.width / r2.width), y: (e.clientY - r2.top) * (el.boothCanvas.height / r2.height) };
+  }
+  function boothSave() {
+    const nm = (el.boothName.value || "").trim().toUpperCase().slice(0, 16) || "SHOP SPECIAL";
+    const cv = el.boothCanvas;
+    // dominant tint: the average of every painted-on pixel
+    const d2 = cv.getContext("2d").getImageData(0, 0, cv.width, cv.height).data;
+    let r2 = 0, g3 = 0, b2 = 0, n2 = 0;
+    const pass = (minSat) => {
+      r2 = g3 = b2 = n2 = 0;
+      for (let i = 0; i < d2.length; i += 16) {
+        if (d2[i + 3] <= 40) continue;
+        const mx2 = Math.max(d2[i], d2[i + 1], d2[i + 2]), mn2 = Math.min(d2[i], d2[i + 1], d2[i + 2]);
+        if (mx2 - mn2 < minSat) continue;       // skip the unpainted blank
+        r2 += d2[i]; g3 += d2[i + 1]; b2 += d2[i + 2]; n2++;
+      }
+    };
+    pass(36); if (n2 < 30) pass(0);   // the paint decides the tint; blank only as fallback
+    const hex = n2 ? "#" + [r2, g3, b2].map(v => Math.round(v / n2).toString(16).padStart(2, "0")).join("") : "#888880";
+    // loud or natural, judged by the paint itself
+    const mx = Math.max(r2, g3, b2) / (n2 || 1), mn = Math.min(r2, g3, b2) / (n2 || 1);
+    const fam = (mx - mn) > 70 || mx > 190 ? "bright" : "natural";
+    // ship a small texture
+    const off = document.createElement("canvas");
+    off.width = 240; off.height = Math.round(240 * cv.height / cv.width);
+    off.getContext("2d").drawImage(cv, 0, 0, off.width, off.height);
+    if (!G.paintJobs) G.paintJobs = {};
+    G.paintJobs[boothLure] = { img: off.toDataURL("image/png"), hex, fam, name: nm };
+    save(); syncPaintColor(); updateHUD();
+    sfx("weighwin"); vibrate([20, 30, 20]);
+    const l2 = LURES.find(x => x.id === boothLure);
+    toast(`🎨 <b>${dEsc(nm)}</b> — fresh paint on the ${l2.name}! It's a color option now.`);
+    el.boothModal.classList.add("hidden");
+  }
+  // the current lure's paint job rides the COLORS table as "paint"
+  function syncPaintColor() {
+    const j = (G.paintJobs || {})[G.lure.id];
+    if (j) COLORS.paint = { name: j.name || "Your Paint", hex: j.hex, fam: j.fam === "bright" ? "bright" : "natural" };
+    else { delete COLORS.paint; if (G.lure.color === "paint") G.lure.color = lure().colors[0]; }
+  }
+  el.boothCanvas.addEventListener("pointerdown", (e) => { e.preventDefault(); boothSnap(); boothPt = boothPos(e); boothStroke(boothPt.x, boothPt.y, boothPt.x, boothPt.y); });
+  el.boothCanvas.addEventListener("pointermove", (e) => { if (!boothPt) return; e.preventDefault(); const p = boothPos(e); boothStroke(p.x, p.y, boothPt.x, boothPt.y); boothPt = p; });
+  addEventListener("pointerup", () => { boothPt = null; });
+  el.boothSel.addEventListener("change", () => { boothLure = el.boothSel.value; openBooth(); });
+  el.boothModal.addEventListener("click", (e) => {
+    const tl = e.target.closest("[data-btool]");
+    if (tl) { boothTool = tl.dataset.btool; sfx("ui"); document.querySelectorAll("[data-btool]").forEach(x => x.classList.toggle("owned", x === tl)); return; }
+    if (e.target.closest("#boothUndo")) { sfx("ui"); if (boothUndo.length > 1) { boothUndo.pop(); el.boothCanvas.getContext("2d").putImageData(boothUndo[boothUndo.length - 1], 0, 0); } return; }
+    if (e.target.closest("#boothClear")) { sfx("ui"); boothBlank(); return; }
+    if (e.target.closest("#boothSave")) { boothSave(); return; }
+    if (e.target.closest("#boothClose")) { sfx("ui"); el.boothModal.classList.add("hidden"); return; }
+  });
+  el.boothSizeIn.addEventListener("input", () => { boothSize = +el.boothSizeIn.value; });
 
   let dailyThen = null;   // where to go if the once-a-day prompt is waved off
   function openDailySheet(auto, then) {
@@ -8183,8 +8334,15 @@
   }
   function renderColors() {
     const l = lure();
-    const list = COLORS.custom ? l.colors.concat("custom") : l.colors;
+    let list = COLORS.custom ? l.colors.concat("custom") : l.colors;
+    if ((G.paintJobs || {})[l.id]) list = list.concat("paint");
     el.colorRow.innerHTML = list.map(c => {
+      if (c === "paint") {
+        const j = G.paintJobs[l.id];
+        return `<div class="color-dot pj ${G.lure.color === "paint" ? "sel" : ""}" data-color="paint" title="${dEsc(j.name)}"
+          style="background:${j.hex};background-image:url(${j.img});background-size:220%;background-position:center">
+          <small>🎨</small></div>`;
+      }
       const col = COLORS[c];
       const sel = G.lure.color === c;
       const good = col.fam === preferredFam();
@@ -8234,7 +8392,7 @@
         const l2 = LURES.find(x => x.id === id);
         if (G.coins < price) { toast(`${l2.ico} ${l2.name} runs <b>${price.toLocaleString()}</b> 🎯 — go fish!`); sfx("weak"); return; }
         if (S.armBuy === id && Date.now() - (S.armBuyT || 0) < 6000) {
-          G.coins -= price;
+          spend(price);
           if (!G.ownedLures) G.ownedLures = {};
           G.ownedLures[id] = 1;
           S.armBuy = null;

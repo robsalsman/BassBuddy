@@ -991,7 +991,7 @@ select, input, textarea { font-size: 16px; }
 #lbModal { z-index: 70; }
 
 /* stats screens layer over the title menu; angler profile over the rankings */
-#recordsModal, #trophyModal, #catchLogModal, #catchDetailModal, #statsModal, #dailyModal, #restoreModal, #hostModal, #garageModal, #notifModal, #proModal, #replayModal, #newsModal { z-index: 70; }
+#recordsModal, #trophyModal, #catchLogModal, #catchDetailModal, #statsModal, #dailyModal, #restoreModal, #hostModal, #garageModal, #notifModal, #proModal, #replayModal, #newsModal, #boothModal { z-index: 70; }
 #lbProfileModal { z-index: 72; }
 .title-stats span { cursor: pointer; }
 .title-stats span:active { transform: scale(.95); }
@@ -1246,3 +1246,10 @@ select, input, textarea { font-size: 16px; }
 .lure-opt.locked { opacity: .82; }
 .lure-opt.locked .ico { filter: grayscale(.5); }
 .mchip { color: var(--gold); font-size: 10px; font-weight: 800; }
+
+/* paint booth */
+.booth-cv { width: 100%; border-radius: 12px; background:
+  repeating-conic-gradient(#1a2c36 0% 25%, #14232c 0% 50%) 0 0 / 22px 22px; touch-action: none; }
+.booth-tools { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+.booth-tools .item-btn { flex: 0 0 auto; }
+.color-dot.pj small { font-size: 11px; }
