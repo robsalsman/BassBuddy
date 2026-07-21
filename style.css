@@ -991,7 +991,7 @@ select, input, textarea { font-size: 16px; }
 #lbModal { z-index: 70; }
 
 /* stats screens layer over the title menu; angler profile over the rankings */
-#recordsModal, #trophyModal, #catchLogModal, #catchDetailModal, #statsModal, #dailyModal, #restoreModal, #hostModal, #garageModal, #notifModal, #proModal, #replayModal { z-index: 70; }
+#recordsModal, #trophyModal, #catchLogModal, #catchDetailModal, #statsModal, #dailyModal, #restoreModal, #hostModal, #garageModal, #notifModal, #proModal, #replayModal, #newsModal { z-index: 70; }
 #lbProfileModal { z-index: 72; }
 .title-stats span { cursor: pointer; }
 .title-stats span:active { transform: scale(.95); }
@@ -1230,3 +1230,9 @@ select, input, textarea { font-size: 16px; }
 .rp-track { height: 10px; border-radius: 5px; background: rgba(255,255,255,.14); overflow: hidden; margin-top: 8px; }
 .rp-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #7fd4e8, #ffd35c); transition: width .1s linear; }
 .rp-feed { max-height: 40vh; overflow-y: auto; margin: 6px 0 10px; }
+
+/* guide topics + what's-new nudge */
+.g-topic { background: rgba(0,0,0,.18); border-radius: 10px; padding: 7px 10px; margin-bottom: 6px; font-size: 13px; }
+.g-topic summary { cursor: pointer; font-weight: 700; }
+.g-topic p { margin: 6px 0 2px; color: #b9cdd6; }
+#tsNews.fresh { color: var(--gold); animation: dailyPulse 2.4s ease-in-out infinite; border-radius: 8px; }

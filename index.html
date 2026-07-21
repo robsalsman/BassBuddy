@@ -11,9 +11,9 @@
 <link rel="manifest" href="manifest.json" />
 <link rel="apple-touch-icon" href="icon-180.png" />
 <meta name="apple-mobile-web-app-title" content="BassBuddy" />
-<script>window.BB_V = "20260721d";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
+<script>window.BB_V = "20260721e";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
 <script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));</script>
-<link rel="stylesheet" href="style.css?v=20260721d" />
+<link rel="stylesheet" href="style.css?v=20260721e" />
 </head>
 <body>
 <div id="game">
@@ -432,6 +432,17 @@
     </div>
   </div>
 
+  <!-- What's New -->
+  <div id="newsModal" class="modal hidden">
+    <div class="modal-card shop-card">
+      <div class="shop-head">
+        <h2>🆕 What&#39;s New</h2>
+        <button class="close-btn" id="newsClose">✕</button>
+      </div>
+      <div class="shop-body" id="newsBody"></div>
+    </div>
+  </div>
+
   <!-- Replay player -->
   <div id="replayModal" class="modal hidden">
     <div class="modal-card">
@@ -600,7 +611,8 @@
         <div class="vol-row"><span id="musicMuteLbl" class="vol-lbl">🎵 Music</span><input type="range" id="musicVol" min="0" max="100" step="5" /><b id="musicVolPct">60</b></div>
         <div class="vol-row"><span id="sfxMuteLbl" class="vol-lbl">🔊 Effects</span><input type="range" id="sfxVol" min="0" max="100" step="5" /><b id="sfxVolPct">100</b></div>
       </div>
-      <button class="text-btn" id="tsRestore" style="margin-top:6px;opacity:.85">📥 Restore my angler (name + PIN)</button>
+      <button class="text-btn" id="tsNews" style="margin-top:6px">🆕 What&#39;s new</button>
+      <button class="text-btn" id="tsRestore" style="margin-top:2px;opacity:.85">📥 Restore my angler (name + PIN)</button>
       <div class="title-cred">A tribute to SEGA Bass Fishing</div>
     </div>
     <button id="tsBell" class="ts-bell">🔔<b id="bellCt" class="hidden"></b></button>
@@ -623,7 +635,7 @@
 </div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=20260721d"></script>
-<script src="game.js?v=20260721d"></script>
+<script type="module" src="render3d.js?v=20260721e"></script>
+<script src="game.js?v=20260721e"></script>
 </body>
 </html>
