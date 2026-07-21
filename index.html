@@ -11,9 +11,9 @@
 <link rel="manifest" href="manifest.json" />
 <link rel="apple-touch-icon" href="icon-180.png" />
 <meta name="apple-mobile-web-app-title" content="BassBuddy" />
-<script>window.BB_V = "20260721c";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
+<script>window.BB_V = "20260721d";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
 <script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));</script>
-<link rel="stylesheet" href="style.css?v=20260721c" />
+<link rel="stylesheet" href="style.css?v=20260721d" />
 </head>
 <body>
 <div id="game">
@@ -432,6 +432,17 @@
     </div>
   </div>
 
+  <!-- Replay player -->
+  <div id="replayModal" class="modal hidden">
+    <div class="modal-card">
+      <div class="catch-name" id="replayName">📼 Replay</div>
+      <div class="rp-track"><div class="rp-bar" id="replayBar"></div></div>
+      <div class="muted" style="text-align:center;font-size:12px;margin:4px 0"><b id="replayClock">0:00</b> / 3:00</div>
+      <div id="replayFeed" class="rp-feed"></div>
+      <button class="big-btn" id="replayClose">CLOSE</button>
+    </div>
+  </div>
+
   <!-- Pro Season -->
   <div id="proModal" class="modal hidden">
     <div class="modal-card shop-card">
@@ -612,7 +623,7 @@
 </div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=20260721c"></script>
-<script src="game.js?v=20260721c"></script>
+<script type="module" src="render3d.js?v=20260721d"></script>
+<script src="game.js?v=20260721d"></script>
 </body>
 </html>

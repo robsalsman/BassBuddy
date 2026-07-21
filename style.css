@@ -991,7 +991,7 @@ select, input, textarea { font-size: 16px; }
 #lbModal { z-index: 70; }
 
 /* stats screens layer over the title menu; angler profile over the rankings */
-#recordsModal, #trophyModal, #catchLogModal, #catchDetailModal, #statsModal, #dailyModal, #restoreModal, #hostModal, #garageModal, #notifModal, #proModal { z-index: 70; }
+#recordsModal, #trophyModal, #catchLogModal, #catchDetailModal, #statsModal, #dailyModal, #restoreModal, #hostModal, #garageModal, #notifModal, #proModal, #replayModal { z-index: 70; }
 #lbProfileModal { z-index: 72; }
 .title-stats span { cursor: pointer; }
 .title-stats span:active { transform: scale(.95); }
@@ -1223,3 +1223,10 @@ select, input, textarea { font-size: 16px; }
 .rx { color: #ffd35c; font-size: 10.5px; }
 .rx-pick { display: flex; gap: 8px; justify-content: center; padding: 6px; background: rgba(0,0,0,.25); border-radius: 10px; margin: 2px 6px 6px; }
 .rx-pick button { font-size: 21px; background: none; border: none; cursor: pointer; padding: 2px 6px; }
+
+/* replay player */
+.rp-btn { background: rgba(120,220,255,.15); border: 1px solid rgba(120,220,255,.4); color: #7fd4e8;
+  border-radius: 8px; font-size: 10px; padding: 1px 7px; margin-left: 4px; cursor: pointer; }
+.rp-track { height: 10px; border-radius: 5px; background: rgba(255,255,255,.14); overflow: hidden; margin-top: 8px; }
+.rp-bar { height: 100%; width: 0%; background: linear-gradient(90deg, #7fd4e8, #ffd35c); transition: width .1s linear; }
+.rp-feed { max-height: 40vh; overflow-y: auto; margin: 6px 0 10px; }

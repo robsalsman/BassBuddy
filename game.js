@@ -467,6 +467,7 @@
     garageModal: $("garageModal"), garageClose: $("garageClose"), garageBody: $("garageBody"), tsGarage: $("tsGarage"),
     tsBell: $("tsBell"), notifModal: $("notifModal"), notifClose: $("notifClose"), notifBody: $("notifBody"),
     proModal: $("proModal"), proClose: $("proClose"), proBody: $("proBody"),
+    replayModal: $("replayModal"), replayName: $("replayName"), replayBar: $("replayBar"), replayClock: $("replayClock"), replayFeed: $("replayFeed"), replayClose: $("replayClose"),
     lbModal: $("lbModal"), lbClose: $("lbClose"), lbBody: $("lbBody"), lbSorts: $("lbSorts"),
     lbProfileModal: $("lbProfileModal"), lbpName: $("lbpName"), lbpClose: $("lbpClose"),
     lbpStats: $("lbpStats"), lbpFav: $("lbpFav"), lbpSorts: $("lbpSorts"), lbpList: $("lbpList"),
@@ -1158,7 +1159,7 @@
   const sfx = n => Sound.play(n);
   function anyModalOpen() {
     return [el.catchModal, el.failModal, el.lureModal, el.mapModal,
-            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal, el.titleScreen, el.lbModal, el.lbProfileModal, el.guideModal, el.anglerModal, el.garModal, el.soundModal, el.dailyModal, el.restoreModal, el.hostModal, el.garageModal, el.notifModal, el.proModal].some(m => !m.classList.contains("hidden"));
+            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal, el.titleScreen, el.lbModal, el.lbProfileModal, el.guideModal, el.anglerModal, el.garModal, el.soundModal, el.dailyModal, el.restoreModal, el.hostModal, el.garageModal, el.notifModal, el.proModal, el.replayModal].some(m => !m.classList.contains("hidden"));
   }
 
   function floatText(txt, color) {
@@ -3879,6 +3880,7 @@
   function suspendRun() {
     if (S.tournament && !S.tournament.ended) {
       G.pausedTour = { t: S.tournament, spot: G.spot, weather: S.cond.weather, hotLure: S.cond.hotLure, angler: G.angler };
+      duelStreamStop(S.tournament);
       S.tournament = null;
       el.tourHud.classList.add("hidden");
       el.dailyTicker.classList.add("hidden");
@@ -3902,7 +3904,7 @@
       S.tournament = p.t;
       recomputeCond(); renderConditions();
       el.tourHud.classList.remove("hidden"); renderWell(); renderTourBoard();
-      if (p.t.daily || p.t.custom) { el.dailyTicker.classList.remove("hidden"); refreshDailyLive(p.t); }
+      if (p.t.daily || p.t.custom) { el.dailyTicker.classList.remove("hidden"); refreshDailyLive(p.t); if (p.t.duel) duelStream(p.t); }
       toast(`🏁 ${p.t.name} — back on the water!`);
     } else if (G.pausedArcade) {
       const p = G.pausedArcade; G.pausedArcade = null;
@@ -4951,6 +4953,7 @@
       el.dailyTicker.classList.remove("hidden");
       dailySubmit(T2);          // registers you on today's board right away
       refreshDailyLive(T2);
+      if (T2.duel) duelStream(T2);
     }
     pendingTour = null;   // lines are in — the prep sheet is done
     S.cond.timeMin = sweepStart; recomputeCond(); renderConditions();
@@ -4989,7 +4992,11 @@
       }
     }
     if (f.weight > T.big) T.big = f.weight;
-    if (T.daily || T.custom) { T.dayCount = (T.dayCount || 0) + 1; dailySubmit(T); }
+    if (T.daily || T.custom) {
+      T.dayCount = (T.dayCount || 0) + 1;
+      (T.rp = T.rp || []).push([Math.round((T.dur - T.timeLeft) / 1000), f.weight]);
+      dailySubmit(T);
+    }
     checkCatchChallenges(f);
     vibrate([20, 40, 30]);
     renderWell();
@@ -5224,13 +5231,13 @@
     const data = await r.json() || {};
     const rows = Object.entries(data).map(([k, v]) =>
       (v && typeof v === "object" && v.n && /^p[a-z0-9]{4,20}$/.test(k))
-        ? { pid: k, name: String(v.n).slice(0, 14), total: +v.w || 0, big: +v.b || 0, fish: +v.f || 0, real: true }
+        ? { pid: k, name: String(v.n).slice(0, 14), total: +v.w || 0, big: +v.b || 0, fish: +v.f || 0, real: true, rp: Array.isArray(v.rp) ? v.rp.slice(0, 40) : null }
         : null).filter(Boolean);
     return LB.dedupeNames(rows, e => e.total * 10000 + e.big * 100 + e.fish);
   }
   function dailySubmit(T, done) {
     const base2 = LB.fb(); if (!base2 || !T || (!T.daily && !T.custom)) return;
-    const body = JSON.stringify({ n: G.name || "ANGLER", w: +wellTotal().toFixed(2), b: +(T.big || 0).toFixed(2), f: T.dayCount || 0, d: done ? 1 : 0, t: Date.now() });
+    const body = JSON.stringify({ n: G.name || "ANGLER", w: +wellTotal().toFixed(2), b: +(T.big || 0).toFixed(2), f: T.dayCount || 0, d: done ? 1 : 0, t: Date.now(), rp: (T.rp || []).slice(0, 40) });
     const path = T.custom ? "/events/" + T.custom + "/res/" : "/daily/" + T.daily + "/";
     fetch(base2 + path + LB.pid() + ".json", { method: "PUT", body }).catch(() => {});
   }
@@ -5264,6 +5271,7 @@
     });
   }
   function endDaily(T) {
+    duelStreamStop(T);
     el.dailyTicker.classList.add("hidden");
     dailySubmit(T, true);
     const myTotal = wellTotal();
@@ -5549,7 +5557,7 @@
     const data = await r.json() || {};
     const rows = Object.entries(data).map(([k, v]) =>
       (v && typeof v === "object" && v.n && /^p[a-z0-9]{4,20}$/.test(k))
-        ? { pid: k, name: String(v.n).slice(0, 14), total: +v.w || 0, big: +v.b || 0, fish: +v.f || 0, done: !!v.d, real: true }
+        ? { pid: k, name: String(v.n).slice(0, 14), total: +v.w || 0, big: +v.b || 0, fish: +v.f || 0, done: !!v.d, real: true, rp: Array.isArray(v.rp) ? v.rp.slice(0, 40) : null }
         : null).filter(Boolean);
     return LB.dedupeNames(rows, e2 => e2.total * 10000 + e2.big * 100 + e2.fish);
   }
@@ -6072,6 +6080,73 @@
   });
   el.proClose.addEventListener("click", () => { sfx("ui"); el.proModal.classList.add("hidden"); });
 
+  // --- 📼 REPLAYS: a submitted run's catch tape, played back as a live feed ---
+  let rpTimer = null;
+  function openReplay(name, rp) {
+    if (rpTimer) { clearInterval(rpTimer); rpTimer = null; }
+    const dur = 180;                                 // the run clock, in seconds
+    const SPEED = dur / 6.5;                         // whole tape in ~6.5s
+    el.replayName.textContent = `📼 ${name}'s run`;
+    el.replayFeed.innerHTML = "";
+    el.replayBar.style.width = "0%";
+    el.replayClock.textContent = "0:00";
+    el.replayModal.classList.remove("hidden");
+    const tape = rp.slice().sort((a, b2) => a[0] - b2[0]);
+    let clock = 0, idx = 0, bag = 0, count = 0;
+    rpTimer = setInterval(() => {
+      clock += SPEED * 0.1;
+      if (clock >= dur) { clock = dur; clearInterval(rpTimer); rpTimer = null; }
+      el.replayBar.style.width = (clock / dur * 100).toFixed(1) + "%";
+      el.replayClock.textContent = `${Math.floor(clock / 60)}:${String(Math.floor(clock % 60)).padStart(2, "0")}`;
+      while (idx < tape.length && tape[idx][0] <= clock) {
+        const [t2, w] = tape[idx++];
+        count++; bag += +w || 0;
+        const big = w >= LUNKER_LB;
+        const row = document.createElement("div");
+        row.className = "notif-row" + (big ? " fresh" : "");
+        row.innerHTML = `${big ? "🏆" : "🎣"} <b>${Math.floor(t2 / 60)}:${String(t2 % 60).padStart(2, "0")}</b> — ${(+w).toFixed(1)} lb${big ? " LUNKER!" : ""}`;
+        el.replayFeed.appendChild(row);
+        sfx(big ? "lunker" : "land"); vibrate(big ? [20, 30, 20] : 10);
+      }
+      if (!rpTimer) {
+        const done = document.createElement("div");
+        done.className = "notif-row";
+        done.innerHTML = `🏁 Lines out — <b>${count}</b> bass · <b>${bag.toFixed(1)} lb</b>`;
+        el.replayFeed.appendChild(done);
+      }
+    }, 100);
+  }
+  function replayClickHandler(e) {
+    const rb = e.target.closest("[data-rplay]");
+    if (rb && replayCache[rb.dataset.rplay]) {
+      e.stopPropagation();
+      sfx("ui");
+      const c = replayCache[rb.dataset.rplay];
+      openReplay(c.name, c.rp);
+      return true;
+    }
+    return false;
+  }
+  el.replayClose.addEventListener("click", () => { if (rpTimer) { clearInterval(rpTimer); rpTimer = null; } el.replayModal.classList.add("hidden"); });
+  el.hostBody.addEventListener("click", replayClickHandler);
+
+  // --- ⚡ LIVE DUELS: RTDB streams the opponent's fish the moment they land —
+  // EventSource speaks text/event-stream natively; polling stays as fallback
+  function duelStream(T) {
+    if (!window.EventSource || T._es || !T.custom || !LB.fb()) return;
+    try {
+      const es = new EventSource(LB.fb() + "/events/" + T.custom + "/res.json");
+      const kick = () => { if (S.tournament === T && !T.ended) refreshDailyLive(T); };
+      es.addEventListener("put", kick);
+      es.addEventListener("patch", kick);
+      es.onerror = () => { try { es.close(); } catch (e2) {} T._es = null; };
+      T._es = es;
+    } catch (e2) {}
+  }
+  function duelStreamStop(T) {
+    if (T && T._es) { try { T._es.close(); } catch (e2) {} T._es = null; }
+  }
+
   let dailyThen = null;   // where to go if the once-a-day prompt is waved off
   function openDailySheet(auto, then) {
     const dk = dayKey();
@@ -6085,10 +6160,16 @@
     el.dailyModal.classList.remove("hidden");
     return true;
   }
+  const replayCache = {};
   function dRow(b, i, mode2, reacts, canReact) {
     const rs = reactStr(reacts && b.pid ? reacts[b.pid] : null);
     const tap = canReact && b.real && !b.me && b.pid ? ` data-rpid="${b.pid}" data-rname="${dEsc(b.name)}"` : "";
-    return `<div class="d-row ${b.me ? "me" : ""} ${b.real ? "real" : ""}"${tap}><span>${i + 1}. ${dEsc(b.name)}${b.real ? " ★" : ""}${b.me ? " <small>(you)</small>" : ""}${rs ? ` <small class="rx">${rs}</small>` : ""}</span><span class="w">${dailyLine(b, mode2)}</span></div>`;
+    let rpBtn = "";
+    if (b.real && b.pid && b.rp && b.rp.length) {
+      replayCache[b.pid] = { name: b.name, rp: b.rp };
+      rpBtn = ` <button class="rp-btn" data-rplay="${b.pid}">▶</button>`;
+    }
+    return `<div class="d-row ${b.me ? "me" : ""} ${b.real ? "real" : ""}"${tap}><span>${i + 1}. ${dEsc(b.name)}${b.real ? " ★" : ""}${b.me ? " <small>(you)</small>" : ""}${rs ? ` <small class="rx">${rs}</small>` : ""}${rpBtn}</span><span class="w">${dailyLine(b, mode2)}</span></div>`;
   }
   function renderDailySheet() {
     const dk = dayKey(), rules = dailyRules(dk), md = rules.mode;
@@ -6176,6 +6257,7 @@
     const f0 = dailyThen; dailyThen = null; if (f0) f0();
   });
   el.dailyBody.addEventListener("click", (e) => {
+    if (replayClickHandler(e)) return;
     const rEm = e.target.closest("[data-remoji]");
     if (rEm) {
       const pick = rEm.closest(".rx-pick");
