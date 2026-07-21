@@ -11,9 +11,9 @@
 <link rel="manifest" href="manifest.json" />
 <link rel="apple-touch-icon" href="icon-180.png" />
 <meta name="apple-mobile-web-app-title" content="BassBuddy" />
-<script>window.BB_V = "20260721a";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
+<script>window.BB_V = "20260721b";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
 <script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));</script>
-<link rel="stylesheet" href="style.css?v=20260721a" />
+<link rel="stylesheet" href="style.css?v=20260721b" />
 </head>
 <body>
 <div id="game">
@@ -421,6 +421,28 @@
     </div>
   </div>
 
+  <!-- The Garage -->
+  <div id="garageModal" class="modal hidden">
+    <div class="modal-card shop-card">
+      <div class="shop-head">
+        <h2>🚤 The Garage</h2>
+        <button class="close-btn" id="garageClose">✕</button>
+      </div>
+      <div class="shop-body" id="garageBody"></div>
+    </div>
+  </div>
+
+  <!-- Notifications -->
+  <div id="notifModal" class="modal hidden">
+    <div class="modal-card shop-card">
+      <div class="shop-head">
+        <h2>🔔 On the Water</h2>
+        <button class="close-btn" id="notifClose">✕</button>
+      </div>
+      <div class="shop-body" id="notifBody"></div>
+    </div>
+  </div>
+
   <!-- Host-your-own tournament / invite sheet -->
   <div id="hostModal" class="modal hidden">
     <div class="modal-card shop-card">
@@ -549,6 +571,7 @@
       </div>
       <div class="title-row">
         <button class="title-btn" id="tsTutorial">🎓 TUTORIAL</button>
+        <button class="title-btn" id="tsGarage">🚤 GARAGE</button>
         <button class="title-btn" id="tsBoard">🌎 RANKINGS</button>
       </div>
       <div class="vol-box">
@@ -558,6 +581,7 @@
       <button class="text-btn" id="tsRestore" style="margin-top:6px;opacity:.85">📥 Restore my angler (name + PIN)</button>
       <div class="title-cred">A tribute to SEGA Bass Fishing</div>
     </div>
+    <button id="tsBell" class="ts-bell">🔔<b id="bellCt" class="hidden"></b></button>
     <!-- home-screen marquee: daily tournament promo + Big Bass of the Day -->
     <div id="titleTicker" class="title-ticker hidden"><div id="titleTickerText">📅 DAILY TOURNAMENT</div></div>
   </div>
@@ -577,7 +601,7 @@
 </div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=20260721a"></script>
-<script src="game.js?v=20260721a"></script>
+<script type="module" src="render3d.js?v=20260721b"></script>
+<script src="game.js?v=20260721b"></script>
 </body>
 </html>

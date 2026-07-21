@@ -438,6 +438,8 @@
     titleTicker: $("titleTicker"), titleTickerText: $("titleTickerText"),
     tsRestore: $("tsRestore"), restoreModal: $("restoreModal"), restoreGo: $("restoreGo"), restoreCancel: $("restoreCancel"),
     catchShare: $("catchShare"), hostModal: $("hostModal"), hostClose: $("hostClose"), hostBody: $("hostBody"), hostTitle: $("hostTitle"),
+    garageModal: $("garageModal"), garageClose: $("garageClose"), garageBody: $("garageBody"), tsGarage: $("tsGarage"),
+    tsBell: $("tsBell"), notifModal: $("notifModal"), notifClose: $("notifClose"), notifBody: $("notifBody"),
     lbModal: $("lbModal"), lbClose: $("lbClose"), lbBody: $("lbBody"), lbSorts: $("lbSorts"),
     lbProfileModal: $("lbProfileModal"), lbpName: $("lbpName"), lbpClose: $("lbpClose"),
     lbpStats: $("lbpStats"), lbpFav: $("lbpFav"), lbpSorts: $("lbpSorts"), lbpList: $("lbpList"),
@@ -1129,7 +1131,7 @@
   const sfx = n => Sound.play(n);
   function anyModalOpen() {
     return [el.catchModal, el.failModal, el.lureModal, el.mapModal,
-            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal, el.titleScreen, el.lbModal, el.lbProfileModal, el.guideModal, el.anglerModal, el.garModal, el.soundModal, el.dailyModal, el.restoreModal, el.hostModal].some(m => !m.classList.contains("hidden"));
+            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal, el.titleScreen, el.lbModal, el.lbProfileModal, el.guideModal, el.anglerModal, el.garModal, el.soundModal, el.dailyModal, el.restoreModal, el.hostModal, el.garageModal, el.notifModal].some(m => !m.classList.contains("hidden"));
   }
 
   function floatText(txt, color) {
@@ -1343,6 +1345,7 @@
         .map(e => ({ w: e.w, l: e.lure, sp: e.spot, se: e.season, wx: e.weather, h: Math.floor((e.timeMin || 0) / 60), sc: e.score || 0 }));
       return {
         n: G.name || "ANGLER", s: G.coins || 0, b: +biggest().toFixed(2), a: G.arcadeBestScore || 0, w: G.tourWins || 0, t: Date.now(),
+        bw: (G.garage && G.garage.wrap) || "", bn: ((G.garage && G.garage.name) || "").slice(0, 14),
         st: {
           c: Object.values(G.caught || {}).reduce((s2, n2) => s2 + n2, 0),
           lk: G.lunkers || 0, bb: +(G.bestBag || 0).toFixed(2), ti: (G.season && G.season.titles) || 0,
@@ -1458,7 +1461,7 @@
         const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : (i + 1) + ".";
         return `<div class="lb-row ${o.id === G.pid ? "me" : ""}" data-pid="${esc(o.id)}">
           <b class="lb-r">${medal}</b>
-          <div class="lb-n">${(window.__isWeekChamp && window.__isWeekChamp(o.n)) ? "👑 " : ""}${esc(o.n)}<small>🎯 ${(o.s || 0).toLocaleString()} · 🏅 ${(+o.b || 0).toFixed(1)} lb · 🕹️ ${(o.a || 0).toLocaleString()}</small></div>
+          <div class="lb-n">${(window.__isWeekChamp && window.__isWeekChamp(o.n)) ? "👑 " : ""}${esc(o.n)}${/^#[0-9a-f]{6}$/i.test(o.bw || "") ? `<i class="cdot" style="background:${o.bw}"></i>` : ""}<small>${o.bn ? esc(o.bn) + " · " : ""}🎯 ${(o.s || 0).toLocaleString()} · 🏅 ${(+o.b || 0).toFixed(1)} lb · 🕹️ ${(o.a || 0).toLocaleString()}</small></div>
           <b class="lb-v">${fmtV(o[key])}</b></div>`;
       }).join("") + codeFoot();
     }
@@ -2311,7 +2314,7 @@
       F.x = clamp(F.x + F.dir * dt * (0.02 + F.k * 0.02), W * 0.12, W * 0.88);
       if (B.holding) {
         F.dist = clamp(F.dist - dt * (0.00024 - F.k * 0.00014) * (F.state === "jump" ? 0.3 : 1), 0, 1);
-        F.strain = clamp(F.strain + dt * (F.state === "jump" ? 0.0004 + F.k * 0.0005 : 0.00005 + F.k * 0.00013), 0, 1);
+        F.strain = clamp(F.strain + dt * (F.state === "jump" ? 0.0004 + F.k * 0.0005 : 0.00005 + F.k * 0.00013) * garageNet(), 0, 1);
       } else {
         F.strain = clamp(F.strain - dt * 0.0007, 0, 1);
         F.dist = clamp(F.dist + dt * 0.00002, 0, 1);
@@ -3799,6 +3802,7 @@
       el.tsDaily.classList.toggle("fresh", !dToday);
     }
     renderTitleTicker();
+    try { fetchInbox().then(updateBell); } catch (e) {}
     el.titleScreen.classList.remove("hidden");
     flushSharedLinks();
     Music.setScene("title");
@@ -4638,7 +4642,7 @@
     const hookMul = 1 + hq * 0.5;
     const presMul = 1 + presQ * 0.5;
     const scoreBonus = f.weight >= 10 ? 1000 : f.weight >= LUNKER_LB ? 500 : 0;
-    f.score = Math.round((scoreBase * hookMul * presMul + scoreBonus) / 10) * 10;
+    f.score = Math.round((scoreBase * hookMul * presMul + scoreBonus) * garageScoreMul() / 10) * 10;
     f.scoreInfo = { base: scoreBase, hookMul, presMul, bonus: scoreBonus, hq, presQ };
     S.hookQuality = 0;
     // the day's running tally (shown on the end-of-day summary)
@@ -5593,7 +5597,7 @@
       dur: 180000, t: Date.now(), until: Date.now() + 48 * 3600000, duel: { a: G.name || "ANGLER", b: target } };
     el.hostBody.innerHTML = `<p class="muted" style="text-align:center">Posting the callout…</p>`;
     fetch(base2 + "/events/" + code + "/cfg.json", { method: "PUT", body: JSON.stringify(cfg) })
-      .then(r => { if (!r.ok) throw 0; openEventSheet(code, cfg, []); shareDuel(code, cfg); })
+      .then(r => { if (!r.ok) throw 0; inboxWrite(target, { ty: "duel", from: G.name || "ANGLER", id: "D" + code }); openEventSheet(code, cfg, []); shareDuel(code, cfg); })
       .catch(() => { toast("Couldn't post the callout 📡"); openDuelSheet(); });
   }
   function shareDuel(code, cfg) {
@@ -5626,6 +5630,10 @@
     const base2 = LB.fb();
     if (base2) fetch(base2 + "/events/_duelrec/" + duelPairKey(cfg.duel.a, cfg.duel.b) + "/" + code + ".json",
       { method: "PUT", body: JSON.stringify({ w: winner, t: cfg.t || 0 }) }).catch(() => {});
+    const wName = winner === LB.nameKey(cfg.duel.a) ? cfg.duel.a : cfg.duel.b;
+    const lName = winner === LB.nameKey(cfg.duel.a) ? cfg.duel.b : cfg.duel.a;
+    inboxWrite(wName, { ty: "duelend", won: true, vs: lName, id: "E" + code });
+    inboxWrite(lName, { ty: "duelend", won: false, vs: wName, id: "E" + code });
     return winner;
   }
   function chooseEvent(code, cfg) {
@@ -5733,6 +5741,172 @@
   const isWeekChamp = name => !!(G.weekChamp && G.weekChamp.n && LB.nameKey(name) === G.weekChamp.n);
   window.__isWeekChamp = isWeekChamp;   // the LB module renders the crown
 
+  // --- 🚤 THE GARAGE: something to spend all those points on. Upgrades carry
+  // real effects; wraps + a boat name show up on the boards.
+  const WRAPS = [["#d33a2c", "Rocket Red"], ["#2f7fd3", "Lake Blue"], ["#3fae5a", "Swamp Green"], ["#ffd35c", "Gold Rush"], ["#9b59d0", "Night Purple"]];
+  const gar = () => (G.garage = G.garage || { motor: 0, sonar: 0, net: 0, bobber: 0, wrap: "", name: "" });
+  const garageMoveMs = () => [20000, 14000, 9000][gar().motor] || 9000;
+  const garageNet = () => (gar().net ? 0.88 : 1);          // the net eases line strain
+  const garageScoreMul = () => (gar().bobber ? 1.05 : 1);  // the lucky bobber pays 5%
+  const garageSonar = () => gar().sonar >= 1;
+  const GARAGE_ITEMS = [
+    { id: "motor", name: "Trolling Motor", ico: "🌀", tiers: [36000, 90000],
+      desc: l2 => l2 === 0 ? "Tournament spot moves cost 0:14 instead of 0:20" : l2 === 1 ? "Upgrade again: moves cost just 0:09" : "Maxed — moves cost 0:09" },
+    { id: "sonar", name: "Pro Sonar", ico: "📡", tiers: [45000],
+      desc: l2 => l2 === 0 ? "The finder calls out the size class holding on your spot" : "Installed — size class on the finder" },
+    { id: "net",   name: "Landing Net", ico: "🥅", tiers: [60000],
+      desc: l2 => l2 === 0 ? "12% less line strain in every fight — fewer break-offs" : "Racked and ready — 12% easier on the line" },
+    { id: "bobber", name: "Lucky Bobber", ico: "🎈", tiers: [25000],
+      desc: l2 => l2 === 0 ? "+5% catch score on every bass. Don't ask how it works." : "Tied on. It works. Don't ask." },
+  ];
+  function openGarage() {
+    const g2 = gar();
+    const items = GARAGE_ITEMS.map(it => {
+      const lvl = g2[it.id] || 0, next = it.tiers[lvl];
+      return `<div class="item">
+        <div class="item-ico">${it.ico}</div>
+        <div class="item-info"><div class="item-name">${it.name}${it.tiers.length > 1 ? ` <small>Lv ${lvl}/${it.tiers.length}</small>` : lvl ? " ✓" : ""}</div>
+        <div class="item-desc">${it.desc(lvl)}</div></div>
+        ${next != null
+          ? `<button class="item-btn ${G.coins >= next ? "" : "cant"}" data-gbuy="${it.id}">${next.toLocaleString()} 🎯</button>`
+          : `<button class="item-btn owned" disabled>OWNED</button>`}
+      </div>`;
+    }).join("");
+    const wraps = WRAPS.map(([hex, nm]) => `<button class="wrap-dot ${g2.wrap === hex ? "sel" : ""}" data-gwrap="${hex}" title="${nm}" style="background:${hex}"></button>`).join("");
+    el.garageBody.innerHTML = `
+      <p class="muted">Your winnings, your rig. Upgrades work everywhere; the wrap and boat name ride with you on the boards.</p>
+      ${items}
+      <h3 class="rec-h">🎨 Hull wrap <small class="muted" style="font-weight:400">8,000 🎯 each · boat name included</small></h3>
+      <div class="wrap-row">${wraps}</div>
+      <input id="boatName" class="clog-sel" style="width:100%;margin-top:8px" maxlength="14" placeholder="NAME YOUR BOAT (shows on the board)"
+        autocomplete="off" autocapitalize="characters" value="${dEsc(g2.name || "")}" ${g2.wrap ? "" : "disabled"}>
+      <button class="big-btn" id="boatNameSave" style="margin-top:8px" ${g2.wrap ? "" : "disabled"}>💾 SAVE THE RIG</button>`;
+    el.garageModal.classList.remove("hidden");
+  }
+  el.garageBody.addEventListener("click", (e) => {
+    const g2 = gar();
+    const bb = e.target.closest("[data-gbuy]");
+    if (bb) {
+      const it = GARAGE_ITEMS.find(x => x.id === bb.dataset.gbuy);
+      const lvl = g2[it.id] || 0, cost = it.tiers[lvl];
+      if (cost == null) return;
+      if (G.coins < cost) { toast("Not enough points yet — go fish! 🎣"); sfx("weak"); return; }
+      G.coins -= cost; g2[it.id] = lvl + 1;
+      save(); updateHUD(); sfx("good"); vibrate([20, 30, 20]);
+      toast(`🚤 ${it.name} ${it.tiers.length > 1 ? "Lv " + g2[it.id] : ""} installed!`);
+      openGarage();
+      return;
+    }
+    const wb = e.target.closest("[data-gwrap]");
+    if (wb) {
+      const hex = wb.dataset.gwrap;
+      if (g2.wrap === hex) return;
+      if (!g2.paidWraps) g2.paidWraps = {};
+      if (!g2.paidWraps[hex]) {
+        if (G.coins < 8000) { toast("Wraps run 8,000 points 🎨"); sfx("weak"); return; }
+        G.coins -= 8000; g2.paidWraps[hex] = 1;
+      }
+      g2.wrap = hex; save(); updateHUD(); sfx("good");
+      openGarage();
+      return;
+    }
+    if (e.target.closest("#boatNameSave")) {
+      const inp = document.getElementById("boatName");
+      g2.name = ((inp && inp.value) || "").trim().toUpperCase().slice(0, 14);
+      save(); sfx("good"); toast(g2.name ? `🚤 "${dEsc(g2.name)}" — she's ready` : "Boat name cleared");
+      if (lbSubmitHook) lbSubmitHook(true);
+      return;
+    }
+  });
+  el.garageClose.addEventListener("click", () => { sfx("ui"); el.garageModal.classList.add("hidden"); });
+  el.tsGarage.addEventListener("click", () => { sfx("ui"); openGarage(); });
+
+  // --- 🔥 REACTIONS: tap a real angler's daily row, drop an emoji on it ---
+  const REACTS = ["🔥", "🐟", "😂", "🤯"];
+  async function fetchReacts(dk) {
+    const base2 = LB.fb(); if (!base2) return {};
+    try {
+      const r = await fetch(base2 + "/react/" + dk + ".json");
+      if (!r.ok) return {};
+      const data = await r.json() || {};
+      const out = {};   // pid -> {emoji: count}
+      for (const pid in data) {
+        const per = {};
+        for (const who in data[pid]) { const e2 = data[pid][who] && data[pid][who].e; if (REACTS.includes(e2)) per[e2] = (per[e2] || 0) + 1; }
+        out[pid] = per;
+      }
+      return out;
+    } catch (e2) { return {}; }
+  }
+  const reactStr = per => per ? REACTS.filter(e2 => per[e2]).map(e2 => `${e2}${per[e2] > 1 ? per[e2] : ""}`).join(" ") : "";
+  function sendReact(dk, targetPid, targetName, emoji) {
+    const base2 = LB.fb(); if (!base2) return;
+    fetch(base2 + "/react/" + dk + "/" + targetPid + "/" + LB.pid() + ".json",
+      { method: "PUT", body: JSON.stringify({ e: emoji, n: G.name || "ANGLER", t: Date.now() }) }).catch(() => {});
+    inboxWrite(targetName, { ty: "react", from: G.name || "ANGLER", e: emoji });
+    toast(`${emoji} sent to ${dEsc(targetName)}`);
+    sfx("good"); vibrate(15);
+  }
+
+  // --- 🔔 INBOX: callouts, verdicts, and reactions land here; the bell (and
+  // the installed app icon) wear the unread count ---
+  const inboxKeyFor = name => "n_" + (LB.nameKey(name).replace(/[^A-Z0-9]/g, "_") || "X");
+  function inboxWrite(targetName, body) {
+    const base2 = LB.fb(); if (!base2 || !targetName) return;
+    if (LB.nameKey(targetName) === LB.nameKey(G.name)) return;   // don't notify yourself
+    const id = (body.ty === "duel" || body.ty === "duelend" ? body.id : null) || ("m" + Math.random().toString(36).slice(2, 9));
+    fetch(base2 + "/inbox/" + inboxKeyFor(targetName) + "/" + id + ".json",
+      { method: "PUT", body: JSON.stringify(Object.assign({ t: Date.now() }, body)) }).catch(() => {});
+  }
+  let inboxCache = null, inboxAt = 0;
+  async function fetchInbox(force) {
+    const base2 = LB.fb(); if (!base2 || !G.name) return [];
+    if (!force && inboxCache && Date.now() - inboxAt < 300000) return inboxCache;
+    try {
+      const r = await fetch(base2 + "/inbox/" + inboxKeyFor(G.name) + ".json");
+      const data = r.ok ? (await r.json() || {}) : {};
+      inboxCache = Object.entries(data).map(([id, v]) => (v && v.ty ? Object.assign({ id }, v) : null))
+        .filter(Boolean).sort((a, b2) => (b2.t || 0) - (a.t || 0)).slice(0, 30);
+      inboxAt = Date.now();
+      return inboxCache;
+    } catch (e2) { return inboxCache || []; }
+  }
+  function inboxLine(m) {
+    const esc2 = s => dEsc(String(s || "").slice(0, 16));
+    if (m.ty === "duel") return `🥊 <b>${esc2(m.from)}</b> called you out! Open their link to answer.`;
+    if (m.ty === "duelend") return m.won ? `🏆 You beat <b>${esc2(m.vs)}</b> in the duel!` : `💢 <b>${esc2(m.vs)}</b> took the duel — rematch?`;
+    if (m.ty === "react") return `${m.e || "🔥"} <b>${esc2(m.from)}</b> reacted to your daily bag`;
+    return "";
+  }
+  function updateBell(list) {
+    const unseen = (list || []).filter(m => !(G.inboxSeen || {})[m.id]);
+    let n = unseen.length;
+    if (G.dailyDone !== dayKey()) n += 1;   // the daily counts as one nudge
+    const ct = document.getElementById("bellCt");
+    if (ct) { ct.textContent = n || ""; ct.classList.toggle("hidden", !n); }
+    try { if (navigator.setAppBadge) { n ? navigator.setAppBadge(n) : navigator.clearAppBadge(); } } catch (e2) {}
+  }
+  async function openNotifs() {
+    el.notifBody.innerHTML = `<p class="muted" style="text-align:center">Checking the mailbox…</p>`;
+    el.notifModal.classList.remove("hidden");
+    const list = await fetchInbox(true);
+    const items = [];
+    if (G.dailyDone !== dayKey()) items.push(`<div class="notif-row fresh">📅 Today's <b>daily tournament</b> is waiting — one entry, whole world's in.</div>`);
+    for (const m of list) {
+      const line = inboxLine(m); if (!line) continue;
+      const fresh = !(G.inboxSeen || {})[m.id];
+      items.push(`<div class="notif-row ${fresh ? "fresh" : ""}">${line}</div>`);
+    }
+    el.notifBody.innerHTML = items.length ? items.join("") : `<p class="muted" style="text-align:center">All quiet on the water 🌊</p>`;
+    if (!G.inboxSeen) G.inboxSeen = {};
+    for (const m of list) G.inboxSeen[m.id] = 1;
+    const keys = Object.keys(G.inboxSeen); if (keys.length > 120) keys.slice(0, keys.length - 120).forEach(k => delete G.inboxSeen[k]);
+    save();
+    updateBell(list);
+  }
+  el.tsBell.addEventListener("click", () => { sfx("ui"); openNotifs(); });
+  el.notifClose.addEventListener("click", () => el.notifModal.classList.add("hidden"));
+
   let dailyThen = null;   // where to go if the once-a-day prompt is waved off
   function openDailySheet(auto, then) {
     const dk = dayKey();
@@ -5746,8 +5920,10 @@
     el.dailyModal.classList.remove("hidden");
     return true;
   }
-  function dRow(b, i, mode2) {
-    return `<div class="d-row ${b.me ? "me" : ""} ${b.real ? "real" : ""}"><span>${i + 1}. ${dEsc(b.name)}${b.real ? " ★" : ""}${b.me ? " <small>(you)</small>" : ""}</span><span class="w">${dailyLine(b, mode2)}</span></div>`;
+  function dRow(b, i, mode2, reacts, canReact) {
+    const rs = reactStr(reacts && b.pid ? reacts[b.pid] : null);
+    const tap = canReact && b.real && !b.me && b.pid ? ` data-rpid="${b.pid}" data-rname="${dEsc(b.name)}"` : "";
+    return `<div class="d-row ${b.me ? "me" : ""} ${b.real ? "real" : ""}"${tap}><span>${i + 1}. ${dEsc(b.name)}${b.real ? " ★" : ""}${b.me ? " <small>(you)</small>" : ""}${rs ? ` <small class="rx">${rs}</small>` : ""}</span><span class="w">${dailyLine(b, mode2)}</span></div>`;
   }
   function renderDailySheet() {
     const dk = dayKey(), rules = dailyRules(dk), md = rules.mode;
@@ -5781,15 +5957,16 @@
       return;
     }
     const fill = (dk2, boxId, mode2, empty) => {
-      fetchDay(dk2).then(rows => {
+      Promise.all([fetchDay(dk2), fetchReacts(dk2)]).then(([rows, rx]) => {
         const myPid = LB.pid();
+        const canReact = dk2 === dk;   // you can only react to today's bags
         const list = rows.map(r => Object.assign({}, r, { me: r.pid === myPid }));
         const cpu = dailyCpuRows(dk2, Math.max(3, 10 - list.length));
         const board = dailySort(list.concat(cpu), mode2);
         const box = document.getElementById(boxId); if (!box) return;
         const mine = board.findIndex(bb => bb.me);
-        let html = board.slice(0, 10).map((bb, i) => dRow(bb, i, mode2)).join("");
-        if (mine >= 10) html += dRow(board[mine], mine, mode2);
+        let html = board.slice(0, 10).map((bb, i) => dRow(bb, i, mode2, rx, canReact)).join("");
+        if (mine >= 10) html += dRow(board[mine], mine, mode2, rx, canReact);
         box.innerHTML = html || `<p class="muted" style="text-align:center">${empty}</p>`;
       }).catch(() => {
         const box = document.getElementById(boxId);
@@ -5834,6 +6011,23 @@
     const f0 = dailyThen; dailyThen = null; if (f0) f0();
   });
   el.dailyBody.addEventListener("click", (e) => {
+    const rEm = e.target.closest("[data-remoji]");
+    if (rEm) {
+      const pick = rEm.closest(".rx-pick");
+      sendReact(dayKey(), pick.dataset.rpid, pick.dataset.rname, rEm.dataset.remoji);
+      pick.remove();
+      return;
+    }
+    const rRow = e.target.closest("[data-rpid]");
+    if (rRow && !rRow.classList.contains("rx-pick")) {
+      document.querySelectorAll(".rx-pick").forEach(x => x.remove());
+      const pick = document.createElement("div");
+      pick.className = "rx-pick"; pick.dataset.rpid = rRow.dataset.rpid; pick.dataset.rname = rRow.dataset.rname;
+      pick.innerHTML = REACTS.map(e2 => `<button data-remoji="${e2}">${e2}</button>`).join("");
+      rRow.after(pick);
+      sfx("ui");
+      return;
+    }
     if (e.target.closest("#dailyEnter")) {
       sfx("ui");
       const btn = document.getElementById("dailyEnter");
@@ -6004,7 +6198,7 @@
     const lu = lure(), sc = lureScore(lu).score, face = facingQuality();
     const quality = clamp(sc * (0.4 + 0.6 * face), 0, 1);     // right lure + facing the fish
     document.getElementById("sonarQ").textContent =
-      (quality > 0.66 ? "● STACKED" : quality > 0.33 ? "● MARKS" : "○ SCATTERED");
+      (quality > 0.66 ? "● STACKED" : quality > 0.33 ? "● MARKS" : "○ SCATTERED") + (garageSonar() ? " · PRO" : "");
     document.getElementById("sonarQ").style.color = quality > 0.66 ? "#5be37a" : quality > 0.33 ? "#ffd35c" : "#9fb6c2";
     // water column
     const grd = g.createLinearGradient(0, 0, 0, H2);
@@ -6029,6 +6223,7 @@
     const ents = sp.fish.map(e => ({ def: F[e.k], w: e.weight * ((pos.bias && pos.bias[e.k]) || 1) }));
     const totW = ents.reduce((s, e) => s + e.w, 0) || 1;
     const avgLb = ents.reduce((s, e) => s + e.w * ((e.def.w[0] + e.def.w[1]) / 2), 0) / totW;
+    if (garageSonar()) { const q2 = document.getElementById("sonarQ"); if (q2 && !q2.textContent.includes("lb")) q2.textContent += ` · ~${avgLb.toFixed(1)} lb class`; }
     const pr = (seed) => { const x = Math.sin(seed * 127.1 + (sp.id.length + pos.id.length) * 91.7) * 43758.5453; return x - Math.floor(x); };
     // abundance: how concentrated this position is (its bias) + how lit-up the bite is
     const rich = clamp((((pos.bias && pos.bias.largemouth) || 1) + ((pos.bias && pos.bias.giant) || 0.6) + ((pos.bias && pos.bias.hawg) || 0.3)) / 3 - 0.5, 0, 1.4);
@@ -6325,7 +6520,7 @@
     const rodTol = (1 + (rod().power - 1) * 0.55) * line().tol;   // stronger line resists the snap
 
     if (S.holding) {
-      T.tension += dt * (0.00050 + pull * 0.00150) / (rodTol * (1 + skill("power") * 0.35));
+      T.tension += dt * (0.00050 + pull * 0.00150) / (rodTol * (1 + skill("power") * 0.35)) * garageNet();
       T.dist = clamp(T.dist - dt * 0.00017 * (1.25 - pull * 0.6), 0, 1);
       T.stamina = clamp(T.stamina - dt * (0.00006 + (T.state === "tire" ? 0.00019 : 0.00004)) * (1 + skill("power") * 0.25), 0, 1);
     } else {
@@ -7471,12 +7666,13 @@
       if (S.arcade && !S.arcade.ended) { if (posId !== cur) toast("The stage picks the spot 🕹️"); return; }
       const T = S.tournament && !S.tournament.ended ? S.tournament : null;
       if (T && posId !== cur) {
-        // running the boat to new water costs tournament time
-        T.timeLeft -= 20000;
+        // running the boat to new water costs tournament time (the motor helps)
+        const mvMs = garageMoveMs();
+        T.timeLeft -= mvMs;
         G.positions[spot().id] = posId;
         recomputeCond(); seedFish(); save(); updateHUD();
         el.mapModal.classList.add("hidden");
-        toast(`🚤 Ran to ${position().name} — <b>−0:20</b>`);
+        toast(`🚤 Ran to ${position().name} — <b>−0:${String(Math.round(mvMs / 1000)).padStart(2, "0")}</b>`);
         sfx("cast"); vibrate(15);
         resetToIdle();
         if (T.timeLeft <= 0) { T.timeLeft = 0; endTournament(); }

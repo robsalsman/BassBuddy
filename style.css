@@ -991,7 +991,7 @@ select, input, textarea { font-size: 16px; }
 #lbModal { z-index: 70; }
 
 /* stats screens layer over the title menu; angler profile over the rankings */
-#recordsModal, #trophyModal, #catchLogModal, #catchDetailModal, #statsModal, #dailyModal, #restoreModal, #hostModal { z-index: 70; }
+#recordsModal, #trophyModal, #catchLogModal, #catchDetailModal, #statsModal, #dailyModal, #restoreModal, #hostModal, #garageModal, #notifModal { z-index: 70; }
 #lbProfileModal { z-index: 72; }
 .title-stats span { cursor: pointer; }
 .title-stats span:active { transform: scale(.95); }
@@ -1206,3 +1206,20 @@ select, input, textarea { font-size: 16px; }
   border-radius: 10px; padding: 8px 10px; text-align: center; font-size: 13.5px; margin-bottom: 8px; color: var(--gold); }
 .host-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
 .host-grid .item-btn { flex: 1 1 45%; }
+
+/* garage + reactions + bell */
+.wrap-row { display: flex; gap: 10px; margin-top: 6px; }
+.wrap-dot { width: 34px; height: 34px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,.25); cursor: pointer; }
+.wrap-dot.sel { border-color: #fff; box-shadow: 0 0 10px rgba(255,255,255,.4); }
+.item-btn.cant { opacity: .45; }
+.ts-bell { position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: 14px; z-index: 6;
+  width: 44px; height: 44px; border-radius: 50%; font-size: 20px; background: rgba(10,42,56,.8);
+  border: 1px solid rgba(120,220,255,.3); color: #eaf6fb; }
+.ts-bell b { position: absolute; top: -4px; right: -4px; min-width: 19px; height: 19px; border-radius: 10px;
+  background: #ff5d5d; color: #fff; font-size: 11px; line-height: 19px; padding: 0 4px; }
+.notif-row { padding: 9px 10px; border-radius: 10px; margin-bottom: 6px; font-size: 13px;
+  background: rgba(0,0,0,.18); }
+.notif-row.fresh { background: rgba(255,211,92,.12); border: 1px solid rgba(255,211,92,.35); }
+.rx { color: #ffd35c; font-size: 10.5px; }
+.rx-pick { display: flex; gap: 8px; justify-content: center; padding: 6px; background: rgba(0,0,0,.25); border-radius: 10px; margin: 2px 6px 6px; }
+.rx-pick button { font-size: 21px; background: none; border: none; cursor: pointer; padding: 2px 6px; }
