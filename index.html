@@ -8,8 +8,8 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <title>BassBuddy — Bass Fishing</title>
-<script>window.BB_V = "20260705d";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
-<link rel="stylesheet" href="style.css?v=20260705d" />
+<script>window.BB_V = "20260705e";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
+<link rel="stylesheet" href="style.css?v=20260705e" />
 </head>
 <body>
 <div id="game">
@@ -168,6 +168,7 @@
       <div class="catch-hookset hidden" id="catchHookset"></div>
       <div class="catch-record" id="catchRecord"></div>
       <div class="catch-tourney hidden" id="catchTourney"></div>
+      <button class="text-btn hidden" id="catchShare">📣 SHARE THIS LUNKER</button>
       <button class="big-btn" id="catchOk">NICE! KEEP FISHING</button>
     </div>
   </div>
@@ -416,6 +417,17 @@
     </div>
   </div>
 
+  <!-- Host-your-own tournament / invite sheet -->
+  <div id="hostModal" class="modal hidden">
+    <div class="modal-card shop-card">
+      <div class="shop-head">
+        <h2 id="hostTitle">🎪 Host a Tournament</h2>
+        <button class="close-btn" id="hostClose">✕</button>
+      </div>
+      <div class="shop-body" id="hostBody"></div>
+    </div>
+  </div>
+
   <!-- Daily tournament sheet -->
   <div id="dailyModal" class="modal hidden">
     <div class="modal-card shop-card">
@@ -561,7 +573,7 @@
 </div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=20260705d"></script>
-<script src="game.js?v=20260705d"></script>
+<script type="module" src="render3d.js?v=20260705e"></script>
+<script src="game.js?v=20260705e"></script>
 </body>
 </html>
