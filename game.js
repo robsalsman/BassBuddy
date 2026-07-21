@@ -424,7 +424,8 @@
         m.positions = Object.assign(d.positions, s.positions || {});
         // migrate: drop any lures that no longer exist; keep the worm as the floor
         const valid = new Set(LURES.map(l => l.id));
-        m.ownedLures = Array.from(new Set(["worm", ...(m.ownedLures || []).filter(id => valid.has(id))]));
+        const ownedIds = Array.isArray(m.ownedLures) ? m.ownedLures : Object.keys(m.ownedLures || {});
+        m.ownedLures = Array.from(new Set(["worm", ...ownedIds.filter(id => valid.has(id))]));
         if (!valid.has(m.lure.id)) m.lure.id = "worm";
         if (!ATTRACTANTS[m.attractant]) m.attractant = "none";
         if (!LINES[m.line]) m.line = "mono";
@@ -450,7 +451,9 @@
   }
   var lbSubmitHook = null;   // set by the leaderboard module once it's up
   var cloudSaveHook = null;  // set by the daily module — backs the whole save up to the db
+  var restoreLock = false;   // a cloud restore just landed — freeze saves until the reload
   function save() {
+    if (restoreLock) return;   // the restored save owns localStorage now
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(G)); } catch (e) {}
     if (lbSubmitHook) lbSubmitHook();   // throttled — pushes score changes to the global board
     if (cloudSaveHook) cloudSaveHook(); // throttled — full-save backup for restore-by-PIN
@@ -4407,6 +4410,11 @@
     if (!keepTheme) Music.setScene("game");   // theme keeps playing through lake/spot/tackle prep
     save(); updateHUD();
   }
+  // Menus reached via CIRCUIT hide the title first — if the player backs out of
+  // one with no day started, land them on the title, never on an empty lake.
+  function backToContext() {
+    if (!S.dayStarted && el.titleScreen.classList.contains("hidden") && !anyModalOpen()) showTitle();
+  }
   el.tsNewDay.addEventListener("click", () => {
     sfx("ui");
     startNewDay();                       // roll the calendar: fresh conditions, tallies zeroed
@@ -4704,7 +4712,7 @@
       `<b>Your tackle:</b> ${rod().ico} ${rod().name} · ${lu.ico} ${lu.name} <i style="display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:middle;background:${COLORS[G.lure.color].hex};border:1px solid rgba(255,255,255,.5)"></i>`;
   }
   el.tourneyBtn.addEventListener("click", openCircuit);
-  el.modeClose.addEventListener("click", () => el.modeModal.classList.add("hidden"));
+  el.modeClose.addEventListener("click", () => { el.modeModal.classList.add("hidden"); backToContext(); });
   el.modeModal.addEventListener("click", (e) => { const p0 = e.target.closest("[data-pro]"); if (p0) { el.modeModal.classList.add("hidden"); sfx("ui"); openProSeason(); return; } const x0 = e.target.closest("[data-duel]"); if (x0) { el.modeModal.classList.add("hidden"); sfx("ui"); openDuelSheet(); return; } const h0 = e.target.closest("[data-host]"); if (h0) { el.modeModal.classList.add("hidden"); sfx("ui"); openHostSheet(); return; } const d0 = e.target.closest("[data-daily]"); if (d0) { el.modeModal.classList.add("hidden"); openDailySheet(false); return; } const a = e.target.closest("[data-arcade]"); if (a) { startArcade(); return; } const b = e.target.closest("[data-tour]"); if (b) chooseTour(b.dataset.tour); });
 
   // ===========================================================================
@@ -6156,6 +6164,7 @@
     if (!sv || !sv.v) return { ok: false, why: "none" };
     try { JSON.parse(sv.v); } catch (e) { return { ok: false, why: "corrupt" }; }
     try { localStorage.setItem(SAVE_KEY, sv.v); } catch (e) { return { ok: false, why: "corrupt" }; }
+    restoreLock = true;
     return { ok: true };
   }
   el.tsRestore.addEventListener("click", () => {
@@ -6436,7 +6445,7 @@
     refreshTourStart();
     el.tourStartModal.classList.remove("hidden");
   }
-  el.hostClose.addEventListener("click", () => { sfx("ui"); el.hostModal.classList.add("hidden"); });
+  el.hostClose.addEventListener("click", () => { sfx("ui"); el.hostModal.classList.add("hidden"); backToContext(); });
   el.hostBody.addEventListener("click", (e) => {
     const rerender = () => {
       const ti = document.getElementById("duelTarget");   // keep the typed-in opponent across re-renders
@@ -6835,7 +6844,7 @@
       return;
     }
   });
-  el.proClose.addEventListener("click", () => { sfx("ui"); el.proModal.classList.add("hidden"); });
+  el.proClose.addEventListener("click", () => { sfx("ui"); el.proModal.classList.add("hidden"); backToContext(); });
 
   // --- 📼 REPLAYS: a submitted run's catch tape, played back as a live feed ---
   let rpTimer = null;
@@ -6884,7 +6893,7 @@
     }
     return false;
   }
-  el.replayClose.addEventListener("click", () => { if (rpTimer) { clearInterval(rpTimer); rpTimer = null; } el.replayModal.classList.add("hidden"); });
+  el.replayClose.addEventListener("click", () => { if (rpTimer) { clearInterval(rpTimer); rpTimer = null; } el.replayModal.classList.add("hidden"); backToContext(); });
   el.hostBody.addEventListener("click", replayClickHandler);
 
   // --- ⚡ LIVE DUELS: RTDB streams the opponent's fish the moment they land —
@@ -7148,6 +7157,7 @@
   el.dailyClose.addEventListener("click", () => {
     sfx("ui"); el.dailyModal.classList.add("hidden");
     const f0 = dailyThen; dailyThen = null; if (f0) f0();
+    backToContext();
   });
   el.dailyBody.addEventListener("click", (e) => {
     if (replayClickHandler(e)) return;
@@ -7213,7 +7223,7 @@
     S.prepTour = true;
     gotoPrep(1);
   });
-  el.tourStartCancel.addEventListener("click", () => { pendingTour = null; el.tourStartModal.classList.add("hidden"); });
+  el.tourStartCancel.addEventListener("click", () => { pendingTour = null; el.tourStartModal.classList.add("hidden"); backToContext(); });
   el.tourQuit.addEventListener("click", () => {
     if (!S.tournament) return;
     if (S.tournament.ended) { closeTournament(); return; }   // result screen lost? End still gets you out
