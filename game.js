@@ -74,6 +74,24 @@
   // aggr = finesse(0)..power(1): how aggressive the presentation is, used by the
   // Action rating. viz = which built-in model to draw for it (visual stand-in).
   const LURES = [
+    { id: "popper",   name: "Topwater Popper", ico: "🫧", price: 8000, desc: "Spits and chugs on the pause. Pop… pop… BLOOSH.",
+      colors: ["shad","white","chartreuse","firetiger"], bite: 1.25, bassBias: 1.25, lmBias: 1.35, junk: 0.45, rareBias: 1.1, sizeBias: 1.0,
+      style: "top", band: 0.06, cadence: "med", aggr: 0.65, motion: "Pop-pop-pause" },
+    { id: "lizard",   name: "Plastic Lizard", ico: "🦎", price: 9000, desc: "Bass HATE lizards near the beds. Drag it slow and hang on.",
+      colors: ["green","black","brown","chartreuse"], bite: 1.05, bassBias: 1.35, lmBias: 1.3, junk: 0.5, rareBias: 1.15, sizeBias: 1.15,
+      style: "sink", band: 0.85, cadence: "slow", aggr: 0.3, motion: "Slow bottom crawl" },
+    { id: "craw",     name: "Crawdad", ico: "🦞", price: 12000, desc: "The number-one bass forage, in soft plastic. Hop it off the rocks.",
+      colors: ["red","brown","green","black"], bite: 1.05, bassBias: 1.4, lmBias: 1.25, junk: 0.5, rareBias: 1.25, sizeBias: 1.2,
+      style: "sink", band: 0.95, cadence: "slow", aggr: 0.32, motion: "Defensive hops" },
+    { id: "urchin",   name: "Urchin Creature", ico: "🦔", price: 15000, desc: "A spiky creature bait that pushes water big fish notice.",
+      colors: ["black","green","red","firetiger"], bite: 1.0, bassBias: 1.35, lmBias: 1.3, junk: 0.4, rareBias: 1.3, sizeBias: 1.3,
+      style: "sink", band: 0.9, cadence: "slow", aggr: 0.35, motion: "Bristling crawl" },
+    { id: "swimbait", name: "Swimbait", ico: "🐟", price: 25000, desc: "A whole shad in one bait. Slow-roll it and wait on the big one.",
+      colors: ["shad","white","gold","green"], bite: 0.8, bassBias: 1.3, lmBias: 1.25, junk: 0.3, rareBias: 1.6, sizeBias: 1.7,
+      style: "sink", band: 0.4, cadence: "slow", aggr: 0.45, motion: "Steady slow roll" },
+    { id: "duck",     name: "Baby Duck", ico: "🦆", price: 35000, desc: "A tiny paddling duckling. Giants eat ducklings. That's the bait.",
+      colors: ["gold","brown","white","black"], bite: 0.85, bassBias: 1.25, lmBias: 1.45, junk: 0.3, rareBias: 1.55, sizeBias: 1.6,
+      style: "top", band: 0.05, cadence: "slow", aggr: 0.55, motion: "Paddling wake" },
     { id: "worm",     name: "Plastic Worm", ico: "🪱", price: 0,    desc: "All-purpose soft plastic. Slow bottom hops; bass can't resist.",
       colors: ["green","black","red","brown"], bite: 1.0, bassBias: 1.35, lmBias: 1.2, junk: 1.0, rareBias: 1.0, sizeBias: 1.0,
       style: "sink", band: 0.9, cadence: "slow", aggr: 0.2, motion: "Slow bottom hops" },
@@ -114,6 +132,43 @@
       colors: ["brown","black","green","red"], bite: 0.85, bassBias: 1.45, lmBias: 1.5, junk: 0.4, rareBias: 1.55, sizeBias: 1.5, minSize: 1.2,
       style: "sink", band: 0.82, cadence: "slow", aggr: 0.2, motion: "Slow bottom drag" },
   ];
+
+  // ---- 🎖️ LURE FAMILIES & MASTERY: every lure belongs to a family; every
+  // catch banks mastery XP for THAT angler in THAT family. Levels earn titles
+  // ("Topwater Master"), skill points, and a real edge with the family.
+  const LURE_FAM = { worm: "soft", carolina: "soft", lizard: "soft", craw: "soft", urchin: "soft", furry: "soft",
+    torpedo: "top", buzz: "top", jitterbug: "top", pencil: "top", frog: "top", popper: "top", duck: "top",
+    crank: "crank", trap: "crank", spinner: "blade", inline: "blade", spoon: "blade", swimbait: "swim" };
+  const FAM_INFO = { top: { name: "Topwater", ico: "💦" }, soft: { name: "Soft Plastics", ico: "🪱" },
+    crank: { name: "Cranks & Traps", ico: "🔔" }, blade: { name: "Blades & Metal", ico: "🌀" }, swim: { name: "Swimbaits", ico: "🐟" } };
+  const MASTERY_T = [0, 2500, 7000, 16000, 32000, 60000];
+  const MASTERY_TITLES = ["", "Dabbler", "Regular", "Specialist", "Expert", "Master"];
+  const SHOP_LURES = { popper: 8000, lizard: 9000, craw: 12000, urchin: 15000, swimbait: 25000, duck: 35000 };
+  const ownedLure = id => !(id in SHOP_LURES) || !!((G.ownedLures || {})[id]);
+  function masteryXP(aid, fam) { return ((G.mastery || {})[aid] || {})[fam] || 0; }
+  function masteryLvl2(map, fam) { const xp = map[fam] || 0; let l = 0; for (let i = 1; i < MASTERY_T.length; i++) if (xp >= MASTERY_T[i]) l = i; return l; }
+  function masteryLvl(aid, fam) {
+    const xp = masteryXP(aid, fam); let l = 0;
+    for (let i = 1; i < MASTERY_T.length; i++) if (xp >= MASTERY_T[i]) l = i;
+    return l;
+  }
+  const curFamLvl = () => masteryLvl(G.angler, LURE_FAM[G.lure.id] || "");
+  function addMastery(score) {
+    const fam = LURE_FAM[G.lure.id]; if (!fam || !score) return;
+    const aid = G.angler;
+    if (!G.mastery) G.mastery = {}; if (!G.mastery[aid]) G.mastery[aid] = {};
+    const before = masteryLvl(aid, fam);
+    G.mastery[aid][fam] = (G.mastery[aid][fam] || 0) + Math.round(score);
+    const after = masteryLvl(aid, fam);
+    if (after > before) {
+      const fi = FAM_INFO[fam];
+      grantAchSP(); grantAchSP();   // a mastery level is worth two skill points
+      toast(`🎖️ <b>${angler().name}</b> — <b>${fi.name} ${MASTERY_TITLES[after]}</b>! +2 skill points`);
+      sfx("weighwin"); vibrate([30, 40, 30]);
+      evalAchievements(false);
+    }
+  }
+
 
   // Fish-attractant scents/flavors. A scent gives a small all-round bump, plus
   // a combo bonus when it suits the lure style and the water conditions — so the
@@ -408,6 +463,8 @@
     } else { delete COLORS.custom; if (G.lure && G.lure.color === "custom") G.lure.color = "green"; }
   }
   applyCustomPaint();
+  // legacy saves kept ownedLures as an array — purchases need a keyed object
+  if (Array.isArray(G.ownedLures)) { const _o = {}; G.ownedLures.forEach(k => { _o[k] = 1; }); G.ownedLures = _o; }
 
   const rod  = () => RODS.find(r => r.id === G.rod) || RODS[0];
   const lure = () => LURES.find(l => l.id === G.lure.id) || LURES[0];
@@ -810,6 +867,8 @@
     { id: "browntown", ico: "🎺", name: "Brown Town",        desc: "Net 20 lb of trout in one dawn session", test: c => c.troutBestHaul >= 20 },
     { id: "catrun",   ico: "💪", name: "Bluff Secret",       desc: "Something's holed up under the bluff timber…", test: c => c.catTrips >= 1 },
     { id: "hogline",  ico: "🐋", name: "Hog Line",           desc: "Wrestle a 30 lb+ flathead out bare-handed", test: c => c.catBig >= 30 },
+    { id: "fullbox",  ico: "🧰", name: "Full Box",           desc: "Own every lure in the Pro Shop", test: c => c.ownedShop >= 6 },
+    { id: "master1",  ico: "🎖️", name: "Master of One",      desc: "Take any lure family to Master (L5)", test: c => c.topMastery >= 5 },
     { id: "sandslam", ico: "🐟", name: "Sandy Slam",       desc: "Boat 20 lb of sand bass in one creek run", test: c => c.sandBestHaul >= 20 },
     { id: "champ3",  ico: "💍", name: "Three-Peat",        desc: "Win 3 circuit seasons",               test: c => c.titles >= 3, prog: c => [c.titles, 3] },
     // ---- the arcade ----
@@ -848,6 +907,8 @@
       frogTrips: G.frogTrips || 0, frogBestHaul: G.frogBestHaul || 0, ghostCaught: G.ghostCaught || 0,
       troutTrips: G.troutTrips || 0, troutBestHaul: G.troutBestHaul || 0,
       catTrips: G.catTrips || 0, catBig: G.catBig || 0,
+      ownedShop: Object.keys(G.ownedLures || {}).length,
+      topMastery: Math.max(0, ...Object.values(G.mastery || {}).flatMap(m => Object.keys(m).map(fm => masteryLvl2(m, fm)))),
       lureCount: Math.max(new Set(log.map(e => e.lure)).size, cnt(t.lure)),
       rodCount: cnt(t.rod), lineCount: cnt(t.line), sizeCount: cnt(t.size),
       scentCount: Object.keys(t.scent || {}).filter(k => k && k !== "none").length,
@@ -1894,7 +1955,7 @@
   // sense finds fish anywhere; finesse pays off on small (and lightly on medium) baits
   function anglerBiteMul() {
     const fin = (G.lure.size || "med") === "small" ? 1 : (G.lure.size || "med") === "med" ? 0.35 : 0;
-    return (1 + skill("sense") * 0.15) * (1 + skill("finesse") * 0.22 * fin);
+    return (1 + skill("sense") * 0.15) * (1 + skill("finesse") * 0.22 * fin) * (1 + curFamLvl() * 0.02);
   }
 
   // ---- portraits: same barn-wood template the Guide set; anglers without a
@@ -2319,7 +2380,16 @@
       const spLine = av > 0
         ? `<div class="sp-line hot">🔺 ${av} skill point${av > 1 ? "s" : ""} to spend — tap ＋ on a skill</div>`
         : `<div class="sp-line">Next skill point: ${(xp % SP_PER).toLocaleString()} / ${SP_PER.toLocaleString()} XP fished as ${a.name} · achievements won in their boat are +1 each</div>`;
-      const detail = sel ? `<div class="opt-detail"><div class="cats">${rows}</div>${spLine}<div class="cats-tip">${a.desc}</div></div>` : "";
+      const mrows = Object.keys(FAM_INFO).map(fm => {
+        const lv = masteryLvl(a.id, fm), xp2 = masteryXP(a.id, fm);
+        const next = MASTERY_T[lv + 1];
+        const wpct = next ? Math.round((xp2 - MASTERY_T[lv]) / (next - MASTERY_T[lv]) * 100) : 100;
+        return `<div class="cat"><span>${FAM_INFO[fm].ico} ${FAM_INFO[fm].name}</span>
+          <div class="cat-bar"><i style="width:${wpct}%;background:${lv >= 5 ? "var(--gold)" : ratingColor(lv * 20)}"></i></div>
+          <b style="color:${lv >= 5 ? "var(--gold)" : ratingColor(lv * 20)}">${lv >= 5 ? "★" : "L" + lv}</b></div>`;
+      }).join("");
+      const mline = `<div class="sp-line">🎖️ Lure mastery — catches with each family level it up (titles + 2 SP a level)</div>`;
+      const detail = sel ? `<div class="opt-detail"><div class="cats">${rows}</div>${spLine}<div class="cats">${mrows}</div>${mline}<div class="cats-tip">${a.desc}</div></div>` : "";
       return `<div class="lure-opt angler-opt ${sel ? "sel" : ""}" data-angler="${a.id}">
         <div class="angler-face">${anglerSVG(a, true)}</div>
         <div class="info">
@@ -4230,6 +4300,7 @@
     ["🏆 Pro Season", "Circuit menu → PRO SEASON. Six events against seven loud pros, F1 points, sponsor deals that pay, a 100k champion's purse."],
     ["👑 Weekly Championship", "Every daily you fish earns points toward the Mon–Sun crown — best 5 of 7 days. Last week's champ wears the 👑 on the rankings."],
     ["🚤 The Garage", "Spend your points: a faster trolling motor, pro sonar, a landing net that saves break-offs, hull wraps, a boat name — and the Paint Bench, where you mix a custom lure color and name it."],
+    ["🧰 Pro Shop & Mastery", "Locked lures in the tackle box are for sale — tap twice to buy. Every bass banks mastery XP for your current angler with that lure's family: five families, five levels each, titles like Topwater Master, +2 skill points a level, and a small bite edge. Eight anglers × five families — plenty of ladders to climb."],
     ["📼 Replays", "See a ▶ next to somebody's daily or event run? Tap it — their whole run plays back, catch by catch."],
     ["📣 Share a Lunker", "Land a 6 lb+ bass and hit SHARE — the link opens your full catch card anywhere: the spot on the map, the lure, the conditions."],
     ["📥 New phone?", "Title screen → Restore my angler. Your name + daily PIN pulls your whole career onto any device."],
@@ -4245,6 +4316,8 @@
   }
   // 🆕 What's New — shows itself once per version, lives behind the title link
   const WHATS_NEW = [
+    "🧰 <b>The Pro Shop</b> — six new baits for sale in the tackle box: Popper, Lizard, Crawdad, Urchin Creature, Swimbait… and the Baby Duck. 🦆",
+    "🎖️ <b>Lure Mastery</b> — every catch levels THAT angler with THAT lure family. Titles, +2 skill points a level, and a real edge. Max one family? Go master another.",
     "💪 <b>Bubba joins the crew</b> — The Hoss. Word is something's holed up under the bluff timber at Highland…",
     "🖌️ <b>The Paint Bench</b> — mix your own lure color in the Garage, name it, fish it on every lure in the box.",
     "🪶 <b>Alisa joins the crew</b> — the finesse specialist. She's heard something's sipping below the dam at first light…",
@@ -5140,7 +5213,7 @@
     const hookMul = 1 + hq * 0.5;
     const presMul = 1 + presQ * 0.5;
     const scoreBonus = f.weight >= 10 ? 1000 : f.weight >= LUNKER_LB ? 500 : 0;
-    f.score = Math.round((scoreBase * hookMul * presMul + scoreBonus) * garageScoreMul() / 10) * 10;
+    f.score = Math.round((scoreBase * hookMul * presMul + scoreBonus) * garageScoreMul() * (1 + curFamLvl() * 0.01) / 10) * 10;
     f.scoreInfo = { base: scoreBase, hookMul, presMul, bonus: scoreBonus, hq, presQ };
     S.hookQuality = 0;
     // the day's running tally (shown on the end-of-day summary)
@@ -5150,6 +5223,7 @@
     G.bestDayCatches = Math.max(G.bestDayCatches || 0, S.dayCatches);
     if (((S.ft && S.ft.jumps) || 0) >= 3) G.acro = (G.acro || 0) + 1;   // landed an acrobat
     if (f.bass) bigBassSubmit(f.weight);   // 🐷 Big Bass of the Day — every mode counts
+    if (f.bass) addMastery(f.score || 0);  // 🎖️ family mastery banks with THIS angler
     if (f.bass && f.weight >= LUNKER_LB && S.tournament && S.tournament.pro && G.pro && !G.pro.done) { G.pro.lunkers = (G.pro.lunkers || 0) + 1; checkSponsors(); }
 
     const lunk = f.bass && f.weight >= LUNKER_LB;
@@ -8064,13 +8138,16 @@
       .sort((a, b) => b.r.score - a.r.score);
     el.lureList.innerHTML = rated.map(({ l, r }) => {
       const sel = G.lure.id === l.id;
-      const tag = sel ? "✓ ON" : "TAP";
+      const own = ownedLure(l.id);
+      const fam = LURE_FAM[l.id], mlvl = fam ? masteryLvl(G.angler, fam) : 0;
+      const mchip = fam && mlvl ? ` <small class="mchip" title="${FAM_INFO[fam].name} mastery">${FAM_INFO[fam].ico}L${mlvl}</small>` : "";
+      const tag = !own ? `🔒 ${l.price.toLocaleString()}` : sel ? "✓ ON" : "TAP";
       // the highlighted lure expands with its full category breakdown right here
       const detail = sel ? `<div class="opt-detail">${catBars(r.cats)}<div class="cats-tip">${r.tip}</div></div>` : "";
-      return `<div class="lure-opt ${sel ? "sel" : ""}" data-lure="${l.id}">
+      return `<div class="lure-opt ${sel ? "sel" : ""} ${own ? "" : "locked"}" data-lure="${l.id}">
         <div class="ico">${l.ico}</div>
         <div class="info">
-          <div class="nm">${l.name} <span class="stars" style="color:${ratingColor(r.pct)}">${starStr(r.stars)}</span></div>
+          <div class="nm">${l.name}${mchip} <span class="stars" style="color:${ratingColor(r.pct)}">${starStr(r.stars)}</span></div>
           <div class="rate"><div class="rate-bar"><i style="width:${r.pct}%;background:${ratingColor(r.pct)}"></i></div><b style="color:${ratingColor(r.pct)}">${r.pct}</b></div>
           ${sel ? "" : `<div class="ds">${r.tip}</div>`}
         </div>
@@ -8151,6 +8228,26 @@
     const opt = e.target.closest(".lure-opt");
     const dot = e.target.closest(".color-dot");
     if (opt) {
+      const id = opt.dataset.lure;
+      if (!ownedLure(id)) {
+        const price = SHOP_LURES[id] || 0;
+        const l2 = LURES.find(x => x.id === id);
+        if (G.coins < price) { toast(`${l2.ico} ${l2.name} runs <b>${price.toLocaleString()}</b> 🎯 — go fish!`); sfx("weak"); return; }
+        if (S.armBuy === id && Date.now() - (S.armBuyT || 0) < 6000) {
+          G.coins -= price;
+          if (!G.ownedLures) G.ownedLures = {};
+          G.ownedLures[id] = 1;
+          S.armBuy = null;
+          toast(`${l2.ico} <b>${l2.name}</b> — welcome to the box! 🎉`);
+          sfx("weighwin"); vibrate([20, 30, 20]);
+          evalAchievements(false);
+        } else {
+          S.armBuy = id; S.armBuyT = Date.now();
+          toast(`${l2.ico} ${l2.name} — <b>${price.toLocaleString()}</b> 🎯. Tap again to buy!`);
+          sfx("ui");
+          return;
+        }
+      }
       G.lure.id = opt.dataset.lure;
       const l = lure();
       if (!l.colors.includes(G.lure.color)) G.lure.color = l.colors[0];
