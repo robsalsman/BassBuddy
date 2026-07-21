@@ -401,6 +401,13 @@
     if (cloudSaveHook) cloudSaveHook(); // throttled — full-save backup for restore-by-PIN
   }
   const G = load();
+  // 🎨 a Paint Bench custom color rides in the save and joins the palette
+  function applyCustomPaint() {
+    if (G.customPaint && /^#[0-9a-f]{6}$/i.test(G.customPaint.hex)) {
+      COLORS.custom = { name: (G.customPaint.name || "Custom").slice(0, 16), hex: G.customPaint.hex, fam: G.customPaint.fam === "bright" ? "bright" : "natural" };
+    } else { delete COLORS.custom; if (G.lure && G.lure.color === "custom") G.lure.color = "green"; }
+  }
+  applyCustomPaint();
 
   const rod  = () => RODS.find(r => r.id === G.rod) || RODS[0];
   const lure = () => LURES.find(l => l.id === G.lure.id) || LURES[0];
@@ -801,6 +808,8 @@
     { id: "legend",  ico: "🌙", name: "The Legend of Lily Cove", desc: "Some stories turn out to be true…", test: c => c.ghostCaught >= 1 },
     { id: "troutrun", ico: "🪶", name: "First Light",        desc: "Something's sipping below the dam at dawn…", test: c => c.troutTrips >= 1 },
     { id: "browntown", ico: "🎺", name: "Brown Town",        desc: "Net 20 lb of trout in one dawn session", test: c => c.troutBestHaul >= 20 },
+    { id: "catrun",   ico: "💪", name: "Bluff Secret",       desc: "Something's holed up under the bluff timber…", test: c => c.catTrips >= 1 },
+    { id: "hogline",  ico: "🐋", name: "Hog Line",           desc: "Wrestle a 30 lb+ flathead out bare-handed", test: c => c.catBig >= 30 },
     { id: "sandslam", ico: "🐟", name: "Sandy Slam",       desc: "Boat 20 lb of sand bass in one creek run", test: c => c.sandBestHaul >= 20 },
     { id: "champ3",  ico: "💍", name: "Three-Peat",        desc: "Win 3 circuit seasons",               test: c => c.titles >= 3, prog: c => [c.titles, 3] },
     // ---- the arcade ----
@@ -838,6 +847,7 @@
       rcTrips: G.rcTrips || 0, rcBest: G.rcBest || 0,
       frogTrips: G.frogTrips || 0, frogBestHaul: G.frogBestHaul || 0, ghostCaught: G.ghostCaught || 0,
       troutTrips: G.troutTrips || 0, troutBestHaul: G.troutBestHaul || 0,
+      catTrips: G.catTrips || 0, catBig: G.catBig || 0,
       lureCount: Math.max(new Set(log.map(e => e.lure)).size, cnt(t.lure)),
       rodCount: cnt(t.rod), lineCount: cnt(t.line), sizeCount: cnt(t.size),
       scentCount: Object.keys(t.scent || {}).filter(k => k && k !== "none").length,
@@ -1828,6 +1838,9 @@
   };
   const ANGLERS = [
     // every base kit totals 18 — nobody is flatly better, just built different
+    { id: "bubba",    name: "Bubba",       tag: "The Hoss",       desc: "Heavy line, heavy cover — winches 'em out like a tow truck.",
+      w: { hookset: 1.2, finesse: 0.5, power: 1.6, casting: 0.8, sense: 1.0 }, hue: "#7a4a2a",
+      base: { hookset: 50, finesse: 10, power: 60, casting: 20, sense: 40 } },
     { id: "alisa",    name: "Alisa",       tag: "The Natural",    desc: "Light line, soft landings — the fish never know she's there.",
       w: { hookset: 1.0, finesse: 1.6, power: 0.6, casting: 1.0, sense: 1.3 }, hue: "#7a4a8f",
       base: { hookset: 30, finesse: 60, power: 10, casting: 30, sense: 50 } },
@@ -1887,6 +1900,29 @@
   // ---- portraits: same barn-wood template the Guide set; anglers without a
   // photo yet get a mystery-silhouette card until their real face lands
   const FACES = {
+    bubba: P => `
+      <path d="M12,120 C14,94 32,82 46,80 L74,80 C88,82 106,94 108,120 Z" fill="#b6322b" stroke="#8f2822" stroke-width="1"/>
+      <!-- denim overall straps over the red tee -->
+      <path d="M30,120 L36,84 L48,88 L44,120 Z" fill="#3b5372" stroke="#2c405a" stroke-width="1"/>
+      <path d="M90,120 L84,84 L72,88 L76,120 Z" fill="#3b5372" stroke="#2c405a" stroke-width="1"/>
+      <circle cx="42" cy="92" r="2.4" fill="#c9ced4"/><circle cx="78" cy="92" r="2.4" fill="#c9ced4"/>
+      <path d="M52,66 L68,66 L67,84 L53,84 Z" fill="#d1a075"/>
+      <ellipse cx="37.5" cy="52" rx="4.4" ry="6" fill="url(#${P}skin)"/>
+      <ellipse cx="82.5" cy="52" rx="4.4" ry="6" fill="url(#${P}skin)"/>
+      <path d="M38,42 Q38,23 60,23 Q82,23 82,42 L82,52 Q82,71 60,74 Q38,71 38,52 Z" fill="url(#${P}skin)"/>
+      <!-- the big auburn beard -->
+      <path d="M38,50 Q37,74 45,83 Q52,91 60,91 Q68,91 75,83 Q83,74 82,50 L82,56 Q83,76 73,84 Q66,89 60,89 Q54,89 47,84 Q37,76 38,56 Z" fill="#8a5a2e"/>
+      <path d="M39,52 Q39,74 47,81 Q53,88 60,88 Q67,88 73,81 Q81,74 81,52 Q81,60 78,67 Q75,59 72,57 L67,61 Q63,58 60,58 Q57,58 53,61 L48,57 Q45,59 42,67 Q39,60 39,52 Z" fill="#9a6836"/>
+      <path d="M54,68 Q60,72 66,68 L66,71 Q60,75 54,71 Z" fill="#6e4522"/>
+      <!-- camo trucker cap -->
+      <path d="M36,40 Q38,18 60,18 Q82,18 84,40 L84,44 L36,44 Z" fill="#5c6844"/>
+      <path d="M42,32 q4,-4 8,0 q4,4 8,0 M58,26 q4,-4 8,0 M66,34 q4,-4 8,0" stroke="#46523a" stroke-width="3" fill="none" opacity=".8"/>
+      <path d="M32,42 Q60,36 88,42 L88,47 Q60,41 32,47 Z" fill="#4a5638"/>
+      <path d="M36,44 L84,44 L84,40 Q60,46 36,40 Z" fill="#e8e4da" opacity=".25"/>
+      <path d="M50,52 q4,-2.4 8,0 M62,52 q4,-2.4 8,0" stroke="#4a3018" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+      <circle cx="54" cy="55" r="1.8" fill="#241a12"/><circle cx="66" cy="55" r="1.8" fill="#241a12"/>
+      <path d="M59,55 q2,6 0,8.5 q-2,1.2 -3,0" stroke="#b98a63" stroke-width="1.2" fill="none"/>
+      <ellipse cx="45" cy="61" rx="3" ry="2" fill="#c98a66" opacity=".5"/><ellipse cx="75" cy="61" rx="3" ry="2" fill="#c98a66" opacity=".5"/>`,
     alisa: P => `
       <path d="M14,120 C16,96 34,84 46,81 L74,81 C88,84 104,96 106,120 Z" fill="#8a6fa8" stroke="#6e5589" stroke-width="1"/>
       <path d="M48,81 Q60,90 72,81 L72,86 Q60,94 48,86 Z" fill="#6e5589"/>
@@ -2309,18 +2345,21 @@
   // gar to put an arrow on it before it sounds. Nothing anywhere hints at it.
   // ===========================================================================
   const GAR_MS = 75000;
-  const EGG_HOME = { drg: "deep", jpbasser: "deep", hotrod: "river", olddog: "bayou", roberto: "cove", alisa: "falls" };
+  const EGG_HOME = { drg: "deep", jpbasser: "deep", hotrod: "river", olddog: "bayou", roberto: "cove", alisa: "falls", bubba: "highland" };
   function eggAvailable() {
     const a = angler().id;
     if (EGG_HOME[a] !== G.spot) return false;
     // the finale only shows itself once every other secret has been found
-    if (a === "roberto" && !((G.garTrips || 0) && (G.sandTrips || 0) && (G.rcTrips || 0) && (G.frogTrips || 0) && (G.troutTrips || 0))) return false;
+    if (a === "roberto" && !((G.garTrips || 0) && (G.sandTrips || 0) && (G.rcTrips || 0) && (G.frogTrips || 0) && (G.troutTrips || 0) && (G.catTrips || 0))) return false;
     return !(S.tournament && !S.tournament.ended) && !(S.arcade && !S.arcade.ended) && !S.tut;
   }
-  const eggKind = () => ({ jpbasser: "sand", hotrod: "rc", olddog: "frog", roberto: "ghost", alisa: "trout" }[angler().id] || "gar");
+  const eggKind = () => ({ jpbasser: "sand", hotrod: "rc", olddog: "frog", roberto: "ghost", alisa: "trout", bubba: "cat" }[angler().id] || "gar");
   function openGarInvite() {
     el.garFace.innerHTML = anglerSVG(ANGLERS.find(a => a.id === "roberto"), false);
-    if (eggKind() === "trout") {
+    if (eggKind() === "cat") {
+      el.garBody.innerHTML = `<p><b>Roberto:</b> “Bubba — them <b>flatheads</b> are holed up under the bluff timber. Roll them sleeves up, we're going <b>noodling</b>!”</p>`;
+      el.garYes.textContent = "💪 ROLL 'EM UP";
+    } else if (eggKind() === "trout") {
       el.garBody.innerHTML = `<p><b>Roberto:</b> “Alisa — first light below the dam, the <b>big browns</b> come up to sip. Bring the fly rod. Don't tell the bass guys.”</p>`;
       el.garYes.textContent = "🪶 STRING THE FLY ROD";
     } else if (eggKind() === "frog") {
@@ -2350,7 +2389,8 @@
     el.garModal.classList.add("hidden");
     el.mapModal.classList.add("hidden");
     setStatus("");
-    toast(S.bow.kind === "trout" ? "🪶 Drop the fly in a rise ring — soft as you can!"
+    toast(S.bow.kind === "cat" ? "💪 Reach into a boil when it churns — and HOLD ON!"
+      : S.bow.kind === "trout" ? "🪶 Drop the fly in a rise ring — soft as you can!"
       : S.bow.kind === "frog" ? "🔱 Gig a frog when its eyes shine bright!"
       : S.bow.kind === "ghost" ? "🌙 Dinks roll all night… wait for HER."
       : S.bow.kind === "rc" ? "🚤 Send it off a rock when the spray flies!"
@@ -2386,6 +2426,7 @@
         B.quiver--;
         toast(F.ghost ? `💢 She threw the hook — the legend lives!${B.quiver > 0 ? ` ${B.quiver} lure${B.quiver > 1 ? "s" : ""} left` : ""}`
           : F.trout ? `💢 Popped the tippet!${B.quiver > 0 ? ` ${B.quiver} fl${B.quiver > 1 ? "ies" : "y"} left` : ""}`
+          : F.cat ? `💢 It rolled and tore loose!${B.quiver > 0 ? ` ${B.quiver} grip${B.quiver > 1 ? "s" : ""} left` : ""}`
           : B.kind === "sand" ? `💢 Broke off with the spoon!${B.quiver > 0 ? ` ${B.quiver} left` : ""}`
           : `💢 It threw the arrow!${B.quiver > 0 ? ` ${B.quiver} left` : ""}`); sfx("snap"); vibrate([60, 40, 60]);
         splash(F.x, F.y); B.fight = null; B.holding = false; showBtn(false);
@@ -2405,8 +2446,9 @@
           endBowfish();
           return;
         }
-        const big2 = B.kind === "trout" ? F.w >= 5 : B.kind === "sand" ? F.w >= 2.5 : F.w >= 15;
-        toast(`${B.kind === "trout" ? (big2 ? "🎺 BIG BROWN" : "🪶 Trout") : B.kind === "sand" ? (big2 ? "🐟 SLAB sand bass" : "🎣 Sand bass") : (big2 ? "🐊 GIANT GAR" : "🏹 Gar")} ${B.kind === "trout" ? "netted" : "boated"} — <b>${F.w} lb</b> (+${bonus}s)`);
+        const big2 = B.kind === "cat" ? F.w >= 15 : B.kind === "trout" ? F.w >= 5 : B.kind === "sand" ? F.w >= 2.5 : F.w >= 15;
+        toast(`${B.kind === "cat" ? (big2 ? "🐋 HOG FLATHEAD" : "💪 Flathead") : B.kind === "trout" ? (big2 ? "🎺 BIG BROWN" : "🪶 Trout") : B.kind === "sand" ? (big2 ? "🐟 SLAB sand bass" : "🎣 Sand bass") : (big2 ? "🐊 GIANT GAR" : "🏹 Gar")} ${B.kind === "cat" ? "wrestled in" : B.kind === "trout" ? "netted" : "boated"} — <b>${F.w} lb</b> (+${bonus}s)`);
+        if (B.kind === "cat") G.catBig = Math.max(G.catBig || 0, F.w);
         sfx(big2 ? "lunker" : "land"); vibrate([30, 40, 30, 40]);
         B.fight = null; B.holding = false; showBtn(false);
       }
@@ -2436,6 +2478,17 @@
             const w = +(big ? rnd(3, 5) : rnd(1, 2.6)).toFixed(1);
             B.gars.push({ type: "rock", x: rnd(W * 0.14, W * 0.8), y: wl + 24 + rnd(0, (H - wl) * 0.4),
               w, r: 15 + w * 3.6, t: 0, dur: rnd(1500, 2400) * (big ? 0.85 : 1),
+              dir: Math.random() < 0.5 ? -1 : 1, hit: false });
+          }
+        } else if (B.kind === "cat") {
+          if (roll < 0.18) {          // snapping turtle in the hole — keep your fingers
+            B.gars.push({ type: "turtle", x: rnd(W * 0.16, W * 0.8), y: wl + 24 + rnd(0, (H - wl) * 0.42),
+              w: 0, r: 24, t: 0, dur: rnd(2400, 3300), dir: Math.random() < 0.5 ? -1 : 1, hit: false });
+          } else {
+            const hog = Math.random() < 0.2;
+            const w = +(hog ? rnd(15, 38) : rnd(4, 12)).toFixed(1);
+            B.gars.push({ type: "cat", x: rnd(W * 0.14, W * 0.8), y: wl + 24 + rnd(0, (H - wl) * 0.42),
+              w, r: 16 + w * 0.7, t: 0, dur: rnd(1500, 2400) * (hog ? 0.85 : 1),
               dir: Math.random() < 0.5 ? -1 : 1, hit: false });
           }
         } else if (B.kind === "trout") {
@@ -2491,6 +2544,28 @@
       a.t += dt;
       if (!a.done && a.t >= a.dur) {
         a.done = true;
+        if (B.kind === "cat") {
+          const gc = B.gars.find(g2 => !g2.hit && g2.t < g2.dur && Math.hypot(g2.x - a.tx, g2.y - a.ty) < g2.r + 6);
+          splash(a.tx, a.ty);
+          if (!gc) {
+            B.quiver--; sfx("snap");
+            if (B.quiver > 0) toast(`💪 Empty hole — scraped your arm on the timber! ${B.quiver} grip${B.quiver > 1 ? "s" : ""} left`);
+            continue;
+          }
+          gc.hit = true;
+          if (gc.type === "turtle") {
+            B.quiver--; B.penalty += 350;
+            B.hits.push({ x: gc.x, y: gc.y, t: 0, bad: "SNAPPER!! −350" });
+            sfx("snap"); vibrate([90, 60, 90]);
+            continue;
+          }
+          const kC = clamp((gc.w - 4) / 30, 0, 1);
+          B.fight = { x: gc.x, y: gc.y, w: gc.w, r: gc.r, k: kC, dist: 1, strain: 0, state: "run", stT: rnd(600, 1100), dir: gc.dir, jp: 0, cat: true };
+          toast(gc.w >= 15 ? "💪 <b>BIG FLATHEAD ON YOUR ARM!</b> Hold on — ease up when it rolls!" : "💪 Got one by the jaw — walk it out!");
+          setBtn("HOLD ON", "reel"); showBtn(true);
+          sfx("strike"); vibrate([50, 60, 50]);
+          continue;
+        }
         if (B.kind === "trout") {
           const gt = B.gars.find(g2 => !g2.hit && g2.t < g2.dur && Math.hypot(g2.x - a.tx, g2.y - a.ty) < g2.r + 5);
           splash(a.tx, a.ty);
@@ -2648,6 +2723,7 @@
     if (S.bow && S.bow.kind === "frog") return { x: W * 0.74 - 96, y: H - 330 };    // the raised gig
     if (S.bow && S.bow.kind === "ghost") return { x: W * 0.74 - 118, y: H - 316 };  // night rod tip
     if (S.bow && S.bow.kind === "trout") return { x: W * 0.74 - 122, y: H - 322 };  // the fly rod reaches
+    if (S.bow && S.bow.kind === "cat") return { x: W * 0.74 - 74, y: H - 238 };     // Bubba's reaching arm
     return { x: W * 0.74 - 70, y: H - 251 };                                        // the bow grip
   }
   function reelPoint() {
@@ -2680,6 +2756,7 @@
     if (B.kind === "frog") { endFrog(B); return; }
     if (B.kind === "ghost") { endGhost(B); return; }
     if (B.kind === "trout") { endTrout(B); return; }
+    if (B.kind === "cat") { endCat(B); return; }
     const total = +B.haul.reduce((a, w) => a + w, 0).toFixed(1);
     const big = B.haul.length ? Math.max(...B.haul) : 0;
     const sand = B.kind === "sand";
@@ -2936,6 +3013,108 @@
     ctx.beginPath(); ctx.roundRect((W - tw) / 2, 14, tw, 30, 15); ctx.fill();
     ctx.fillStyle = sec <= 10 ? "#ff9d8a" : "#eaf6fb"; ctx.fillText(msg, W / 2, 34);
     ctx.restore();
+  }
+  function endCat(B) {
+    const total = +B.haul.reduce((a, w) => a + w, 0).toFixed(1);
+    const big = B.haul.length ? Math.max(...B.haul) : 0;
+    const pts = Math.max(0, Math.round(total * 80 + B.haul.length * 150) - B.penalty);
+    G.coins += pts; addAnglerXP(pts);
+    G.catTrips = (G.catTrips || 0) + 1;
+    G.catCount = (G.catCount || 0) + B.haul.length;
+    G.catBestHaul = Math.max(G.catBestHaul || 0, total);
+    evalAchievements(false);
+    save(); updateHUD();
+    sfx(B.haul.length ? "weighwin" : "weighin");
+    el.garFace.innerHTML = anglerSVG(ANGLERS.find(a => a.id === "roberto"), false);
+    const say = B.quiverOut ? "That arm's done for the day, Bubba — the bluff wins this one!"
+      : B.haul.length ? "Wrestled 'em out BARE-HANDED. Fish fry's at your place, big man!"
+      : "All them holes and every one empty… they heard you coming, Bubba.";
+    el.garBody.innerHTML = `<p><b>Roberto:</b> “${say}”</p>
+      <p>💪 <b>${B.haul.length}</b> flathead${B.haul.length === 1 ? "" : "s"} wrestled in · <b>${total.toFixed(1)} lb</b>${big ? ` · biggest <b>${big.toFixed(1)} lb</b>` : ""}<br>
+      🎯 <b>+${pts.toLocaleString()}</b> points${B.penalty ? ` <span style="color:#ff9d8a">(−${B.penalty} for the snapper…)</span>` : ""}${G.catBestHaul === total && B.haul.length ? " · best haul yet!" : ""}</p>`;
+    el.garYes.textContent = "🎣 BACK TO THE BASS";
+    el.garNo.classList.add("hidden");
+    el.garModal.classList.remove("hidden");
+  }
+  // 💪 THE BLUFF — Bubba's noodling hole: late sun on the bluff wall, boils
+  // churning over sunken timber, and fingers where fingers shouldn't go
+  function renderCat(now) {
+    const B = S.bow; if (!B) return;
+    const wl = waterLine();
+    let g = ctx.createLinearGradient(0, 0, 0, wl);
+    g.addColorStop(0, "#e8b46a"); g.addColorStop(0.6, "#d98d4e"); g.addColorStop(1, "#c8703c");
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, wl);
+    ctx.fillStyle = "rgba(255,240,200,0.95)";
+    ctx.beginPath(); ctx.arc(W * 0.22, 64, 22, 0, Math.PI * 2); ctx.fill();
+    // the bluff wall: stacked rock ledges across the far bank
+    ctx.fillStyle = "#6e5040";
+    ctx.fillRect(0, wl - 92, W, 92);
+    ctx.fillStyle = "#7e5c48";
+    for (let i = 0; i < 4; i++) {
+      const ly = wl - 84 + i * 22;
+      ctx.beginPath(); ctx.moveTo(0, ly);
+      for (let x = 0; x <= W; x += 24) ctx.lineTo(x + 12, ly + Math.sin(x * 0.3 + i * 5) * 3);
+      ctx.lineTo(W, ly + 8); ctx.lineTo(0, ly + 8); ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = "#5c4234";
+    ctx.beginPath(); ctx.moveTo(0, wl - 92);
+    for (let x = 0; x <= W; x += 36) ctx.lineTo(x + 18, wl - 92 - 10 - 14 * Math.abs(Math.sin(x * 0.08)));
+    ctx.lineTo(W, wl - 92); ctx.closePath(); ctx.fill();
+    // cedar scrub on top
+    ctx.fillStyle = "#4a5a38";
+    for (let x = 12; x < W; x += 42) { ctx.beginPath(); ctx.ellipse(x, wl - 104 - 8 * Math.abs(Math.sin(x)), 13, 8, 0, 0, Math.PI * 2); ctx.fill(); }
+    // deep green reservoir water
+    g = ctx.createLinearGradient(0, wl, 0, H);
+    g.addColorStop(0, "#3f7458"); g.addColorStop(0.5, "#28513e"); g.addColorStop(1, "#16332a");
+    ctx.fillStyle = g; ctx.fillRect(0, wl, W, H - wl);
+    ctx.save(); ctx.globalAlpha = 0.12; ctx.fillStyle = "#ffe9b8";
+    for (let i = 0; i < 7; i++) { const yy = wl + 10 + i * 14; ctx.fillRect(W * 0.22 - (26 - i * 3) / 2 + Math.sin(now / 900 + i) * 4, yy, 26 - i * 3, 2); }
+    ctx.restore();
+    // sunken timber poking through
+    ctx.strokeStyle = "#3a2c1e"; ctx.lineWidth = 5; ctx.lineCap = "round";
+    ctx.beginPath(); ctx.moveTo(W * 0.16, wl + 60); ctx.lineTo(W * 0.24, wl + 18); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(W * 0.62, wl + 100); ctx.lineTo(W * 0.56, wl + 40); ctx.stroke();
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(W * 0.22, wl + 30); ctx.lineTo(W * 0.28, wl + 22); ctx.stroke();
+    // the holes at work: boils churn, snappers cruise
+    for (const gr of B.gars) {
+      const p = gr.t / gr.dur, up = Math.sin(p * Math.PI);
+      ctx.save(); ctx.translate(gr.x, gr.y);
+      if (gr.type === "turtle") {
+        ctx.scale(gr.dir, 1);
+        ctx.globalAlpha = 0.55 + up * 0.45;
+        ctx.fillStyle = "#3e4a30";
+        ctx.beginPath(); ctx.ellipse(0, 0, 13, 7, 0, Math.PI, 0); ctx.fill();      // shell dome
+        ctx.strokeStyle = "#2c3622"; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(-8, -3); ctx.lineTo(8, -3); ctx.moveTo(-5, -6); ctx.lineTo(5, -6); ctx.stroke();
+        ctx.fillStyle = "#4a5238";
+        ctx.beginPath(); ctx.ellipse(16, -2, 5.5, 3.4, 0, 0, Math.PI * 2); ctx.fill();  // the head
+        ctx.fillStyle = "#ffd35c"; ctx.beginPath(); ctx.arc(17.5, -3.4, 1, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "rgba(207,228,239,0.35)"; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(-16, 2); ctx.lineTo(-24, 5); ctx.stroke();
+      } else {
+        // a flathead working the hole: slick boil, bubbles, a tail kick
+        const hog = gr.w >= 15;
+        ctx.globalAlpha = 0.35 + up * 0.5;
+        ctx.fillStyle = "#1c3a2e";
+        ctx.beginPath(); ctx.ellipse(0, 2, gr.r * 1.15, gr.r * 0.4, 0, 0, Math.PI * 2); ctx.fill();  // the slick
+        ctx.globalAlpha = 0.5 + up * 0.5;
+        ctx.strokeStyle = "#cfe4ef"; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.ellipse(0, 2, gr.r * (0.5 + p * 0.8), gr.r * 0.32 * (0.5 + p * 0.8), 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = "rgba(240,248,252,0.75)";
+        for (let i = 0; i < (hog ? 6 : 4); i++) {
+          const bx = Math.sin(i * 2.1 + now / 160) * gr.r * 0.5, by = Math.cos(i * 1.7 + now / 200) * gr.r * 0.2;
+          ctx.beginPath(); ctx.arc(bx, by, 1.6 + (i % 2), 0, Math.PI * 2); ctx.fill();
+        }
+        if (up > 0.5) {   // tail breaks the surface on the roll
+          ctx.globalAlpha = up;
+          ctx.fillStyle = hog ? "#5c4a2e" : "#6a563a";
+          ctx.beginPath(); ctx.moveTo(gr.dir * gr.r * 0.5, 0); ctx.quadraticCurveTo(gr.dir * gr.r * 0.9, -8 * up, gr.dir * gr.r * 1.1, 2); ctx.closePath(); ctx.fill();
+        }
+      }
+      ctx.restore();
+    }
+    renderBowShared(now, "cat");
   }
   function endTrout(B) {
     const total = +B.haul.reduce((a, w) => a + w, 0).toFixed(1);
@@ -3247,12 +3426,20 @@
         ctx.beginPath(); ctx.ellipse(0, 0, len * 0.62, len * 0.3, 0, 0, Math.PI * 2); ctx.fill();   // her glow
       }
       ctx.globalAlpha = F.state === "jump" ? 1 : 0.9;
-      ctx.fillStyle = F.trout ? "#a08040" : "#bcd8e8";
+      ctx.fillStyle = F.cat ? "#6a563a" : F.trout ? "#a08040" : "#bcd8e8";
       ctx.beginPath(); ctx.ellipse(0, 0, len * 0.5, len * 0.2, 0, 0, Math.PI * 2); ctx.fill();     // pale body
-      ctx.fillStyle = F.trout ? "#7a5c28" : "#93b6cc";
+      ctx.fillStyle = F.cat ? "#544428" : F.trout ? "#7a5c28" : "#93b6cc";
       ctx.beginPath(); ctx.ellipse(0, -len * 0.08, len * 0.46, len * 0.1, 0, Math.PI, 0); ctx.fill();
       if (F.trout) { ctx.fillStyle = "#c03a2c"; for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.arc(i * len * 0.16, -2 + (i % 2) * 4, 1.6, 0, Math.PI * 2); ctx.fill(); } }
-      ctx.fillStyle = F.trout ? "#8a6b34" : "#a7c4d6";
+      if (F.cat) {   // the flat head and the whiskers
+        ctx.fillStyle = "#5c4a2e";
+        ctx.beginPath(); ctx.ellipse(len * 0.38, 0, len * 0.2, len * 0.14, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = "#2c2418"; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(len * 0.5, -2); ctx.quadraticCurveTo(len * 0.68, -10, len * 0.74, -4); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(len * 0.5, 3); ctx.quadraticCurveTo(len * 0.68, 11, len * 0.74, 6); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(len * 0.46, -5); ctx.quadraticCurveTo(len * 0.58, -13, len * 0.66, -9); ctx.stroke();
+      }
+      ctx.fillStyle = F.cat ? "#6a563a" : F.trout ? "#8a6b34" : "#a7c4d6";
       ctx.beginPath(); ctx.moveTo(-len * 0.48, 0); ctx.lineTo(-len * 0.68, -len * 0.14); ctx.lineTo(-len * 0.64, len * 0.14); ctx.closePath(); ctx.fill();  // tail
       ctx.fillStyle = "#7fa4bc";
       ctx.beginPath(); ctx.moveTo(-len * 0.2, -len * 0.18); ctx.lineTo(-len * 0.05, -len * 0.34); ctx.lineTo(len * 0.1, -len * 0.18); ctx.closePath(); ctx.fill();  // dorsal
@@ -3300,7 +3487,14 @@
       if (!a.done) {
         const ang = Math.atan2(a.ty - a.sy, a.tx - a.sx);
         ctx.translate(ax, ay); ctx.rotate(ang);
-        if (kind === "trout") {  // the fly: a speck of hackle on a whisper of leader
+        if (kind === "cat") {    // the lunge: a rolled sleeve and a grabbing hand
+          ctx.fillStyle = "#b6322b";
+          ctx.beginPath(); ctx.ellipse(-8, 0, 8, 5, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = "#dfae85";
+          ctx.beginPath(); ctx.arc(2, 0, 5, 0, Math.PI * 2); ctx.fill();
+          ctx.strokeStyle = "#c9955f"; ctx.lineWidth = 2; ctx.lineCap = "round";
+          ctx.beginPath(); ctx.moveTo(5, -3); ctx.lineTo(9, -5); ctx.moveTo(6, 0); ctx.lineTo(11, 0); ctx.moveTo(5, 3); ctx.lineTo(9, 5); ctx.stroke();
+        } else if (kind === "trout") {  // the fly: a speck of hackle on a whisper of leader
           ctx.strokeStyle = "rgba(240,240,235,0.5)"; ctx.lineWidth = 0.8;
           ctx.beginPath(); ctx.moveTo(-14, -4); ctx.lineTo(0, 0); ctx.stroke();
           ctx.fillStyle = "#5a4632"; ctx.beginPath(); ctx.arc(0, 0, 2.2, 0, Math.PI * 2); ctx.fill();
@@ -3353,7 +3547,32 @@
     ctx.lineCap = "round";
     ctx.strokeStyle = "#2c3238"; ctx.lineWidth = 9;
     ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(-5, -30); ctx.moveTo(11, 0); ctx.lineTo(8, -30); ctx.stroke();
-    if (kind === "trout") {
+    if (kind === "cat") {
+      // Bubba: camo cap, big auburn beard, red tee + overall straps, sleeves up
+      ctx.fillStyle = "#b6322b";
+      ctx.beginPath(); ctx.moveTo(-13, -28); ctx.quadraticCurveTo(-15, -56, -8, -60);
+      ctx.lineTo(10, -60); ctx.quadraticCurveTo(16, -54, 14, -28); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "#3b5372"; ctx.lineWidth = 5;   // overall straps
+      ctx.beginPath(); ctx.moveTo(-8, -58); ctx.lineTo(-10, -30); ctx.moveTo(9, -58); ctx.lineTo(11, -30); ctx.stroke();
+      ctx.fillStyle = "#dfae85"; ctx.beginPath(); ctx.arc(-4, -71, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#8a5a2e";   // the beard
+      ctx.beginPath(); ctx.moveTo(-13, -67); ctx.quadraticCurveTo(-14, -50, -4, -43);
+      ctx.quadraticCurveTo(2, -51, 0, -66) ; ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#5c6844";   // camo cap
+      ctx.beginPath(); ctx.arc(-4, -75, 10.5, Math.PI * 0.9, Math.PI * 2.02); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(-13, -76.5, 8, 3, 0.12, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#46523a"; ctx.beginPath(); ctx.arc(-7, -79, 2.4, 0, Math.PI * 2); ctx.arc(-1, -76, 2, 0, Math.PI * 2); ctx.fill();
+      // arms: lead arm plunges toward the water when the grab flies
+      ctx.strokeStyle = "#dfae85"; ctx.lineWidth = 8; ctx.lineCap = "round";   // bare rolled-up arms
+      ctx.beginPath(); ctx.moveTo(-6, -55); ctx.lineTo(flying ? -34 : -28, flying ? -38 : -50); ctx.stroke();
+      ctx.strokeStyle = "#d3a075"; ctx.lineWidth = 8;
+      ctx.beginPath(); ctx.moveTo(7, -55); ctx.lineTo(fighting ? -6 : 14, fighting ? -40 : -48); ctx.stroke();
+      ctx.fillStyle = "#dfae85";
+      ctx.beginPath(); ctx.arc(flying ? -36 : -30, flying ? -37 : -49, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#b6322b";   // rolled sleeve cuffs
+      ctx.beginPath(); ctx.ellipse(-12, -53, 5, 4, -0.4, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(10, -53, 5, 4, 0.4, 0, Math.PI * 2); ctx.fill();
+    } else if (kind === "trout") {
       // Alisa: lavender shirt, dark ponytail, sage cap, the long fly rod working
       ctx.fillStyle = "#8a6fa8";
       ctx.beginPath(); ctx.moveTo(-11, -28); ctx.quadraticCurveTo(-13, -56, -7, -60);
@@ -3446,8 +3665,9 @@
     const sec = Math.max(0, Math.ceil(B.t / 1000));
     const total = B.haul.reduce((a2, w) => a2 + w, 0);
     ctx.save(); ctx.font = "700 15px system-ui"; ctx.textAlign = "center";
-    const icon = kind === "trout" ? "🪶" : kind === "frog" ? "🔱" : "🪝";
-    const tail = kind === "trout" ? `${B.haul.length} trout · ${total.toFixed(1)} lb`
+    const icon = kind === "cat" ? "💪" : kind === "trout" ? "🪶" : kind === "frog" ? "🔱" : "🪝";
+    const tail = kind === "cat" ? `${B.haul.length} flathead${B.haul.length === 1 ? "" : "s"} · ${total.toFixed(1)} lb`
+      : kind === "trout" ? `${B.haul.length} trout · ${total.toFixed(1)} lb`
       : kind === "frog" ? `${B.haul.length} frog${B.haul.length === 1 ? "" : "s"} · ${total.toFixed(1)} lb`
       : B.ghostW ? `SHE'S IN THE BOAT` : `${B.haul.length} dink${B.haul.length === 1 ? "" : "s"} · she's out there…`;
     const msg = `${icon.repeat(Math.max(0, B.quiver))}${"·".repeat(3 - Math.max(0, B.quiver))}  ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}  ·  ${tail}`;
@@ -3463,6 +3683,7 @@
     if (B.kind === "frog") { renderFrog(now); return; }
     if (B.kind === "ghost") { renderGhost(now); return; }
     if (B.kind === "trout") { renderTrout(now); return; }
+    if (B.kind === "cat") { renderCat(now); return; }
     const wl = waterLine();
     // dusk sky over the piney bottoms
     let g = ctx.createLinearGradient(0, 0, 0, wl);
@@ -4008,7 +4229,7 @@
     ["🎪 Host a Tournament", "Circuit menu → HOST YOUR OWN. Pick the water and format, text the invite link — everyone gets one entry, standings run 48 hours."],
     ["🏆 Pro Season", "Circuit menu → PRO SEASON. Six events against seven loud pros, F1 points, sponsor deals that pay, a 100k champion's purse."],
     ["👑 Weekly Championship", "Every daily you fish earns points toward the Mon–Sun crown — best 5 of 7 days. Last week's champ wears the 👑 on the rankings."],
-    ["🚤 The Garage", "Spend your points: a faster trolling motor, pro sonar, a landing net that saves break-offs, hull wraps, and a boat name for the board."],
+    ["🚤 The Garage", "Spend your points: a faster trolling motor, pro sonar, a landing net that saves break-offs, hull wraps, a boat name — and the Paint Bench, where you mix a custom lure color and name it."],
     ["📼 Replays", "See a ▶ next to somebody's daily or event run? Tap it — their whole run plays back, catch by catch."],
     ["📣 Share a Lunker", "Land a 6 lb+ bass and hit SHARE — the link opens your full catch card anywhere: the spot on the map, the lure, the conditions."],
     ["📥 New phone?", "Title screen → Restore my angler. Your name + daily PIN pulls your whole career onto any device."],
@@ -4024,6 +4245,8 @@
   }
   // 🆕 What's New — shows itself once per version, lives behind the title link
   const WHATS_NEW = [
+    "💪 <b>Bubba joins the crew</b> — The Hoss. Word is something's holed up under the bluff timber at Highland…",
+    "🖌️ <b>The Paint Bench</b> — mix your own lure color in the Garage, name it, fish it on every lure in the box.",
     "🪶 <b>Alisa joins the crew</b> — the finesse specialist. She's heard something's sipping below the dam at first light…",
     "🌄 <b>Grande Falls Tailwater</b> — smallmouth country. Land an 8 lb+ giant to unlock it.",
     "🏆 <b>Pro Season</b> — a six-event career vs seven trash-talking pros, sponsor money, a champion's purse.",
@@ -6084,6 +6307,17 @@
     el.garageBody.innerHTML = `
       <p class="muted">Your winnings, your rig. Upgrades work everywhere; the wrap and boat name ride with you on the boards.</p>
       ${items}
+      <h3 class="rec-h">🖌️ Paint Bench <small class="muted" style="font-weight:400">${G.customPaint ? "repaint free" : "15,000 🎯 once"} · your color on every lure</small></h3>
+      <div class="paint-bench">
+        <label class="pb-lab">Base<input type="color" id="paintHex" value="${(G.customPaint && G.customPaint.hex) || "#7a2ce8"}"></label>
+        <input id="paintName" class="clog-sel" style="flex:1" maxlength="16" placeholder="NAME IT (BUBBA'S BLAZE…)"
+          autocomplete="off" autocapitalize="characters" value="${dEsc((G.customPaint && G.customPaint.name) || "")}">
+      </div>
+      <div class="paint-bench" style="margin-top:6px">
+        <button class="item-btn ${(!G.customPaint || G.customPaint.fam !== "bright") ? "owned" : ""}" data-pfam="natural" style="flex:1">🍃 Shows natural</button>
+        <button class="item-btn ${(G.customPaint && G.customPaint.fam === "bright") ? "owned" : ""}" data-pfam="bright" style="flex:1">🔆 Runs loud</button>
+      </div>
+      <button class="big-btn" id="paintSave" style="margin-top:8px">🖌️ ${G.customPaint ? "REPAINT" : "MIX THE PAINT — 15,000 🎯"}</button>
       <h3 class="rec-h">🎨 Hull wrap <small class="muted" style="font-weight:400">8,000 🎯 each · boat name included</small></h3>
       <div class="wrap-row">${wraps}</div>
       <input id="boatName" class="clog-sel" style="width:100%;margin-top:8px" maxlength="14" placeholder="NAME YOUR BOAT (shows on the board)"
@@ -6115,6 +6349,27 @@
         G.coins -= 8000; g2.paidWraps[hex] = 1;
       }
       g2.wrap = hex; save(); updateHUD(); sfx("good");
+      openGarage();
+      return;
+    }
+    const pf = e.target.closest("[data-pfam]");
+    if (pf) { hostSel.pfam = pf.dataset.pfam; sfx("ui");
+      document.querySelectorAll("[data-pfam]").forEach(x => x.classList.toggle("owned", x.dataset.pfam === pf.dataset.pfam));
+      return; }
+    if (e.target.closest("#paintSave")) {
+      const hex = ((document.getElementById("paintHex") || {}).value || "").toLowerCase();
+      const nm = (((document.getElementById("paintName") || {}).value) || "").trim().toUpperCase().slice(0, 16);
+      if (!/^#[0-9a-f]{6}$/.test(hex)) { toast("Pick a color first 🎨"); return; }
+      if (!nm) { toast("Give the paint a name 🖌️"); return; }
+      if (!G.customPaint) {
+        if (G.coins < 15000) { toast("The bench runs 15,000 points 🖌️"); sfx("weak"); return; }
+        G.coins -= 15000;
+      }
+      const fam = hostSel.pfam || (G.customPaint && G.customPaint.fam) || "natural";
+      G.customPaint = { hex, name: nm, fam };
+      applyCustomPaint();
+      save(); updateHUD(); sfx("weighwin"); vibrate([20, 30, 20]);
+      toast(`🖌️ <b>${dEsc(nm)}</b> is on the bench — it's a color choice on every lure now!`);
       openGarage();
       return;
     }
@@ -7851,7 +8106,8 @@
   }
   function renderColors() {
     const l = lure();
-    el.colorRow.innerHTML = l.colors.map(c => {
+    const list = COLORS.custom ? l.colors.concat("custom") : l.colors;
+    el.colorRow.innerHTML = list.map(c => {
       const col = COLORS[c];
       const sel = G.lure.color === c;
       const good = col.fam === preferredFam();
