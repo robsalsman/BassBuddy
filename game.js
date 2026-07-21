@@ -180,6 +180,10 @@
                  art: { shape: "bass", body: "#5e8f54", belly: "#e8edcf", pat: "lateral", patColor: "#2c3f22", bigmouth: true } },
     hawg:      { name: "Largemouth Bass", w: [10.0, 24.0], rarity: "legendary", base: 280, lm: true, bass: true, big: true,
                  art: { shape: "bass", body: "#4f7d46", belly: "#dfe6c4", pat: "lateral", patColor: "#243a1e", bigmouth: true } },
+    smallie:   { name: "Smallmouth Bass", w: [0.8, 4.5],  rarity: "common", base: 16, bass: true,
+                 art: { shape: "bass", body: "#8a6b3c", belly: "#e8dfc2", pat: "bars", patColor: "#5c4426" } },
+    bronzeback:{ name: "Smallmouth Bass", w: [4.0, 8.2],  rarity: "rare", base: 90, bass: true, big: true,
+                 art: { shape: "bass", body: "#7a5c30", belly: "#e2d8b8", pat: "bars", patColor: "#4e3820" } },
   };
 
   // Venues, each with a fish table and selectable fishing positions.
@@ -299,6 +303,28 @@
           zone: [0.62, 0.16, 0.15, 0.12], bias: { largemouth: 1.6, giant: 1.2 } },
         { id: "road", name: "Roadbed", ico: "🛣️", desc: "A flooded road — the fish highway.", depth: 0.12,
           zone: [0.40, 0.62, 0.16, 0.12], bias: { giant: 1.7, hawg: 1.6, largemouth: 1.2 } },
+      ],
+    },
+    {
+      id: "falls", name: "Grande Falls Tailwater", ico: "🌄", price: 0, clarity: "clear", baseDepth: 0.44,
+      sky: ["#bcd8e2", "#eef6f2"], water: ["#2f8f7e", "#0a3230"],
+      desc: "Cold, fast, gin-clear tailwater — smallmouth country. They pull twice their weight.",
+      lore: { where: "Below Grande Falls Dam, the Ozarks — cold water pushed through a boulder canyon", size: "9 river miles", depth: "38 ft in the chute", record: "7.9 lb smallmouth", known: "Bronze fish sit on current seams and boulder shade. Downsize, work the seams, hang on." },
+      unlock: { need: c => c.big >= 8, label: "Land an 8 lb+ giant to unlock" },
+      fish: [
+        { k: "smallie", weight: 72 }, { k: "bronzeback", weight: 23 }, { k: "largemouth", weight: 5 },
+      ],
+      positions: [
+        { id: "boil", name: "Dam Boil", ico: "🌀", desc: "Oxygen-rich churn — the strongest fish feed first.", depth: 0.06,
+          zone: [0.16, 0.2, 0.16, 0.14], bias: { smallie: 1.6, bronzeback: 1.7 } },
+        { id: "seam", name: "Current Seam", ico: "〰️", desc: "Fast meets slow — smallmouth stack the line.", depth: 0.0,
+          zone: [0.44, 0.36, 0.18, 0.14], bias: { smallie: 1.9, bronzeback: 1.2 } },
+        { id: "boulder", name: "Boulder Garden", ico: "🪨", desc: "Shade pockets behind every rock.", depth: 0.05,
+          zone: [0.68, 0.52, 0.18, 0.15], bias: { smallie: 1.5, bronzeback: 1.5, largemouth: 0.8 } },
+        { id: "chute", name: "The Chute", ico: "⤵️", desc: "Deep fast slot — the river's biggest fish hold bottom.", depth: 0.26,
+          zone: [0.36, 0.62, 0.2, 0.14], bias: { bronzeback: 2.6, smallie: 1.1 } },
+        { id: "gravel", name: "Gravel Flat", ico: "🏖️", desc: "Numbers water when the sun is low.", depth: -0.1,
+          zone: [0.72, 0.22, 0.16, 0.12], bias: { smallie: 1.7, largemouth: 1.1 } },
       ],
     },
   ];
@@ -440,6 +466,7 @@
     catchShare: $("catchShare"), hostModal: $("hostModal"), hostClose: $("hostClose"), hostBody: $("hostBody"), hostTitle: $("hostTitle"),
     garageModal: $("garageModal"), garageClose: $("garageClose"), garageBody: $("garageBody"), tsGarage: $("tsGarage"),
     tsBell: $("tsBell"), notifModal: $("notifModal"), notifClose: $("notifClose"), notifBody: $("notifBody"),
+    proModal: $("proModal"), proClose: $("proClose"), proBody: $("proBody"),
     lbModal: $("lbModal"), lbClose: $("lbClose"), lbBody: $("lbBody"), lbSorts: $("lbSorts"),
     lbProfileModal: $("lbProfileModal"), lbpName: $("lbpName"), lbpClose: $("lbpClose"),
     lbpStats: $("lbpStats"), lbpFav: $("lbpFav"), lbpSorts: $("lbpSorts"), lbpList: $("lbpList"),
@@ -1131,7 +1158,7 @@
   const sfx = n => Sound.play(n);
   function anyModalOpen() {
     return [el.catchModal, el.failModal, el.lureModal, el.mapModal,
-            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal, el.titleScreen, el.lbModal, el.lbProfileModal, el.guideModal, el.anglerModal, el.garModal, el.soundModal, el.dailyModal, el.restoreModal, el.hostModal, el.garageModal, el.notifModal].some(m => !m.classList.contains("hidden"));
+            el.tourStartModal, el.tourResultModal, el.recordsModal, el.rodModal, el.catchLogModal, el.statsModal, el.catchDetailModal, el.trophyModal, el.daySummaryModal, el.arcadeModal, el.titleScreen, el.lbModal, el.lbProfileModal, el.guideModal, el.anglerModal, el.garModal, el.soundModal, el.dailyModal, el.restoreModal, el.hostModal, el.garageModal, el.notifModal, el.proModal].some(m => !m.classList.contains("hidden"));
   }
 
   function floatText(txt, color) {
@@ -4034,6 +4061,13 @@
           <div class="item-desc">${dsp0.ico} ${dsp0.name} · 3:00 · ${dr0.mode.rule} One entry a day, against the whole world.${dDone0 ? ` · <span style="color:#5be37a">✓ fished today</span>` : ""}</div>
         </div>
         <button class="item-btn owned" data-daily="1">${dDone0 ? "VIEW" : "ENTER"}</button>
+      </div><div class="item circuit" data-pro="1">
+        <div class="item-ico">🎬</div>
+        <div class="item-info">
+          <div class="item-name">PRO SEASON${(G.pro && !G.pro.done) ? ` — ROUND ${G.pro.round + 1}/6` : (G.pro && G.pro.titles) ? ` — 👑 ${G.pro.titles} title${G.pro.titles > 1 ? "s" : ""}` : ""}</div>
+          <div class="item-desc">Six events, a cast of loud-mouthed pros, sponsor money, one champion. Your career starts here.</div>
+        </div>
+        <button class="item-btn owned" data-pro="1">${G.pro && !G.pro.done ? "CONTINUE" : "START"}</button>
       </div><div class="item circuit" data-duel="1">
         <div class="item-ico">🥊</div>
         <div class="item-info">
@@ -4099,7 +4133,7 @@
   }
   el.tourneyBtn.addEventListener("click", openCircuit);
   el.modeClose.addEventListener("click", () => el.modeModal.classList.add("hidden"));
-  el.modeModal.addEventListener("click", (e) => { const x0 = e.target.closest("[data-duel]"); if (x0) { el.modeModal.classList.add("hidden"); sfx("ui"); openDuelSheet(); return; } const h0 = e.target.closest("[data-host]"); if (h0) { el.modeModal.classList.add("hidden"); sfx("ui"); openHostSheet(); return; } const d0 = e.target.closest("[data-daily]"); if (d0) { el.modeModal.classList.add("hidden"); openDailySheet(false); return; } const a = e.target.closest("[data-arcade]"); if (a) { startArcade(); return; } const b = e.target.closest("[data-tour]"); if (b) chooseTour(b.dataset.tour); });
+  el.modeModal.addEventListener("click", (e) => { const p0 = e.target.closest("[data-pro]"); if (p0) { el.modeModal.classList.add("hidden"); sfx("ui"); openProSeason(); return; } const x0 = e.target.closest("[data-duel]"); if (x0) { el.modeModal.classList.add("hidden"); sfx("ui"); openDuelSheet(); return; } const h0 = e.target.closest("[data-host]"); if (h0) { el.modeModal.classList.add("hidden"); sfx("ui"); openHostSheet(); return; } const d0 = e.target.closest("[data-daily]"); if (d0) { el.modeModal.classList.add("hidden"); openDailySheet(false); return; } const a = e.target.closest("[data-arcade]"); if (a) { startArcade(); return; } const b = e.target.closest("[data-tour]"); if (b) chooseTour(b.dataset.tour); });
 
   // ===========================================================================
   // Conditions: time of day, weather, water temperature -> fish holding depth
@@ -4652,6 +4686,7 @@
     G.bestDayCatches = Math.max(G.bestDayCatches || 0, S.dayCatches);
     if (((S.ft && S.ft.jumps) || 0) >= 3) G.acro = (G.acro || 0) + 1;   // landed an acrobat
     if (f.bass) bigBassSubmit(f.weight);   // 🐷 Big Bass of the Day — every mode counts
+    if (f.bass && f.weight >= LUNKER_LB && S.tournament && S.tournament.pro && G.pro && !G.pro.done) { G.pro.lunkers = (G.pro.lunkers || 0) + 1; checkSponsors(); }
 
     const lunk = f.bass && f.weight >= LUNKER_LB;
     sfx(lunk ? "lunker" : "land"); setTimeout(() => sfx("coin"), 450);
@@ -4909,6 +4944,7 @@
     S.dayStarted = true;
     const sweepStart = t.spot === "deep" ? 21 * 60 : 6 * 60;
     S.tournament = { timeLeft: t.dur, dur: t.dur, well: [], big: 0, culls: 0, field: t.field, fee, spotId: t.spot, name: t.name, eventId: t.id, ended: false, tier, rivals: buildRivals(t.field, tier), lastLead: null, sweepStart, period: 0 };
+    if (t.pro) S.tournament.pro = true;
     if (t.daily || t.custom) {
       const T2 = S.tournament;
       T2.daily = t.daily || null; T2.custom = t.custom || null; T2.duel = !!t.duel; T2.mode = t.mode; T2.rivals = []; T2.dayCount = 0; T2._real = [];
@@ -5078,6 +5114,27 @@
       `<br>Circuit: <b>+${pts} pts</b> · season ${seasonPtsNow} (${seasonNow}/${TOURNAMENTS.length} events)` + champBanner;
     el.tourStandings.innerHTML = board.map((b, i) =>
       `<div class="stand-row ${b.me ? "me" : ""}"><span>${i + 1}. ${b.name}</span><span class="w">${b.total.toFixed(2)} lb</span></div>`).join("");
+    // --- pro season bookkeeping rides on top of the normal weigh-in ---
+    if (T.pro && G.pro && !G.pro.done) {
+      const P = G.pro;
+      const myP = Math.min(place, 8);
+      const order = PRO_RIVALS.map(rv => ({ rv, roll: rv.skill * (0.6 + Math.random() * 0.8) })).sort((a, b2) => b2.roll - a.roll);
+      const slots = []; for (let i = 1; i <= 8; i++) if (i !== myP) slots.push(i);
+      order.forEach((o, i) => { P.pts[o.rv.name] = (P.pts[o.rv.name] || 0) + (PRO_F1[slots[i] - 1] || 2); });
+      P.pts.ME = (P.pts.ME || 0) + (PRO_F1[myP - 1] || 2);
+      if (place === 1) P.wins = (P.wins || 0) + 1;
+      P.bagLb = +((P.bagLb || 0) + myTotal).toFixed(1);
+      P.round++;
+      if (P.round >= TOURNAMENTS.length) P.done = true;
+      checkSponsors();
+      save();
+      el.tourResultStats.innerHTML += `<br>🏆 PRO SEASON: P${myP} · <b>+${PRO_F1[myP - 1] || 2} pts</b> (${P.pts.ME} total)` +
+        (P.done ? ` · <b style="color:var(--gold)">season complete — see the standings!</b>` : "");
+      if (!P.done) {
+        const rv = order[0].rv;
+        setTimeout(() => toast(`🎙️ <b>${rv.name}</b>: “${rv.line}”`), 2200);
+      }
+    }
     el.tourResultModal.classList.remove("hidden");
     setTimeout(() => sfx(place === 1 ? "weighwin" : "weighin"), 300);   // weigh-in fanfare
     const meRow = el.tourStandings.querySelector(".me");
@@ -5118,7 +5175,11 @@
   }
   function dailyRules(dk) {
     const r = dayRng(dk);
-    const sp = SPOTS[Math.floor(r() * SPOTS.length)];
+    // fixed pool, NOT SPOTS.length: adding a lake must never re-shuffle the
+    // rotation old builds computed. Grande Falls joins on its cutover day.
+    const pool = ["cove", "river", "deep", "bayou", "highland"];
+    if (dk >= 20260724) pool.push("falls");
+    const sp = SPOTS.find(s => s.id === pool[Math.floor(r() * pool.length)]) || SPOTS[0];
     const mode = DAILY_MODES[Math.floor(r() * DAILY_MODES.length)];
     return { day: dk, spot: sp.id, mode };
   }
@@ -5906,6 +5967,110 @@
   }
   el.tsBell.addEventListener("click", () => { sfx("ui"); openNotifs(); });
   el.notifClose.addEventListener("click", () => el.notifModal.classList.add("hidden"));
+
+  // --- 🏆 PRO SEASON: the six circuit events as a career arc — a fixed cast
+  // of rivals with mouths on them, F1 points, sponsor deals, a champion.
+  const PRO_RIVALS = [
+    { name: "R. Vela",   tag: "The Hammer",    skill: 1.30, line: "Tell the kid the lake's mine after lunch." },
+    { name: "K. Ash",    tag: "Ice Cold",      skill: 1.22, line: "I don't chase 'em. They come to me." },
+    { name: "M. Boone",  tag: "Big Bag Boone", skill: 1.15, line: "Five fish. Twenty pounds. Every time." },
+    { name: "T. Ito",    tag: "The Surgeon",   skill: 1.10, line: "Your spot? I finished with it an hour ago." },
+    { name: "C. Rios",   tag: "Hot Streak",    skill: 1.02, line: "Somebody's gotta cash these checks." },
+    { name: "B. Nash",   tag: "The Grinder",   skill: 0.95, line: "I'll out-cast you 'til dark, friend." },
+    { name: "L. Okafor", tag: "Rookie Fire",   skill: 0.90, line: "New name, same leaderboard. Learn it." },
+  ];
+  const PRO_F1 = [25, 18, 15, 12, 10, 8, 6, 4];
+  const SPONSORS = [
+    { id: "lunk", ico: "🏆", name: "Lunker Deal",  desc: "Land 3 lunkers in season events", target: 3, key: "lunkers", pay: 30000 },
+    { id: "wins", ico: "🥇", name: "Sweep Bonus",  desc: "Win 2 season events",             target: 2, key: "wins",    pay: 50000 },
+    { id: "grind", ico: "⚖️", name: "Grind Deal",  desc: "Weigh 60 lb across the season",   target: 60, key: "bagLb",  pay: 25000 },
+  ];
+  const pro = () => G.pro;
+  function proStart() {
+    G.pro = { round: 0, pts: { ME: 0 }, lunkers: 0, wins: 0, bagLb: 0, paid: {}, done: false, titles: (G.pro && G.pro.titles) || 0 };
+    PRO_RIVALS.forEach(rv => { G.pro.pts[rv.name] = 0; });
+    save();
+    openProSeason();
+    toast("🏆 PRO SEASON — six events, seven mouths to shut. Lines in!");
+  }
+  function proStandings() {
+    const P = pro(); if (!P) return [];
+    return Object.entries(P.pts).map(([n, p]) => ({
+      n: n === "ME" ? (G.name || "YOU") : n, me: n === "ME", pts: p,
+      tag: n === "ME" ? "" : (PRO_RIVALS.find(r => r.name === n) || {}).tag || "",
+    })).sort((a, b) => b.pts - a.pts);
+  }
+  function checkSponsors() {
+    const P = pro(); if (!P) return;
+    for (const sp2 of SPONSORS) {
+      if (P.paid[sp2.id]) continue;
+      if ((P[sp2.key] || 0) >= sp2.target) {
+        P.paid[sp2.id] = 1; G.coins += sp2.pay;
+        toast(`🤝 <b>${sp2.name}</b> pays out — <b>+${sp2.pay.toLocaleString()}</b> 🎯`);
+        sfx("weighwin"); vibrate([30, 40, 30]);
+      }
+    }
+  }
+  function openProSeason() {
+    const P = pro();
+    if (!P) {
+      el.proBody.innerHTML = `
+        <div class="daily-card">
+          <div class="d-title">🏆 PRO SEASON</div>
+          <div class="d-sub">Six circuit events. Seven pros who talk too much. F1 points, sponsor money, one champion.</div>
+          <button class="big-btn" id="proStart" style="margin-top:8px">🎬 START THE SEASON</button>
+        </div>`;
+      el.proModal.classList.remove("hidden");
+      return;
+    }
+    const rows = proStandings();
+    const board = rows.map((r2, i) =>
+      `<div class="d-row ${r2.me ? "me real" : ""}"><span>${i + 1}. ${dEsc(r2.n)}${r2.me ? " ★" : ""}${r2.tag ? ` <small class="muted">“${r2.tag}”</small>` : ""}</span><span class="w">${r2.pts} pts</span></div>`).join("");
+    const deals = SPONSORS.map(sp2 => {
+      const prog = Math.min(P[sp2.key] || 0, sp2.target);
+      return `<div class="d-row"><span>${sp2.ico} ${sp2.name} <small class="muted">${sp2.desc}</small></span><span class="w">${P.paid[sp2.id] ? "PAID ✓" : `${(+prog.toFixed(1))}/${sp2.target}`}</span></div>`;
+    }).join("");
+    let head;
+    if (P.done) {
+      const champ = rows[0];
+      head = `<div class="daily-card">
+        <div class="d-title">${champ.me ? "👑 SEASON CHAMPION!" : "🏁 SEASON OVER"}</div>
+        <div class="d-sub">${champ.me ? `You took the title with <b>${champ.pts} pts</b>${P.champPaid ? "" : " — <b>+100,000</b> 🎯 champion's purse!"}` : `<b>${dEsc(champ.n)}</b> takes the title with ${champ.pts} pts. Unfinished business.`}</div>
+        <button class="big-btn" id="proStart" style="margin-top:8px">🔄 RUN IT BACK — NEW SEASON</button>
+      </div>`;
+      if (champ.me && !P.champPaid) { P.champPaid = 1; P.titles = (P.titles || 0) + 1; G.coins += 100000; save(); updateHUD(); sfx("weighwin"); }
+    } else {
+      const t = TOURNAMENTS[P.round];
+      const sp3 = SPOTS.find(s2 => s2.id === t.spot) || SPOTS[0];
+      head = `<div class="daily-card">
+        <div class="d-title">🏆 ROUND ${P.round + 1} of ${TOURNAMENTS.length}</div>
+        <div class="d-sub"><b>${t.name}</b> · ${sp3.ico} ${sp3.name}</div>
+        <div class="d-sub muted" style="font-size:11px">${t.blurb}</div>
+        <button class="big-btn" id="proFish" style="margin-top:8px">🎣 FISH THE ROUND</button>
+      </div>`;
+    }
+    el.proBody.innerHTML = head +
+      `<h3 class="rec-h">📊 Season standings</h3><div class="d-list">${board}</div>
+       <h3 class="rec-h">🤝 Sponsor deals</h3><div class="d-list">${deals}</div>`;
+    el.proModal.classList.remove("hidden");
+  }
+  el.proBody.addEventListener("click", (e) => {
+    if (e.target.closest("#proStart")) { sfx("good"); proStart(); return; }
+    if (e.target.closest("#proFish")) {
+      sfx("good");
+      const P = pro(); if (!P || P.done) return;
+      const t = TOURNAMENTS[P.round]; if (!t) return;
+      el.proModal.classList.add("hidden");
+      if (!el.titleScreen.classList.contains("hidden")) closeTitle(true);
+      pendingTour = Object.assign({}, t, { pro: true });
+      if (G.spot !== t.spot) { G.spot = t.spot; seedFish(); rollConditions(); }
+      save(); updateHUD(); resetToIdle();
+      refreshTourStart();
+      el.tourStartModal.classList.remove("hidden");
+      return;
+    }
+  });
+  el.proClose.addEventListener("click", () => { sfx("ui"); el.proModal.classList.add("hidden"); });
 
   let dailyThen = null;   // where to go if the once-a-day prompt is waved off
   function openDailySheet(auto, then) {
@@ -7498,6 +7663,7 @@
   // their zones actually sit on the water. Markers are tappable.
   const LAKE_SHAPES = {
     cove:     { water: "M14,32 C10,14 32,6 54,7 C80,8 94,20 93,35 C92,52 72,60 47,58 C24,56 17,49 14,32 Z", deco: "pads" },
+    falls:    { water: "M4,10 C18,4 30,14 40,22 C52,31 50,44 62,50 C76,57 90,54 96,60 L96,64 L78,64 C60,60 42,54 30,44 C18,35 6,26 4,16 Z", deco: "rocks" },
     river:    { water: "M2,8 C20,2 32,16 48,15 C64,14 60,30 76,33 C90,36 96,46 98,56 L98,64 L84,64 C68,56 58,50 44,43 C28,35 8,28 2,20 Z", deco: "rocks" },
     deep:     { water: "M7,27 C9,9 38,3 61,7 C86,11 96,25 94,40 C92,57 66,63 41,60 C17,57 5,45 7,27 Z", deco: "deep" },
     bayou:    { water: "M6,20 C16,7 33,13 44,9 C58,3 73,9 85,15 C97,22 95,38 87,46 C77,57 62,50 50,56 C36,63 19,57 11,46 C3,36 0,29 6,20 Z", deco: "cypress" },

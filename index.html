@@ -11,9 +11,9 @@
 <link rel="manifest" href="manifest.json" />
 <link rel="apple-touch-icon" href="icon-180.png" />
 <meta name="apple-mobile-web-app-title" content="BassBuddy" />
-<script>window.BB_V = "20260721b";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
+<script>window.BB_V = "20260721c";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
 <script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));</script>
-<link rel="stylesheet" href="style.css?v=20260721b" />
+<link rel="stylesheet" href="style.css?v=20260721c" />
 </head>
 <body>
 <div id="game">
@@ -432,6 +432,17 @@
     </div>
   </div>
 
+  <!-- Pro Season -->
+  <div id="proModal" class="modal hidden">
+    <div class="modal-card shop-card">
+      <div class="shop-head">
+        <h2>🏆 Pro Season</h2>
+        <button class="close-btn" id="proClose">✕</button>
+      </div>
+      <div class="shop-body" id="proBody"></div>
+    </div>
+  </div>
+
   <!-- Notifications -->
   <div id="notifModal" class="modal hidden">
     <div class="modal-card shop-card">
@@ -601,7 +612,7 @@
 </div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=20260721b"></script>
-<script src="game.js?v=20260721b"></script>
+<script type="module" src="render3d.js?v=20260721c"></script>
+<script src="game.js?v=20260721c"></script>
 </body>
 </html>
