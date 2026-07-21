@@ -11,9 +11,9 @@
 <link rel="manifest" href="manifest.json" />
 <link rel="apple-touch-icon" href="icon-180.png" />
 <meta name="apple-mobile-web-app-title" content="BassBuddy" />
-<script>window.BB_V = "20260721h";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
+<script>window.BB_V = "20260721i";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
 <script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));</script>
-<link rel="stylesheet" href="style.css?v=20260721h" />
+<link rel="stylesheet" href="style.css?v=20260721i" />
 </head>
 <body>
 <div id="game">
@@ -620,6 +620,7 @@
              autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" />
       <button class="big-btn title-resume hidden" id="tsResume" style="margin:0 0 10px">▶ RESUME</button>
       <button class="big-btn title-go" id="tsFree">🎣 GO FISHING</button>
+      <button class="big-btn hidden" id="tsNewDay" style="margin-top:8px">☀️ START A NEW DAY</button>
       <div class="title-row">
         <button class="title-btn tb-daily" id="tsDaily">📅 DAILY TOURNAMENT</button>
       </div>
@@ -660,7 +661,7 @@
 </div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=20260721h"></script>
-<script src="game.js?v=20260721h"></script>
+<script type="module" src="render3d.js?v=20260721i"></script>
+<script src="game.js?v=20260721i"></script>
 </body>
 </html>

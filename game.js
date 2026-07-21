@@ -539,7 +539,7 @@
     tourResultModal: $("tourResultModal"), tourResultMedal: $("tourResultMedal"), tourPlace: $("tourPlace"),
     tourBag: $("tourBag"), tourResultStats: $("tourResultStats"), tourStandings: $("tourStandings"), tourResultOk: $("tourResultOk"),
     titleScreen: $("titleScreen"), anglerName: $("anglerName"), titleStats: $("titleStats"),
-    tsFree: $("tsFree"), tsArcade: $("tsArcade"), tsTour: $("tsTour"), tsTutorial: $("tsTutorial"),
+    tsFree: $("tsFree"), tsNewDay: $("tsNewDay"), tsArcade: $("tsArcade"), tsTour: $("tsTour"), tsTutorial: $("tsTutorial"),
     tsResume: $("tsResume"), tsBoard: $("tsBoard"), homeBtn: $("homeBtn"),
     tsDaily: $("tsDaily"), dailyModal: $("dailyModal"), dailyClose: $("dailyClose"), dailyBody: $("dailyBody"),
     dailyTicker: $("dailyTicker"), dailyTickerText: $("dailyTickerText"),
@@ -4376,6 +4376,7 @@
     el.tsResume.classList.toggle("hidden", !pr);
     if (pr) el.tsResume.textContent = pr;
     el.tsFree.textContent = S.dayStarted ? "🎣 BACK TO THE WATER" : "🎣 GO FISHING";
+    el.tsNewDay.classList.toggle("hidden", !S.dayStarted);   // mid-session: offer a clean restart too
     if (el.tsDaily) {
       const dToday = G.dailyDone === dayKey();
       el.tsDaily.innerHTML = dToday ? "📅 DAILY — FISHED TODAY ✓" : "📅 DAILY TOURNAMENT";
@@ -4399,6 +4400,13 @@
     if (!keepTheme) Music.setScene("game");   // theme keeps playing through lake/spot/tackle prep
     save(); updateHUD();
   }
+  el.tsNewDay.addEventListener("click", () => {
+    sfx("ui");
+    startNewDay();                       // roll the calendar: fresh conditions, tallies zeroed
+    el.daySummaryModal.classList.add("hidden");
+    closeTitle(true);
+    startPrep();                         // and the full walk: angler → lake → spot → tackle
+  });
   el.tsFree.addEventListener("click", () => {
     sfx("ui");
     const go = () => { if (S.dayStarted) { closeTitle(); return; } closeTitle(true); startPrep(); };
