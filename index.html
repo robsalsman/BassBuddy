@@ -11,9 +11,9 @@
 <link rel="manifest" href="manifest.json" />
 <link rel="apple-touch-icon" href="icon-180.png" />
 <meta name="apple-mobile-web-app-title" content="BassBuddy" />
-<script>window.BB_V = "20260721k";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
+<script>window.BB_V = "20260721l";</script><!-- bump per deploy: cache-busts JS/CSS/models on phones -->
 <script>if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));</script>
-<link rel="stylesheet" href="style.css?v=20260721k" />
+<link rel="stylesheet" href="style.css?v=20260721l" />
 </head>
 <body>
 <div id="game">
@@ -50,7 +50,7 @@
     <div class="tour-me"><b id="tourWho">YOU</b><small id="tourPos">P–</small></div>
     <div class="livewell" id="livewell"></div>
     <div class="tour-total"><span id="tourTotal">0.00</span> lb<small id="tourBig"></small></div>
-    <button id="tourQuit" class="tour-quit">End</button>
+    <button id="tourQuit" class="tour-quit">⚖️ WEIGH IN<br>EARLY</button>
   </div>
 
   <!-- Arcade HUD: stage / timer / weight quota (Get Bass style) -->
@@ -661,7 +661,7 @@
 </div>
 
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
-<script type="module" src="render3d.js?v=20260721k"></script>
-<script src="game.js?v=20260721k"></script>
+<script type="module" src="render3d.js?v=20260721l"></script>
+<script src="game.js?v=20260721l"></script>
 </body>
 </html>

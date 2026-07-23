@@ -4678,7 +4678,7 @@
         <div class="item-ico">${sp.ico}</div>
         <div class="item-info">
           <div class="item-name">${t.name}</div>
-          <div class="item-desc">${sp.name} · ${mins}:${String(secs).padStart(2, "0")} · field of ${t.field}${done}<br>${t.blurb}</div>
+          <div class="item-desc">${sp.name} · ☀️ ONE-DAY EVENT · ${mins}:${String(secs).padStart(2, "0")} on the clock · field of ${t.field}${done}<br>${t.blurb}</div>
         </div>
         <button class="item-btn owned" data-tour="${t.id}">ENTER</button>
       </div>`;
@@ -4703,7 +4703,7 @@
     const tm = document.getElementById("tourMap"), tl = document.getElementById("tourLore");
     if (tm) tm.innerHTML = lakeTopoSVG(sp);
     if (tl) tl.innerHTML = sp.lore ? `📍 ${sp.lore.where}<br>📏 ${sp.lore.size} · 🌊 ${sp.lore.depth} · 💧 ${sp.clarity} water · 🏆 record ${sp.lore.record}` : "";
-    el.tourRules.textContent = `${sp.name} • ${mins}:${String(secs).padStart(2, "0")} on the clock.`
+    el.tourRules.textContent = `${sp.name} • ☀️ ONE-DAY EVENT — ${mins}:${String(secs).padStart(2, "0")} on the clock, then the weigh-in (or hit ⚖️ WEIGH IN EARLY anytime).`
       + (t.daily ? " 📅 DAILY: " + (DAILY_MODES.find(m => m.id === t.mode) || DAILY_MODES[0]).rule
         : t.custom ? " 🎪 CREW EVENT: " + (DAILY_MODES.find(m => m.id === t.mode) || DAILY_MODES[0]).rule : "");
     el.tourField.textContent = t.custom ? "your whole crew" : t.field;
@@ -5877,6 +5877,10 @@
     el.tourClock.parentElement.classList.remove("low");
     resetToIdle();
     updateHUD();
+    // the event is OVER — land back on the main menu, mode select fresh
+    // (any free-fishing day resumes through GO FISHING, nothing is lost)
+    S.dayStarted = false;
+    showTitle();
   }
 
   // ===========================================================================
