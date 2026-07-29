@@ -1171,26 +1171,6 @@
         else { const base = 1700 + Math.random() * 900; for (let i = 0; i < 3; i++) tone(base + i * 130, t + i * 0.09, 0.08, "sine", 0.035, base + i * 130 + 220); }
       } catch (e) {}
     }
-    // steady rain hiss (highpassed noise loop) faded in on rainy weather
-    let rainBed = null, rainGain = null;
-    function setRain(on) {
-      if (!ready) return;
-      try {
-        const t = ctx.currentTime;
-        if (on && !rainBed) {
-          const len = ctx.sampleRate * 2, buf = ctx.createBuffer(1, len, ctx.sampleRate), d = buf.getChannelData(0);
-          for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-          rainBed = ctx.createBufferSource(); rainBed.buffer = buf; rainBed.loop = true;
-          const f = ctx.createBiquadFilter(); f.type = "highpass"; f.frequency.value = 1600;
-          rainGain = ctx.createGain(); rainGain.gain.setValueAtTime(0.0001, t); rainGain.gain.linearRampToValueAtTime(0.05, t + 1.6);
-          rainBed.connect(f); f.connect(rainGain); rainGain.connect(master); rainBed.start();
-        } else if (!on && rainBed) {
-          const rb = rainBed, rg = rainGain; rainBed = null; rainGain = null;
-          rg.gain.cancelScheduledValues(t); rg.gain.setValueAtTime(rg.gain.value, t); rg.gain.linearRampToValueAtTime(0.0001, t + 1.4);
-          try { rb.stop(t + 1.6); } catch (e) {}
-        }
-      } catch (e) {}
-    }
     function tone(freq, t0, dur, type, peak, slideTo) {
       const o = ctx.createOscillator(), g = ctx.createGain();
       o.type = type || "sine"; o.frequency.setValueAtTime(freq, t0);
@@ -1253,7 +1233,7 @@
         }
       } catch (e) {}
     }
-    return { ensure, play, ambientCall, setMuted, setVolume, setNight, windGust, setVenue, setRain,
+    return { ensure, play, ambientCall, setMuted, setVolume, setNight, windGust, setVenue,
       ctxRef: () => { ensure(); return ctx; } };   // shared context — music must NOT open a second one (iOS crackles)
   })();
   const sfx = n => Sound.play(n);
@@ -7260,9 +7240,6 @@
     if (S._sndVenue !== G.spot) { S._sndVenue = G.spot; try { Sound.setVenue(G.spot); } catch (e) {} }
     // wind gusts pick up on cloudy / foggy water
     const wx = S.cond && S.cond.weather, windy = wx === "cloud" || wx === "fog" || wx === "rain";
-    // a steady rain hiss fades in and out with the weather
-    const raining = wx === "rain";
-    if (S._raining !== raining) { S._raining = raining; try { Sound.setRain(raining); } catch (e) {} }
     if (windy) {
       S._windT = (S._windT == null ? rnd(4000, 9000) : S._windT - dt);
       if (S._windT <= 0) { S._windT = rnd(7000, 15000); try { Sound.windGust(wx === "fog" ? 0.45 : 0.7); } catch (e) {} }
