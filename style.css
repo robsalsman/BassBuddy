@@ -324,6 +324,20 @@ select, input, textarea { font-size: 16px; }
   line-height: 1.25; text-align: center; cursor: pointer; white-space: nowrap;
 }
 
+/* the guide calling the matchup mid-fight */
+.guide-call {
+  position: absolute; top: calc(154px + var(--safe-top)); left: 10px; right: 10px;
+  display: flex; align-items: center; gap: 10px; z-index: 23;
+  background: linear-gradient(180deg, #4a3421, #33240f);
+  border: 2px solid #6b4c2c; border-radius: 14px; padding: 9px 12px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.45);
+  animation: guideIn .3s cubic-bezier(.2,.8,.3,1.2);
+}
+.guide-call .gc-face { flex: 0 0 46px; width: 46px; height: 46px; border-radius: 50%; overflow: hidden; border: 2px solid #8a6a3c; background: #20160a; }
+.guide-call .gc-face svg { width: 100%; height: 100%; }
+.guide-call .gc-txt { flex: 1; font-size: 12.5px; font-weight: 700; color: #ffe9c4; line-height: 1.35; }
+@keyframes guideIn { from { opacity: 0; transform: translateY(-10px) scale(.96); } to { opacity: 1; transform: none; } }
+
 /* cull / toast popups */
 .toast {
   position: absolute;

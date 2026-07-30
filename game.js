@@ -4322,6 +4322,20 @@
     el.guideModal.classList.remove("hidden");
     sfx("ui");
   }
+  // the guide pipes up mid-action — a small barn-wood callout under the HUD
+  let _guideSayT = 0;
+  function guideSay(msg, ms) {
+    const box = document.getElementById("guideCall"); if (!box) return;
+    const face = document.getElementById("guideCallFace"), txt = document.getElementById("guideCallText");
+    if (face && !face.innerHTML) face.innerHTML = guideSVG(true);
+    if (txt) txt.innerHTML = msg;
+    box.classList.remove("hidden");
+    clearTimeout(_guideSayT);
+    _guideSayT = setTimeout(() => box.classList.add("hidden"), ms || 5000);
+    sfx("ui");
+  }
+  function guideHush() { const box = document.getElementById("guideCall"); if (box) box.classList.add("hidden"); clearTimeout(_guideSayT); }
+
   // 🆕 What's New — shows itself once per version, lives behind the title link
   const WHATS_NEW = [
     "🐂 <b>Fish with careers</b> — 18 named fish (3 per lake, ⭐ L1–L6), tracked like bucking bulls: hookups, landings, escapes, thrown-streaks, crew-wide. Every escape she grows. Ambush bites fight ANGRY now, and the big names take real angler upgrades to land.",
@@ -5222,8 +5236,7 @@
       T.maxStam = T.stamina;
       const mine = myLegendBook(Ln.id); mine.h++; save();
       legendStatsBump(Ln.id, st => { st.h = (st.h || 0) + 1; });
-      const outmatched = Ln.lvl >= 4 && skill("power") < 0.35 && !(G.garage && G.garage.net);
-      if (outmatched) setTimeout(() => toast(`⚠️ ${legStars(Ln)} vs your build — you're OUTMATCHED. Fight perfect.`), 900);
+      T.outm = Ln.lvl >= 4 && skill("power") < 0.5 && !(G.garage && G.garage.net);   // the guide reads the matchup on her first jump
     } else if (f.ambush) {
       setStatus("AMBUSH! It's HOT — hold on!", true);
     }
@@ -5237,6 +5250,7 @@
   function landFish() {
     // start the boating animation — swing small ones in, hand-lip the big ones
     const f = S.hookedFish;
+    guideHush();
     S.mode = "landing";
     S.landT = 0;
     S.landBig = f.weight >= 3.5;
@@ -5383,6 +5397,7 @@
   }
 
   function loseFish(msg) {
+    guideHush();
     if (S.hookedFish && S.hookedFish.legendId) legendEscaped(S.hookedFish);   // 🐂 the bull bucked you off
     el.fightPanel.classList.add("hidden");
     sfx("snap");
@@ -7765,7 +7780,14 @@
     if (T.stateT <= 0) {
       const tired = T.stamina < 0.33, r = Math.random();
       if (T.state === "tire") {
-        if (!tired && r < Math.min(0.55, 0.3 * AG)) { T.state = "jump"; T.stateT = rnd(450, 800); T.jumps = (T.jumps || 0) + 1; sfx("jump"); vibrate(20); }
+        if (!tired && r < Math.min(0.55, 0.3 * AG)) {
+          T.state = "jump"; T.stateT = rnd(450, 800); T.jumps = (T.jumps || 0) + 1; sfx("jump"); vibrate(20);
+          if (T.leg && !T._gcall && S.hookedFish && S.hookedFish.legendId) {
+            T._gcall = 1;
+            const Lj = NAMED_BY_ID[S.hookedFish.legendId];
+            if (Lj) guideSay(`Oh boy! You hooked <b>${Lj.name}</b>! She's a <b>Level ${Lj.lvl}</b> legend on this lake!${T.outm ? " You're OUTMATCHED — fight her perfect!" : " Hang on!"}`);
+          }
+        }
         else { T.state = "run"; T.stateT = rnd(650, 1500) * (0.6 + T.size * 0.8) * (1 + (AG - 1) * 0.5); T.latTarget = rnd(-1, 1) * (0.5 + T.size * 0.5); }
       } else { T.state = "tire"; T.stateT = rnd(700, 1400) * (1.2 - T.size * 0.5) / (1 + (AG - 1) * 0.45); T.latTarget = (T.latTarget || 0) * 0.3; }
     }
