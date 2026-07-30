@@ -4310,7 +4310,7 @@
     ["📼 Replays", "See a ▶ next to somebody's daily or event run? Tap it — their whole run plays back, catch by catch."],
     ["📣 Share a Lunker", "Land a 6 lb+ bass and hit SHARE — the link opens your full catch card anywhere: the spot on the map, the lure, the conditions."],
     ["📥 New phone?", "Title screen → Restore my angler. Your name + daily PIN pulls your whole career onto any device."],
-    ["🐊 Lake Legends", "Every lake hides ONE named giant — Old Scarback, The Widowmaker, The Dam Ghost… Some days she's prowling: watch for the huge boil. If she eats, it's the hardest fight in the game. First in the crew to land each legend owns that plaque in the Record Book forever."],
+    ["🐂 Named Fish & Levels", "Eighteen named fish now — three per lake, ⭐ L1 pups up to the ⭐×6 WIDOWMAKER. Levels set the FIGHT: more jumps, meaner runs, deeper tanks. Skill points (Power!), better line, and the Garage net are how you punch up. Every fish keeps a career record like a bucking bull — hookups, landings, escapes, current thrown-streak — crew-wide in the Record Book. And every escape? She gets bigger."],
     ["🌩️ Moments", "Free fishing is a live world: birds pile onto a schooling blitz (red-hot bite + a ×1.5 score bonus — cast into it!), beavers spook the pool, an osprey might dive on your hooked fish, and a building storm fires the bite before it runs you off the lake."],
     ["❓ Secret spots", "Folks say every angler in the stable has a place they don't talk about. Fish the right water as the right angler and watch the map…"],
   ];
@@ -4324,6 +4324,7 @@
   }
   // 🆕 What's New — shows itself once per version, lives behind the title link
   const WHATS_NEW = [
+    "🐂 <b>Fish with careers</b> — 18 named fish (3 per lake, ⭐ L1–L6), tracked like bucking bulls: hookups, landings, escapes, thrown-streaks, crew-wide. Every escape she grows. Ambush bites fight ANGRY now, and the big names take real angler upgrades to land.",
     "🐊 <b>Legends of the Lakes</b> — every lake hides ONE named giant with a story. Land her FIRST and the plaque on the crew Record Book is yours forever.",
     "🌩️ <b>Moments</b> — schooling blitzes, beaver slaps, diving ospreys and building storms, live during free fishing. When the birds start working: CAST INTO IT.",
     "🧰 <b>The Pro Shop</b> — six new baits for sale in the tackle box: Popper, Lizard, Crawdad, Urchin Creature, Swimbait… and the Baby Duck. 🦆",
@@ -4763,8 +4764,13 @@
     // a hidden "pattern of the day": the bass are keyed on one lure, so even an
     // off-the-chart choice can crush it if it matches — discover it by fishing
     S.cond.hotLure = LURES[Math.floor(Math.random() * LURES.length)].id;
-    // ~1 day in 4 the lake's named legend is prowling (free fishing only — see LEGENDS)
-    S.legendAround = Math.random() < 0.25;
+    // ~1 day in 3 one of the lake's named fish is prowling (free fishing only).
+    // Lower-level fish show far more often; the top legend is a rare visit.
+    S.legendAround = null;
+    if (Math.random() < 0.35) {
+      const ros = NAMED[sp.id];
+      if (ros) { const r2 = Math.random(); S.legendAround = (r2 < 0.55 ? ros[0] : r2 < 0.85 ? ros[1] : ros[2]).id; }
+    }
     S.legendT = 0; S.legendNext = 50000 + Math.random() * 40000;
     S.moment = null; S.momentT = 0; S.osprey = null; S.stormOut = false;
     recomputeCond();
@@ -5141,6 +5147,7 @@
     S.mode = "strike";
     S.hookedFish = pickFish();
     if (momentActive("blitz")) S.hookedFish.blitz = true;   // schooling frenzy — pays a score bonus if landed
+    if (S.rv && S.rv.ambush) S.hookedFish.ambush = true;    // reaction bite — this one fights ANGRY
     maybeLegendHook();
     // snapshot the depth the lure was working when the fish committed (the catch depth)
     S.catchDepth = (S.rv && S.rv.depth != null) ? S.rv.depth : S.cond.band;
@@ -5161,7 +5168,7 @@
     el.hookMeter.classList.remove("hidden");
     el.hookMeter.classList.add("armed");
     flashStrike();
-    const Lg = S.hookedFish.legendLake && LEGENDS[S.hookedFish.legendLake];
+    const Lg = S.hookedFish.legendId && NAMED_BY_ID[S.hookedFish.legendId];
     setStatus(Lg ? `${Lg.ico} IT'S ${Lg.name}!!` : "FISH ON!", true);
     splash(S.bobber.x, S.bobber.y); splash(S.bobber.x, S.bobber.y);
     sfx("strike"); vibrate(45);
@@ -5204,6 +5211,22 @@
     T.cover = 0; T._coverBuzz = 0; T.lat = 0; T.latTarget = 0; T.jumps = 0;
     T.state = "run"; T.stateT = rnd(500, 1100); T.pull = 0.85 - quality * 0.3; T.jumpY = 0;
     T.maxStam = T.stamina; T.size = d;
+    // 😤 aggression: ambush bites fight angry; named fish fight by their level —
+    // more jumps, longer meaner runs, deeper stamina. This is where levels bite.
+    const Ln = f.legendId && NAMED_BY_ID[f.legendId];
+    T.aggr = Math.max(f.ambush ? 1.45 : 1, Ln ? 1 + Ln.lvl * 0.12 : 1);
+    T.leg = !!Ln;
+    T.wear = 0; T.grit = rnd(0.35, 1.6);  // how deep the hook buried — per-hookup luck
+    if (Ln) {
+      T.stamina = Math.min(1.12, T.stamina + Ln.lvl * 0.035);   // she came to fight
+      T.maxStam = T.stamina;
+      const mine = myLegendBook(Ln.id); mine.h++; save();
+      legendStatsBump(Ln.id, st => { st.h = (st.h || 0) + 1; });
+      const outmatched = Ln.lvl >= 4 && skill("power") < 0.35 && !(G.garage && G.garage.net);
+      if (outmatched) setTimeout(() => toast(`⚠️ ${legStars(Ln)} vs your build — you're OUTMATCHED. Fight perfect.`), 900);
+    } else if (f.ambush) {
+      setStatus("AMBUSH! It's HOT — hold on!", true);
+    }
     S.holding = false;
     setStatus(perfect ? "PERFECT HOOKSET!" : good ? "Solid hookset!" : "Hooked up!", true);
     sfx(perfect ? "perfect" : good ? "good" : "weak");
@@ -5242,7 +5265,7 @@
     const scoreBase = Math.round(f.weight * 100);
     const hookMul = 1 + hq * 0.5;
     const presMul = 1 + presQ * 0.5;
-    const scoreBonus = f.legendLake ? 2500 : f.weight >= 10 ? 1000 : f.weight >= LUNKER_LB ? 500 : 0;
+    const scoreBonus = f.legendId ? 800 + (NAMED_BY_ID[f.legendId] ? NAMED_BY_ID[f.legendId].lvl : 3) * 300 : f.weight >= 10 ? 1000 : f.weight >= LUNKER_LB ? 500 : 0;
     f.score = Math.round((scoreBase * hookMul * presMul + scoreBonus) * garageScoreMul() * (1 + curFamLvl() * 0.01) / 10) * 10;
     f.scoreInfo = { base: scoreBase, hookMul, presMul, bonus: scoreBonus, hq, presQ };
     if (f.blitz) { f.score = Math.round(f.score * 1.5 / 10) * 10; f.scoreInfo.blitz = true; }   // 🐦 landed out of the blitz
@@ -5256,7 +5279,7 @@
     if (f.bass) bigBassSubmit(f.weight);   // 🐷 Big Bass of the Day — every mode counts
     if (f.bass) addMastery(f.score || 0);  // 🎖️ family mastery banks with THIS angler
     if (f.bass && f.weight >= LUNKER_LB && S.tournament && S.tournament.pro && G.pro && !G.pro.done) { G.pro.lunkers = (G.pro.lunkers || 0) + 1; checkSponsors(); }
-    if (f.legendLake) legendLanded(f);     // 🐊 a named legend — the crew plaque may be on the line
+    if (f.legendId) legendLanded(f);       // 🐊 a named fish — her record takes the L
 
     const lunk = f.bass && f.weight >= LUNKER_LB;
     sfx(lunk ? "lunker" : "land"); setTimeout(() => sfx("coin"), 450);
@@ -5280,8 +5303,8 @@
       : f.weight >= 4 ? { t: "BIG BASS", c: "#5c9bff", dark: false }
       : f.weight >= 2 ? { t: "QUALITY", c: "#5be37a", dark: true }
       : { t: "KEEPER", c: "#9fb3bf", dark: true };
-    const leg = f.legendLake && LEGENDS[f.legendLake];
-    el.catchRarity.textContent = leg ? `${leg.ico} LEGEND — ${leg.name}!` : lunk ? "🏆 LUNKER!" : cls.t;
+    const leg = f.legendId && NAMED_BY_ID[f.legendId];
+    el.catchRarity.textContent = leg ? `${leg.ico} ${legStars(leg)} ${leg.name}!` : lunk ? "🏆 LUNKER!" : cls.t;
     el.catchRarity.style.background = (leg || lunk) ? "#ffd35c" : cls.c;
     el.catchRarity.style.color = (leg || lunk || cls.dark) ? "#06222c" : "#fff";
     el.catchRarity.classList.toggle("lunker", !!(lunk || leg));
@@ -5305,7 +5328,7 @@
         `<span>⚖️ ${f.weight} lb → ${si.base}</span>`,
         `<span class="${si.hq > 0.82 ? "hot" : ""}">🪝 ×${si.hookMul.toFixed(2)}</span>`,
         `<span class="${si.presQ > 0.75 ? "hot" : ""}">🎯 ×${si.presMul.toFixed(2)}</span>`,
-        si.bonus ? `<span class="hot">${f.legendLake ? "🐊 LEGEND" : "💪 LUNKER"} +${si.bonus}</span>` : "",
+        si.bonus ? `<span class="hot">${f.legendId ? "🐊 LEGEND" : "💪 LUNKER"} +${si.bonus}</span>` : "",
         si.blitz ? `<span class="hot">🐦 BLITZ ×1.5</span>` : "",
       ].filter(Boolean).join("") : "";
     }
@@ -5360,6 +5383,7 @@
   }
 
   function loseFish(msg) {
+    if (S.hookedFish && S.hookedFish.legendId) legendEscaped(S.hookedFish);   // 🐂 the bull bucked you off
     el.fightPanel.classList.add("hidden");
     sfx("snap");
     if (S.tournament || (S.arcade && !S.arcade.ended)) { S.mode = "idle"; showBtn(false); vibrate(120); toast("💥 " + (msg || "It got off!")); setStatus("Tap & hold the water to cast"); return; }
@@ -5440,14 +5464,75 @@
   // hides ONE named giant — the first crew member to land her owns a permanent
   // plaque on the shared Record Book (Firebase /legends/<lake>).
   // ===========================================================================
-  const LEGENDS = {
-    cove:     { name: "OLD SCARBACK",   ico: "🐊", w: [13.0, 15.5], lore: "Fifteen summers old, a prop scar across her back. Three generations have hooked her. Nobody's held her." },
-    river:    { name: "BOULDER QUEEN",  ico: "👑", w: [9.5, 11.5],  lore: "Lives under the biggest boulder in the river and snaps 12 lb line like sewing thread." },
-    bayou:    { name: "THE SWAMP KING", ico: "🐍", w: [12.0, 14.5], lore: "Old-timers swear he ate a full-grown mallard in '09. The bayou's been quiet about it since." },
-    deep:     { name: "THE WIDOWMAKER", ico: "💀", w: [14.0, 17.0], lore: "Hooked eleven times, landed zero. Took Earl's whole rod down with her in 2019." },
-    highland: { name: "HIGH LONESOME",  ico: "🏔️", w: [12.5, 15.0], lore: "Cruises the bluff wall at first light. Seen plenty. Touched never." },
-    falls:    { name: "THE DAM GHOST",  ico: "🌫️", w: [7.5, 9.0],   lore: "A smallmouth built like a football cooler, living in the spillway foam below the dam." },
+  // Three named fish per lake, a ladder from L1 to the L6 final boss. Levels
+  // drive the FIGHT (aggression, stamina, snap margin) — a built-out angler
+  // has the tools; a rookie needs a perfect fight and some luck.
+  const NAMED = {
+    cove: [
+      { id: "betty",       name: "BUCKETMOUTH BETTY", ico: "🎀", lvl: 1, w: [6.5, 8.5],   lore: "The dock kids' sweetheart. Eats anything shiny and fights like she's twice her size." },
+      { id: "mayor",       name: "THE MAYOR",         ico: "🎩", lvl: 3, w: [9.0, 11.5],  lore: "Runs the stump field like city hall. Shakes more hooks than hands." },
+      { id: "scarback",    name: "OLD SCARBACK",      ico: "🐊", lvl: 4, w: [13.0, 15.5], lore: "Fifteen summers old, a prop scar across her back. Three generations have hooked her. Nobody's held her." },
+    ],
+    river: [
+      { id: "pebbles",     name: "PEBBLES",           ico: "🪨", lvl: 1, w: [6.0, 7.5],   lore: "Short, mean, built like her namesake. Guards the riffle like it owes her money." },
+      { id: "judge",       name: "THE JUDGE",         ico: "⚖️", lvl: 2, w: [7.5, 9.5],   lore: "Holds court under the cut bank. Most cases end in a snapped leader." },
+      { id: "boulderqueen",name: "BOULDER QUEEN",     ico: "👑", lvl: 4, w: [9.5, 11.5],  lore: "Lives under the biggest boulder in the river and snaps 12 lb line like sewing thread." },
+    ],
+    bayou: [
+      { id: "mudpie",      name: "MUD PIE",           ico: "🥧", lvl: 2, w: [7.0, 9.0],   lore: "Fat and lazy-looking. She is neither. Rolls in the duckweed at high noon." },
+      { id: "gatorbait",   name: "GATOR BAIT",        ico: "🪝", lvl: 3, w: [8.5, 11.0],  lore: "Earned the name outrunning a gator. You'll pull less line than the gator did." },
+      { id: "swampking",   name: "THE SWAMP KING",    ico: "🐍", lvl: 5, w: [12.0, 14.5], lore: "Old-timers swear he ate a full-grown mallard in '09. The bayou's been quiet about it since." },
+    ],
+    deep: [
+      { id: "nightshift",  name: "NIGHT SHIFT",       ico: "🌙", lvl: 3, w: [9.0, 11.5],  lore: "Clocks in at midnight on the weed edge. Clocks out with your lure." },
+      { id: "collector",   name: "THE COLLECTOR",     ico: "🧲", lvl: 4, w: [10.5, 13.0], lore: "Wears a lip full of old hooks like medals. Feel free to donate." },
+      { id: "widowmaker",  name: "THE WIDOWMAKER",    ico: "💀", lvl: 6, w: [14.0, 17.0], lore: "Hooked eleven times, landed zero. Took Earl's whole rod down with her in 2019." },
+    ],
+    highland: [
+      { id: "switchback",  name: "SWITCHBACK",        ico: "⛰️", lvl: 2, w: [7.5, 9.5],   lore: "Never runs straight. Doubles back till your line wraps the trolling motor." },
+      { id: "granite",     name: "GRANITE",           ico: "🗿", lvl: 4, w: [10.0, 12.5], lore: "Sits so still the sonar reads him as bottom. Then the bottom eats." },
+      { id: "lonesome",    name: "HIGH LONESOME",     ico: "🏔️", lvl: 5, w: [12.5, 15.0], lore: "Cruises the bluff wall at first light. Seen plenty. Touched never." },
+    ],
+    falls: [
+      { id: "spillwaysue", name: "SPILLWAY SUE",      ico: "🌀", lvl: 2, w: [4.5, 6.0],   lore: "A smallmouth that surfs the dam boil for fun. Jumps more than she swims." },
+      { id: "turbine",     name: "TURBINE",           ico: "⚙️", lvl: 4, w: [6.0, 7.5],   lore: "Spins like the thing she's named for. Dizzy anglers, straightened hooks." },
+      { id: "damghost",    name: "THE DAM GHOST",     ico: "🌫️", lvl: 5, w: [7.5, 9.0],   lore: "A smallmouth built like a football cooler, living in the spillway foam below the dam." },
+    ],
   };
+  const NAMED_BY_ID = {};
+  Object.entries(NAMED).forEach(([lk, arr]) => arr.forEach(f => { f.lake = lk; NAMED_BY_ID[f.id] = f; }));
+  // the top fish of each lake keeps the legacy per-lake plaque + achievements
+  const LEGENDS = {};
+  Object.entries(NAMED).forEach(([lk, arr]) => { LEGENDS[lk] = arr.reduce((a, b2) => (b2.lvl > a.lvl ? b2 : a)); });
+  const legLvlD = f => clamp(0.53 + f.lvl * 0.075, 0, 0.98);   // fight difficulty by level
+  const legStars = f => "⭐".repeat(f.lvl);
+
+  // --- 🐂 crew-wide career stats per fish (like bucking-bull records) ---
+  // /legendstats/<id> = { h hooked, l landed, e escaped, s current thrown-streak,
+  //                       g growth lb from escapes, hw/hn heaviest, fb/ft first landing }
+  let LSTATS = {};
+  function legendStatsFetch() {
+    const base2 = LB.fb(); if (!base2) return Promise.resolve();
+    return fetch(base2 + "/legendstats.json").then(r => r.ok ? r.json() : null)
+      .then(d => { if (d && typeof d === "object") LSTATS = d; }).catch(() => {});
+  }
+  function legendStatsBump(id, mut) {
+    const base2 = LB.fb(); if (!base2) { mut(LSTATS[id] = LSTATS[id] || {}); return; }
+    fetch(base2 + "/legendstats/" + id + ".json").then(r => r.ok ? r.json() : null).then(cur => {
+      const st = (cur && typeof cur === "object") ? cur : {};
+      mut(st); LSTATS[id] = st;
+      fetch(base2 + "/legendstats/" + id + ".json", { method: "PUT", body: JSON.stringify(st) }).catch(() => {});
+    }).catch(() => { mut(LSTATS[id] = LSTATS[id] || {}); });
+  }
+  function myLegendBook(id) {
+    if (!G.legendBook) G.legendBook = {};
+    return G.legendBook[id] = G.legendBook[id] || { h: 0, l: 0, e: 0, best: 0 };
+  }
+  // warm the fish-record cache once the db config lands (sightings + growth use it)
+  (function bootLegendStats(a) {
+    if (!LB.fb()) { if (a < 8) setTimeout(() => bootLegendStats(a + 1), 1200); return; }
+    legendStatsFetch();
+  })(0);
   // free play only — tournaments/arcade/secret trips run their own drama
   function freePlayNow() {
     return !!S.dayStarted && !S.tournament && !(S.arcade && !S.arcade.ended) && S.mode !== "bowfish"
@@ -5493,14 +5578,15 @@
         sfx("strike"); vibrate([30, 40, 60]);
       }
     }
-    // -- legend sightings: every minute or two the giant rolls within casting range --
-    if (S.legendAround && LEGENDS[spot().id]) {
+    // -- sightings: every minute or two the named fish rolls within casting range --
+    const NF = S.legendAround && NAMED_BY_ID[S.legendAround];
+    if (NF && NF.lake === spot().id) {
       S.legendT = (S.legendT || 0) + dt;
       if (S.legendT > (S.legendNext || 70000)) {
         S.legendT = 0; S.legendNext = 60000 + Math.random() * 60000;
-        const L = LEGENDS[spot().id];
         sprayBurst(rnd(W * 0.2, W * 0.8), waterLine() + rnd(8, 40), 14, 1.6);
-        toast(`${L.ico} Something HUGE just rolled… ${L.name} is in this water.`);
+        const st = LSTATS[NF.id] || {};
+        toast(`${NF.ico} Something HUGE just rolled… ${legStars(NF)} ${NF.name} is in this water${st.s > 1 ? ` — she's thrown ${st.s} straight` : ""}.`);
         sfx("splash"); vibrate(30);
       }
     }
@@ -5515,38 +5601,80 @@
     else if (r < 0.85) { S.osprey = { until: now + 120000 }; toast("🦅 An osprey is circling your water — watch your hooked fish…"); }
     else startMoment("storm", 150000, "⛈️ THUNDERHEAD BUILDING — the pre-storm feed is ON… then you're off the water!");
   }
-  // at hookup: while the legend is prowling, sometimes it's HER on the line
+  // at hookup: while a named fish is prowling, sometimes it's HER on the line
   function maybeLegendHook() {
-    const L = LEGENDS[spot().id];
-    if (!L || !S.legendAround || !freePlayNow()) return;
+    const L = S.legendAround && NAMED_BY_ID[S.legendAround];
+    if (!L || L.lake !== spot().id || !freePlayNow()) return;
     if (Math.random() > 0.09) return;
     const f = S.hookedFish; if (!f) return;
-    f.weight = +(L.w[0] + Math.random() * (L.w[1] - L.w[0])).toFixed(1);
+    const st = LSTATS[L.id] || {};
+    const grow = Math.min(2.5, (st.e || 0) * 0.15);   // every escape, she gets bigger
+    f.weight = +(L.w[0] + Math.random() * (L.w[1] - L.w[0]) + grow).toFixed(1);
     f.lengthIn = +(Math.cbrt(f.weight * 1600) * (0.98 + Math.random() * 0.04)).toFixed(1);
     f.name = L.name;
-    f.legendLake = spot().id;
-    f.difficulty = 0.97;                            // the hardest fight in the game
-    f.value = Math.max(f.value || 0, 400);
-    toast(`${L.ico} ${L.name} ATE IT — HOLD ON!!`);
+    f.legendId = L.id;
+    f.legendLake = L.lake;
+    f.difficulty = legLvlD(L);
+    f.value = Math.max(f.value || 0, 200 + L.lvl * 60);
+    toast(`${L.ico} ${legStars(L)} ${L.name} ATE IT — HOLD ON!!${st.s > 1 ? `<br><small>She's thrown ${st.s} anglers straight…</small>` : ""}`);
     sfx("lunker"); vibrate([40, 60, 40, 60, 90]);
   }
-  // landed her: personal record + the crew plaque (first to land owns it forever)
+  // landed her: the fish's career record takes the L, yours takes the W
   function legendLanded(f) {
-    const L = LEGENDS[f.legendLake]; if (!L) return;
-    if (!G.legends) G.legends = {};
-    G.legends[f.legendLake] = Math.max(G.legends[f.legendLake] || 0, f.weight);
-    S.legendAround = false;                         // the lake goes quiet after that
-    const base2 = LB.fb(); if (!base2) return;
-    fetch(base2 + "/legends/" + f.legendLake + ".json").then(r => r.ok ? r.json() : null).then(cur => {
-      if (cur && cur.n) {
-        if (cur.pid !== LB.pid()) setTimeout(() => toast(`${L.ico} ${dEsc(String(cur.n).slice(0, 12)).toUpperCase()} landed ${L.name} first — the plaque's theirs. Yours still counts!`), 1400);
-        return;
-      }
-      fetch(base2 + "/legends/" + f.legendLake + ".json", { method: "PUT",
-        body: JSON.stringify({ n: G.name || "ANGLER", pid: LB.pid(), w: +f.weight.toFixed(2), t: Date.now() }) })
-        .then(() => setTimeout(() => toast(`🏆 FIRST TO EVER LAND ${L.name} — that plaque on the crew board is YOURS FOREVER!`), 1400))
-        .catch(() => {});
-    }).catch(() => {});
+    const L = NAMED_BY_ID[f.legendId]; if (!L) return;
+    const mine = myLegendBook(L.id);
+    mine.l++; mine.best = Math.max(mine.best || 0, f.weight);
+    S.legendAround = null;                          // the lake goes quiet after that
+    legendStatsBump(L.id, st => {
+      st.l = (st.l || 0) + 1;
+      const prevStreak = st.s || 0;
+      st.s = 0;                                     // her thrown-streak ends here
+      if (!(st.hw >= f.weight)) { st.hw = +f.weight.toFixed(2); st.hn = G.name || "ANGLER"; }
+      if (!st.fb) { st.fb = G.name || "ANGLER"; st.ft = Date.now(); }
+      if (prevStreak >= 3) setTimeout(() => toast(`${L.ico} You just ended ${L.name}'s ${prevStreak}-angler streak. 😤`), 2600);
+    });
+    // the lake's TOP fish keeps the legacy write-once plaque + achievements
+    if (LEGENDS[L.lake] && LEGENDS[L.lake].id === L.id) {
+      if (!G.legends) G.legends = {};
+      G.legends[L.lake] = Math.max(G.legends[L.lake] || 0, f.weight);
+      const base2 = LB.fb(); if (!base2) return;
+      fetch(base2 + "/legends/" + L.lake + ".json").then(r => r.ok ? r.json() : null).then(cur => {
+        if (cur && cur.n) {
+          if (cur.pid !== LB.pid()) setTimeout(() => toast(`${L.ico} ${dEsc(String(cur.n).slice(0, 12)).toUpperCase()} landed ${L.name} first — the plaque's theirs. Yours still counts!`), 1400);
+          return;
+        }
+        fetch(base2 + "/legends/" + L.lake + ".json", { method: "PUT",
+          body: JSON.stringify({ n: G.name || "ANGLER", pid: LB.pid(), w: +f.weight.toFixed(2), t: Date.now() }) })
+          .then(() => setTimeout(() => toast(`🏆 FIRST TO EVER LAND ${L.name} — that plaque on the crew board is YOURS FOREVER!`), 1400))
+          .catch(() => {});
+      }).catch(() => {});
+    }
+  }
+  // she threw you: her record grows, and so does she
+  function legendEscaped(f) {
+    const L = NAMED_BY_ID[f.legendId]; if (!L) return;
+    const mine = myLegendBook(L.id);
+    mine.e++; save();
+    legendStatsBump(L.id, st => {
+      st.e = (st.e || 0) + 1;
+      st.s = (st.s || 0) + 1;
+      setTimeout(() => toast(`${L.ico} ${L.name} threw you — that's ${st.s} angler${st.s === 1 ? "" : "s"} straight. She'll be bigger next time.`), 1600);
+    });
+  }
+  // the fish career lines on the Record Book wall — crew-wide, like bull stats
+  function fillLegendStats() {
+    const paint = () => Object.values(NAMED_BY_ID).forEach(L => {
+      const e2 = document.getElementById("legR_" + L.id); if (!e2) return;
+      const st = LSTATS[L.id] || {}, mine = (G.legendBook || {})[L.id] || {};
+      const bits = [`Crew vs her: <b>${st.l || 0}–${st.e || 0}</b>${st.h ? ` · ${st.h} hookup${st.h === 1 ? "" : "s"}` : ""}`];
+      if ((st.s || 0) > 1) bits.push(`<b style="color:#ff8f8f">thrown ${st.s} straight</b>`);
+      if (st.e) bits.push(`grown +${Math.min(2.5, st.e * 0.15).toFixed(1)} lb`);
+      if (st.hw) bits.push(`best ${(+st.hw).toFixed(1)} lb by ${dEsc(String(st.hn || "?").slice(0, 10)).toUpperCase()}`);
+      if (mine.h || mine.l || mine.e) bits.push(`<b>You:</b> ${mine.l || 0}–${mine.e || 0}${mine.best ? ` · ${mine.best.toFixed(1)} lb` : ""}`);
+      e2.innerHTML = bits.join(" &nbsp;·&nbsp; ");
+    });
+    paint();
+    legendStatsFetch().then(paint);
   }
   // the Record Book plaque wall — crew-wide, one plaque per legend
   function fillLegendPlaques() {
@@ -7633,12 +7761,13 @@
   function updateFight(dt, now) {
     const T = S.ft;
     T.stateT -= dt;
+    const AG = T.aggr || 1;   // 😤 hot fish (ambush / named) jump & run more
     if (T.stateT <= 0) {
       const tired = T.stamina < 0.33, r = Math.random();
       if (T.state === "tire") {
-        if (!tired && r < 0.3) { T.state = "jump"; T.stateT = rnd(450, 800); T.jumps = (T.jumps || 0) + 1; sfx("jump"); vibrate(20); }
-        else { T.state = "run"; T.stateT = rnd(650, 1500) * (0.6 + T.size * 0.8); T.latTarget = rnd(-1, 1) * (0.5 + T.size * 0.5); }
-      } else { T.state = "tire"; T.stateT = rnd(700, 1400) * (1.2 - T.size * 0.5); T.latTarget = (T.latTarget || 0) * 0.3; }
+        if (!tired && r < Math.min(0.55, 0.3 * AG)) { T.state = "jump"; T.stateT = rnd(450, 800); T.jumps = (T.jumps || 0) + 1; sfx("jump"); vibrate(20); }
+        else { T.state = "run"; T.stateT = rnd(650, 1500) * (0.6 + T.size * 0.8) * (1 + (AG - 1) * 0.5); T.latTarget = rnd(-1, 1) * (0.5 + T.size * 0.5); }
+      } else { T.state = "tire"; T.stateT = rnd(700, 1400) * (1.2 - T.size * 0.5) / (1 + (AG - 1) * 0.45); T.latTarget = (T.latTarget || 0) * 0.3; }
     }
     // a hooked bass bolts side to side, not just straight out
     if (T.lat == null) { T.lat = 0; T.latTarget = 0; }
@@ -7647,18 +7776,20 @@
     T.lat = clamp(T.lat, -1, 1);
     const sFactor = 0.35 + 0.65 * T.stamina;
     let pull = T.state === "jump" ? 1.5 : T.state === "run" ? 1.0 : 0.2;
-    pull *= sFactor * (0.7 + T.size * 0.7);
+    pull *= sFactor * (0.7 + T.size * 0.7) * (1 + (AG - 1) * 0.45);
     T.pull = pull;
     const rodTol = (1 + (rod().power - 1) * 0.55) * line().tol;   // stronger line resists the snap
 
     if (S.holding) {
       T.tension += dt * (0.00050 + pull * 0.00150) / (rodTol * (1 + skill("power") * 0.35)) * garageNet();
       T.dist = clamp(T.dist - dt * 0.00017 * (1.25 - pull * 0.6), 0, 1);
-      T.stamina = clamp(T.stamina - dt * (0.00006 + (T.state === "tire" ? 0.00019 : 0.00004)) * (1 + skill("power") * 0.25), 0, 1);
+      T.stamina = clamp(T.stamina - dt * (0.00006 + (T.state === "tire" ? 0.00019 : 0.00004)) * (1 + skill("power") * 0.25) / (T.leg ? 1 + (AG - 1) * 0.42 : 1), 0, 1);
     } else {
       T.tension -= dt * 0.0016;
       if (T.state === "run") T.dist = clamp(T.dist + dt * 0.00010, 0, 1);
-      T.stamina = clamp(T.stamina - dt * 0.00003, 0, 1);
+      // a named fish catches her breath if you rest too long — keep the pressure on
+      if (T.leg) T.stamina = clamp(T.stamina + dt * 0.00004 * (AG - 1), 0, T.maxStam || 1);
+      else T.stamina = clamp(T.stamina - dt * 0.00003, 0, 1);
     }
     T.tension = clamp(T.tension, 0, 1);
     // a big bass surging and peeling line: the drag screams + the rod buzzes in
@@ -7669,6 +7800,18 @@
       if (T._dragT <= 0) { sfx("drag"); vibrate(70); T._dragT = 430; }
     } else T._dragT = 0;
     if (T.state === "jump" && Math.random() < 0.06) splash(S.bobber.x, waterLine());
+
+    // 🪝 hook wear — only hot fish (ambush/named): every jump and every moment
+    // at screaming tension works the hook loose. Power skill, a good hookset
+    // and the Garage net are the counters; when it hits 1 the hook pulls.
+    if (AG > 1.2) {
+      const relief = 1 - clamp(0.06 + skill("power") * 0.4 + (S.hookQuality || 0) * 0.2 + (garageNet() < 1 ? 0.15 : 0), 0, 0.55);
+      const wr = (AG - 0.9) * relief * (T.grit || 1);
+      T.wear = (T.wear || 0) + dt * 0.000013 * wr;                 // the longer she's on, the looser it gets
+      if (T.state === "jump") T.wear += dt * 0.00042 * wr;
+      if (T.tension > 0.75) T.wear += dt * 0.00022 * wr;
+      if ((T.wear || 0) >= 1) { loseFish("The hook pulled free!"); return; }
+    }
 
     // --- the cover is now a real hazard ---
     const hasCover = (STRUCT_GROUP[position().id] || "open") !== "open";
@@ -7703,7 +7846,8 @@
     if (coverShown) el.ftCover.style.width = (T.cover * 100) + "%";
     // contextual coaching: jump → give slack, run-into-cover → give line, else reel
     let hint, warn = true;
-    if (T.state === "jump") hint = "🐟 JUMPING — give slack!";
+    if ((T.wear || 0) > 0.55) hint = "🪝 Hook's working loose — END IT QUICK!";
+    else if (T.state === "jump") hint = "🐟 JUMPING — give slack!";
     else if (T.state === "run" && bigFish && hasCover && (T.cover || 0) > 0.12) hint = "⚠️ Diving for cover — GIVE LINE!";
     else if (T.tension > 0.78) hint = "EASE OFF — about to snap!";
     else if (T.state === "run") hint = "It's running — give it line!";
@@ -8908,18 +9052,25 @@
         <div class="tc-txt"><div class="tc-name">Trophy Room</div>
           <div class="tc-sub">${biggest ? "Your " + biggest.toFixed(1) + " lb mount · " : ""}${done}/${ACH.length} achievements</div></div>
         <div class="tc-chev">›</div></div>`;
-    const legRows = SPOTS.filter(sp => LEGENDS[sp.id]).map(sp => {
-      const L = LEGENDS[sp.id], mine = (G.legends || {})[sp.id];
-      return `<div class="item"><div class="item-ico" style="font-size:26px">${L.ico}</div>
-        <div class="item-info"><div class="item-name">${L.name} · ${sp.ico} ${sp.name}</div>
-        <div class="item-desc">${L.lore}${mine ? ` <b style="color:var(--gold)">You landed her — ${mine.toFixed(1)} lb.</b>` : ""}</div></div>
-        <div class="item-btn ${mine ? "equipped" : "owned"}" id="legPl_${sp.id}">…</div></div>`;
-    }).join("");
+    const legRows = SPOTS.filter(sp => NAMED[sp.id]).map(sp =>
+      NAMED[sp.id].map(L => {
+        const mine = (G.legendBook || {})[L.id] || {};
+        const isTop = LEGENDS[sp.id] && LEGENDS[sp.id].id === L.id;
+        const chip = isTop
+          ? `<div class="item-btn ${mine.l ? "equipped" : "owned"}" id="legPl_${sp.id}">…</div>`
+          : `<div class="item-btn ${mine.l ? "equipped" : "owned"}">${mine.l ? (mine.best || 0).toFixed(1) + " lb" : "at large"}</div>`;
+        return `<div class="item"><div class="item-ico" style="font-size:26px">${L.ico}</div>
+          <div class="item-info"><div class="item-name">${legStars(L)} ${L.name}</div>
+          <div class="item-desc">${sp.ico} ${sp.name} · ${L.lore}<br><span id="legR_${L.id}" class="muted">record loading…</span></div></div>
+          ${chip}</div>`;
+      }).join("")
+    ).join("");
     el.recBody.innerHTML = fishRows
-      + `<h3 class="rec-h" style="margin-top:14px">🐊 Legends of the Lakes</h3>
-      <p class="muted" style="font-size:11px;margin:2px 0 6px">Every lake hides ONE named giant. First in the crew to land her owns the plaque forever.</p>` + legRows
+      + `<h3 class="rec-h" style="margin-top:14px">🐂 Named Fish — Career Records</h3>
+      <p class="muted" style="font-size:11px;margin:2px 0 6px">Eighteen named fish, ⭐ L1 to ⭐×6 the final boss. Tracked like bucking bulls — every hookup, landing and escape, crew-wide. First to land a lake's top legend owns the plaque forever.</p>` + legRows
       + `<h3 class="rec-h" style="margin-top:14px">Trophy Room &amp; Achievements</h3>` + trophyBtn;
     fillLegendPlaques();
+    fillLegendStats();
   }
   el.recordsClose && el.recStats.addEventListener("click", (e) => {
     const tile = e.target.closest("[data-act]"); if (!tile) return;
