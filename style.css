@@ -338,6 +338,13 @@ select, input, textarea { font-size: 16px; }
 .guide-call .gc-txt { flex: 1; font-size: 12.5px; font-weight: 700; color: #ffe9c4; line-height: 1.35; }
 @keyframes guideIn { from { opacity: 0; transform: translateY(-10px) scale(.96); } to { opacity: 1; transform: none; } }
 
+/* scouting a spot before running to it */
+.pos-cell.prev { border-color: var(--gold); background: rgba(255, 211, 92, .10); }
+.pos-scout { grid-column: 1 / -1; padding: 8px 10px 10px; }
+.ps-read { font-weight: 800; font-size: 12.5px; }
+.ps-sub { font-size: 11px; color: #bfe0ec; margin-top: 3px; }
+.ps-go { margin-top: 8px; padding: 10px; font-size: 13px; width: 100%; }
+
 /* cull / toast popups */
 .toast {
   position: absolute;
@@ -394,6 +401,7 @@ select, input, textarea { font-size: 16px; }
 }
 .lure-opt.sel { border-color: var(--gold); background: rgba(255,211,92,.12); }
 .lure-opt.locked { opacity: .5; }
+.lure-opt .ico img { width: 44px; height: 26px; object-fit: contain; display: block; filter: drop-shadow(0 2px 2px rgba(0,0,0,.35)); }
 .lure-opt .ico { font-size: 26px; width: 32px; text-align: center; }
 .lure-opt .info { flex: 1; }
 .lure-opt .nm { font-weight: 800; font-size: 15px; }

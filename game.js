@@ -1961,7 +1961,7 @@
   // sense finds fish anywhere; finesse pays off on small (and lightly on medium) baits
   function anglerBiteMul() {
     const fin = (G.lure.size || "med") === "small" ? 1 : (G.lure.size || "med") === "med" ? 0.35 : 0;
-    return (1 + skill("sense") * 0.15) * (1 + skill("finesse") * 0.22 * fin) * (1 + curFamLvl() * 0.02) * momentBiteMul();
+    return (1 + skill("sense") * 0.15) * (1 + skill("finesse") * 0.22 * fin) * (1 + curFamLvl() * 0.02) * momentBiteMul() * luPressureMul();
   }
 
   // ---- portraits: same barn-wood template the Guide set; anglers without a
@@ -4301,6 +4301,7 @@
   }
   const GUIDE_TOPICS = [
     ["📅 Daily Tournament", "One entry a day, whole world's in. Rules rotate at midnight UTC — the flashing scroll on the menu takes you straight there. Your 4-digit PIN is your identity: same PIN, any phone."],
+    ["🎣 Rotate the box", "Bass wise up: every fish you land on a lure makes the next bite on it tougher (🥱 seen ×N in the tackle box), and the FIRST bass of the day on each lure pays a ✨ +150 bonus. The hot pattern's still hiding out there too — the pounded lure is rarely the right one all day."],
     ["🥊 Duels", "Circuit menu → CALL SOMEBODY OUT. Name an angler, text them the link, you each fish one 3:00 run. The W-L record between you two is forever, and their fish stream onto your ticker live."],
     ["🎪 Host a Tournament", "Circuit menu → HOST YOUR OWN. Pick the water and format, text the invite link — everyone gets one entry, standings run 48 hours."],
     ["🏆 Pro Season", "Circuit menu → PRO SEASON. Six events against seven loud pros, F1 points, sponsor deals that pay, a 100k champion's purse."],
@@ -4338,6 +4339,7 @@
 
   // 🆕 What's New — shows itself once per version, lives behind the title link
   const WHATS_NEW = [
+    "🎣 <b>Rotate the box</b> — bass wise up to a pounded lure (🥱), first fish of the day on each lure pays ✨ +150, and the tackle box now shows every lure's REAL art. Plus: scout a spot before you run to it, the Guide rides along while you fish, and tournaments lock you to the tournament lake.",
     "🐂 <b>Fish with careers</b> — 18 named fish (3 per lake, ⭐ L1–L6), tracked like bucking bulls: hookups, landings, escapes, thrown-streaks, crew-wide. Every escape she grows. Ambush bites fight ANGRY now, and the big names take real angler upgrades to land.",
     "🐊 <b>Legends of the Lakes</b> — every lake hides ONE named giant with a story. Land her FIRST and the plaque on the crew Record Book is yours forever.",
     "🌩️ <b>Moments</b> — schooling blitzes, beaver slaps, diving ospreys and building storms, live during free fishing. When the birds start working: CAST INTO IT.",
@@ -4787,6 +4789,7 @@
     }
     S.legendT = 0; S.legendNext = 50000 + Math.random() * 40000;
     S.moment = null; S.momentT = 0; S.osprey = null; S.stormOut = false;
+    S.lurePressure = {}; S.lureFirst = {};   // fresh day — the bass forget, the fresh-lure bonuses reset
     recomputeCond();
   }
   // how directly the boat faces the holding water (1 = dead on, 0 = facing away)
@@ -5283,6 +5286,16 @@
     f.score = Math.round((scoreBase * hookMul * presMul + scoreBonus) * garageScoreMul() * (1 + curFamLvl() * 0.01) / 10) * 10;
     f.scoreInfo = { base: scoreBase, hookMul, presMul, bonus: scoreBonus, hq, presQ };
     if (f.blitz) { f.score = Math.round(f.score * 1.5 / 10) * 10; f.scoreInfo.blitz = true; }   // 🐦 landed out of the blitz
+    if (f.bass) {
+      if (!S.lurePressure) S.lurePressure = {};
+      if (!S.lureFirst) S.lureFirst = {};
+      if (!f.legendId) S.lurePressure[G.lure.id] = (S.lurePressure[G.lure.id] || 0) + 1;   // they've seen this one now
+      if (!S.lureFirst[G.lure.id]) {
+        S.lureFirst[G.lure.id] = 1;
+        f.score += 150; f.scoreInfo.fresh = 150;   // ✨ first bass of the day on this lure
+        setTimeout(() => toast(`✨ FRESH LURE BONUS +150 — first bass on the ${lure().name} today`), 1100);
+      }
+    }
     S.hookQuality = 0;
     // the day's running tally (shown on the end-of-day summary)
     S.dayCatches = (S.dayCatches || 0) + 1;
@@ -5344,6 +5357,7 @@
         `<span class="${si.presQ > 0.75 ? "hot" : ""}">🎯 ×${si.presMul.toFixed(2)}</span>`,
         si.bonus ? `<span class="hot">${f.legendId ? "🐊 LEGEND" : "💪 LUNKER"} +${si.bonus}</span>` : "",
         si.blitz ? `<span class="hot">🐦 BLITZ ×1.5</span>` : "",
+        si.fresh ? `<span class="hot">✨ FRESH LURE +${si.fresh}</span>` : "",
       ].filter(Boolean).join("") : "";
     }
     if (S.hookRating) { el.catchHookset.textContent = "Hookset: " + S.hookRating; el.catchHookset.classList.remove("hidden"); el.catchHookset.classList.toggle("perfect", /Perfect/.test(S.hookRating)); }
@@ -5556,6 +5570,11 @@
   function momentActive(ty) { return !!(S.moment && S.moment.ty === ty && performance.now() < S.moment.until); }
   // the bite while a moment runs: a blitz is a feeding frenzy, the pre-storm
   // feed fires them up, a beaver slap shuts the pool down for a minute
+  // 🥱 conditioned bass: every bass landed on a lure today makes the NEXT bite
+  // on it harder to earn — rotate the tackle box to stay hot
+  function luPressureMul() {
+    return clamp(1 - 0.10 * ((S.lurePressure || {})[G.lure.id] || 0), 0.55, 1);
+  }
   function momentBiteMul() {
     if (!S.moment || performance.now() >= S.moment.until) return 1;
     return S.moment.ty === "blitz" ? 2.2 : S.moment.ty === "storm" ? 1.8 : S.moment.ty === "beaver" ? 0.4 : 1;
@@ -7431,7 +7450,7 @@
     // hide the menu chrome while fishing so the Sega overlay owns the screen
     e.menuHud.classList.toggle("fishing-off", show);
     e.loadout.classList.toggle("fishing-off", show);
-    if (el.guideBtn) el.guideBtn.classList.toggle("fishing-off", show);
+    if (el.guideBtn) el.guideBtn.classList.toggle("fishing-off", S.mode === "bowfish");   // the guide stays reachable while fishing
     if (!show) return;
     // in a tournament the tour HUD already shows the clock + weight at the top,
     // so suppress the Sega top blocks to avoid overlapping it
@@ -7615,7 +7634,7 @@
       S.splashT = (S.splashT || 0) + dt;
       if (S.splashT >= 360) startRetrieve();
     }
-    if (S.mode === "retrieve") {
+    if (S.mode === "retrieve" && !anyModalOpen()) {
       updateRetrieve(dt, now);
       if (S.mode === "retrieve") {
         const tip = rodTip(), wl = waterLine(), wd = H - wl - 96;
@@ -7623,7 +7642,7 @@
         S.bobber.y = wl + 8 + S.rv.depth * wd;
       }
     }
-    if (S.mode === "strike") {
+    if (S.mode === "strike" && !anyModalOpen()) {
       S.strikeT = (S.strikeT || 0) + dt;
       const holding = S.hook && S.hook.hold > 0;     // slow-mo zoom beat before the meter goes live
       if (holding) {
@@ -7643,7 +7662,7 @@
       S.bobber.y += Math.sin(now / 60) * 1.4;
       if (Math.random() < 0.3) ripple(S.bobber.x, S.bobber.y);
     }
-    if (S.mode === "fight") {
+    if (S.mode === "fight" && !anyModalOpen()) {
       updateFight(dt, now);
       if (S.mode === "fight") {
         const tip = rodTip(), wl = waterLine();
@@ -8593,6 +8612,19 @@
   }
   function ratingColor(p) { return p >= 75 ? "#5be37a" : p >= 50 ? "#ffd35c" : p >= 30 ? "#ff9d3d" : "#ff5d5d"; }
   function starStr(n) { return "★★★★★".slice(0, n) + "☆☆☆☆☆".slice(0, 5 - n); }
+  // draw each lure's actual in-game art (in its current color) as its icon —
+  // the emoji stand-ins never matched the water
+  const _lureIconCache = {};
+  function lureIconURL(l, hex) {
+    const key = l.id + "_" + hex;
+    if (_lureIconCache[key]) return _lureIconCache[key];
+    try {
+      const cv = document.createElement("canvas"); cv.width = 88; cv.height = 52;
+      const g2 = cv.getContext("2d");
+      drawLureTo(g2, 44, 26, l.id, hex, 2.2);
+      return _lureIconCache[key] = cv.toDataURL("image/png");
+    } catch (e) { return null; }
+  }
   function renderLures() {
     const c = S.cond, w = WEATHER[c.weather], band = c.band;
     const zone = band < 0.34 ? "shallow" : band < 0.67 ? "mid-depth" : "deep";
@@ -8606,12 +8638,20 @@
       const fam = LURE_FAM[l.id], mlvl = fam ? masteryLvl(G.angler, fam) : 0;
       const mchip = fam && mlvl ? ` <small class="mchip" title="${FAM_INFO[fam].name} mastery">${FAM_INFO[fam].ico}L${mlvl}</small>` : "";
       const tag = !own ? `🔒 ${l.price.toLocaleString()}` : sel ? "✓ ON" : "TAP";
+      // 🥱 pressure / ✨ fresh: bass wise up to a pounded lure and pay a bonus
+      // for the first fish of the day on a new one — rotate the box!
+      const pr = (S.lurePressure || {})[l.id] || 0;
+      const fresh = own && !((S.lureFirst || {})[l.id]);
+      const pchip = pr ? ` <small class="mchip" style="color:#ffb27d" title="They've seen it — bite fading">🥱 seen ×${pr}</small>`
+        : fresh ? ` <small class="mchip" style="color:#7de3a0" title="First bass of the day on this lure pays +150">✨ fresh +150</small>` : "";
       // the highlighted lure expands with its full category breakdown right here
       const detail = sel ? `<div class="opt-detail">${catBars(r.cats)}<div class="cats-tip">${r.tip}</div></div>` : "";
+      const iconHex = (COLORS[sel ? G.lure.color : (l.colors[0] || "green")] || {}).hex || "#6f9e4e";
+      const iurl = lureIconURL(l, iconHex);
       return `<div class="lure-opt ${sel ? "sel" : ""} ${own ? "" : "locked"}" data-lure="${l.id}">
-        <div class="ico">${l.ico}</div>
+        <div class="ico">${iurl ? `<img src="${iurl}" alt="">` : l.ico}</div>
         <div class="info">
-          <div class="nm">${l.name}${mchip} <span class="stars" style="color:${ratingColor(r.pct)}">${starStr(r.stars)}</span></div>
+          <div class="nm">${l.name}${mchip}${pchip} <span class="stars" style="color:${ratingColor(r.pct)}">${starStr(r.stars)}</span></div>
           <div class="rate"><div class="rate-bar"><i style="width:${r.pct}%;background:${ratingColor(r.pct)}"></i></div><b style="color:${ratingColor(r.pct)}">${r.pct}</b></div>
           ${sel ? "" : `<div class="ds">${r.tip}</div>`}
         </div>
@@ -8778,7 +8818,7 @@
   // ===========================================================================
   // Map: venue + position
   // ===========================================================================
-  function openMap() { renderMap(); el.mapModal.classList.remove("hidden"); }
+  function openMap() { S.posPreview = null; renderMap(); el.mapModal.classList.remove("hidden"); }
   function renderMap() {
     // GO FISHING prep wizard: step 1 shows lakes, step 2 the spot + finder —
     // conditions ride along at the top so every pick is an informed one
@@ -8901,14 +8941,37 @@
   function renderPositions() {
     const sp = spot();
     el.lakeMap.innerHTML = lakeTopoSVG(sp);
-    // the fish-finder report expands right out of the highlighted hole
+    // the fish-finder report expands out of the CURRENT hole; a tapped (but not
+    // yet committed) hole expands a scouting read with the RUN button instead
     el.posGrid.innerHTML = sp.positions.map(p => {
       const sel = G.positions[sp.id] === p.id;
-      const detail = sel ? `<div class="pos-detail"><div class="finder" id="finder"></div></div>` : "";
-      return `<div class="pos-cell ${sel ? "sel" : ""}" data-pos="${p.id}">
+      const prev = !sel && S.posPreview === p.id;
+      const detail = sel ? `<div class="pos-detail"><div class="finder" id="finder"></div></div>`
+        : prev ? `<div class="pos-detail">${posScoutHTML(p)}</div>` : "";
+      return `<div class="pos-cell ${sel ? "sel" : ""} ${prev ? "prev" : ""}" data-pos="${p.id}">
         <div class="pi">${p.ico}</div><div class="pn">${p.name}</div><div class="pd">${p.desc}</div></div>` + detail;
     }).join("");
     renderFinder();
+  }
+  // the scouting read: is this water on the seasonal pattern, what lives there,
+  // and what the run costs — BEFORE you burn the time going
+  function posScoutHTML(p) {
+    const grp = STRUCT_GROUP[p.id] || "open";
+    const sea = SEASON_STRUCT[S.cond.season] || SEASON_STRUCT.summer;
+    const mult = sea[grp] || 1;
+    const read = mult >= 1.2 ? `🔥 ON THE ${(S.cond.season || "").toUpperCase()} PATTERN — bite ×${mult.toFixed(2)}`
+      : mult >= 0.95 ? `✅ Decent water right now — bite ×${mult.toFixed(2)}`
+      : `🥶 Off the seasonal pattern — bite ×${mult.toFixed(2)}`;
+    const sp = spot();
+    const rows = sp.fish.map(e2 => ({ def: fishDef(e2.k), w: e2.weight * ((p.bias && p.bias[e2.k]) || 1) }));
+    const tot = rows.reduce((a, b2) => a + b2.w, 0) || 1;
+    const top = rows.sort((a, b2) => b2.w - a.w)[0];
+    const T = S.tournament && !S.tournament.ended;
+    const cost = T ? ` · −0:${String(Math.round(garageMoveMs() / 1000)).padStart(2, "0")} ⏱️` : "";
+    return `<div class="pos-scout">
+      <div class="ps-read">${read}</div>
+      <div class="ps-sub">Most likely here: <b>${top.def.name}</b> (${Math.round(top.w / tot * 100)}%).</div>
+      <button class="big-btn ps-go" data-gopos="${p.id}">🚤 RUN TO ${p.name.toUpperCase()}${cost}</button></div>`;
   }
 
   // Sonar / fish-finder: what's biting, where, and what to throw — boat-mode scouting.
@@ -8982,11 +9045,14 @@
     endDay();
   });
   el.mapModal.addEventListener("click", (e) => {
+    const goBtn = e.target.closest("[data-gopos]");
+    if (goBtn) { sfx("ui"); movePos(goBtn.dataset.gopos); return; }
     const v = e.target.closest(".venue");
     const p = e.target.closest(".pos-cell") || e.target.closest(".mk");   // grid cell or overhead-map pin
     if (p && p.dataset.pos === "gar_egg") { openGarInvite(); return; }
     if (v) {
       if (S.arcade && !S.arcade.ended) { toast("Can't switch lakes mid-arcade 🕹️"); return; }
+      if (S.tournament && !S.tournament.ended && v.dataset.venue !== G.spot) { toast(`⏱️ The tournament's HERE on ${spot().name} — the whole field fishes one lake`); return; }
       if (v.dataset.owned === "true") {
         if (G.spot !== v.dataset.venue) { G.spot = v.dataset.venue; seedFish(); rollConditions(); resetToIdle(); }
         save(); updateHUD(); renderMap();
@@ -8994,23 +9060,32 @@
     } else if (p) {
       const posId = p.dataset.pos, cur = G.positions[spot().id];
       if (S.arcade && !S.arcade.ended) { if (posId !== cur) toast("The stage picks the spot 🕹️"); return; }
-      const T = S.tournament && !S.tournament.ended ? S.tournament : null;
-      if (T && posId !== cur) {
-        // running the boat to new water costs tournament time (the motor helps)
-        const mvMs = garageMoveMs();
-        T.timeLeft -= mvMs;
-        G.positions[spot().id] = posId;
-        recomputeCond(); seedFish(); save(); updateHUD();
-        el.mapModal.classList.add("hidden");
-        toast(`🚤 Ran to ${position().name} — <b>−0:${String(Math.round(mvMs / 1000)).padStart(2, "0")}</b>`);
-        sfx("cast"); vibrate(15);
-        resetToIdle();
-        if (T.timeLeft <= 0) { T.timeLeft = 0; endTournament(); }
-        return;
-      }
-      G.positions[spot().id] = posId; recomputeCond(); save(); updateHUD(); renderPositions();
+      if (posId === cur) { S.posPreview = null; renderPositions(); return; }
+      // first tap SCOUTS the water (pattern read + species + cost); the RUN
+      // button — or a second tap — actually moves the boat
+      if (S.posPreview !== posId) { S.posPreview = posId; renderPositions(); return; }
+      movePos(posId);
     }
   });
+  // commit the move (the scout panel's 🚤 RUN button lands here too)
+  function movePos(posId) {
+    S.posPreview = null;
+    const T = S.tournament && !S.tournament.ended ? S.tournament : null;
+    if (T) {
+      // running the boat to new water costs tournament time (the motor helps)
+      const mvMs = garageMoveMs();
+      T.timeLeft -= mvMs;
+      G.positions[spot().id] = posId;
+      recomputeCond(); seedFish(); save(); updateHUD();
+      el.mapModal.classList.add("hidden");
+      toast(`🚤 Ran to ${position().name} — <b>−0:${String(Math.round(mvMs / 1000)).padStart(2, "0")}</b>`);
+      sfx("cast"); vibrate(15);
+      resetToIdle();
+      if (T.timeLeft <= 0) { T.timeLeft = 0; endTournament(); }
+      return;
+    }
+    G.positions[spot().id] = posId; recomputeCond(); save(); updateHUD(); renderPositions();
+  }
 
   // ===========================================================================
   // Shop
